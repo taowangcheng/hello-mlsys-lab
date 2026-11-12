@@ -1,0 +1,10 @@
+{
+  "id": "claude-haiku",
+  "tier": "Current default",
+  "auth": "Claude Code account login",
+  "env": {
+    "ANTHROPIC_MODEL": "haiku"
+  },
+  "source": "https://code.claude.com/docs/en/model-config",
+  "verified_on": "2.1.317"
+}

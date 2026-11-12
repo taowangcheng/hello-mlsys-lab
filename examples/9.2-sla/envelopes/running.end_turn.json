@@ -1,0 +1,11 @@
+{
+  "schema": "mlab.v1",
+  "ok": true,
+  "status": "running",
+  "run_id": "real_003",
+  "evidence_level": "measured",
+  "progress": {"phase": "measuring", "queue_position": 0, "eta_s": 900},
+  "next_actions": [
+    {"actor": "agent", "do": "end_turn", "say": "Tell the student that real_003 needs about 15 more minutes; run mlab next when they return"}
+  ]
+}

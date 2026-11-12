@@ -1,0 +1,26 @@
+# Hand-written placeholder, not measured; replace it once measured data exists. Configurations not in the table return not_evaluated.
+# Rule: models below 3B fail the floor; 3B passes only in BF16 and FP8; 7B passes at every precision.
+# This makes "7B INT4" versus "3B BF16" a real trade-off, which is the key decision in Ch 9.1.
+schema: mlab.v1
+task: "9.1"
+status: draft
+source: Hand-written placeholder, not measured
+metric: null
+floor: null
+entries:
+  - {model: llm-0.5b, precision: BF16, passes_floor: false}
+  - {model: llm-0.5b, precision: FP8, passes_floor: false}
+  - {model: llm-0.5b, precision: INT8, passes_floor: false}
+  - {model: llm-0.5b, precision: INT4, passes_floor: false}
+  - {model: llm-1.7b, precision: BF16, passes_floor: false}
+  - {model: llm-1.7b, precision: FP8, passes_floor: false}
+  - {model: llm-1.7b, precision: INT8, passes_floor: false}
+  - {model: llm-1.7b, precision: INT4, passes_floor: false}
+  - {model: llm-3b, precision: BF16, passes_floor: true}
+  - {model: llm-3b, precision: FP8, passes_floor: true}
+  - {model: llm-3b, precision: INT8, passes_floor: false}
+  - {model: llm-3b, precision: INT4, passes_floor: false}
+  - {model: llm-7b, precision: BF16, passes_floor: true}
+  - {model: llm-7b, precision: FP8, passes_floor: true}
+  - {model: llm-7b, precision: INT8, passes_floor: true}
+  - {model: llm-7b, precision: INT4, passes_floor: true}

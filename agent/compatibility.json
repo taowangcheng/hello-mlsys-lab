@@ -1,0 +1,9 @@
+{
+  "pinned_claude_version": "2.1.317",
+  "verified": {
+    "2.1.74": ["smoke tool loop with local fake API"],
+    "2.1.317": ["two-round classroom with local fake API", "LLM backend via local fake API", "OpenAI adapter classroom via local fake API", "interactive claude in an mlab init workspace with ask dialogs via local fake API", "two rounds with revision on the interactive path with a real model", "classroom and LLM backend through account login with a real model"],
+    "2.1.318": ["third-party API smoke tool loop", "two-round classroom with local fake API", "LLM backend via local fake API", "native Messages classroom via local fake API"]
+  },
+  "note": "Observed integration evidence, not a guarantee for other models or versions. No automatic upgrade is performed."
+}

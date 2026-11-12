@@ -1,0 +1,30 @@
+{
+  "schema": "mlab.v1",
+  "run_id": "mock_002",
+  "task": "9.3",
+  "candidate_id": "fp8_single",
+  "spec_hash": "sha256:paper-sample",
+  "backend": {"name": "paper-sample", "version": "0", "service_source": "llm"},
+  "status": "succeeded",
+  "verdict": "constraints_met",
+  "evidence_level": "mock",
+  "failure_class": null,
+  "constraints": [
+    {"metric": "completion_rate", "op": ">=", "value": 1.0, "observed": 1.0, "met": true, "status": "draft"}
+  ],
+  "metrics": {
+    "makespan_s": 84.5,
+    "critical_path_s": 71.2,
+    "completion_rate": 1.0,
+    "per_device": [
+      {"device": "gpu0", "utilization": 0.91, "vram_peak_gib": 39.5, "kv_peak_gib": 7.5},
+      {"device": "gpu1", "utilization": 0.42, "vram_peak_gib": 12.0, "kv_peak_gib": 5.0},
+      {"device": "gpu2", "utilization": 0.40, "vram_peak_gib": 11.6, "kv_peak_gib": 4.6},
+      {"device": "gpu3", "utilization": 0.33, "vram_peak_gib": 10.8, "kv_peak_gib": 3.8}
+    ]
+  },
+  "unsupported_metrics": {},
+  "requests": {"total": 10, "completed": 10},
+  "quality": {"status": "from_table", "passes_floor": true, "source": "quality_table:9.3"},
+  "coverage": {"in_domain": true, "extrapolated": [], "assumptions": ["Paper sample; the numbers are invented and only demonstrate the fields"]}
+}

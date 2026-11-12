@@ -1,0 +1,12 @@
+{
+  "schema": "mlab.v1",
+  "ok": true,
+  "status": "succeeded",
+  "run_id": "sim_012",
+  "verdict": "constraints_violated",
+  "evidence_level": "simulated",
+  "result_path": "rounds/r001/runs/sim_012/result.json",
+  "next_actions": [
+    {"actor": "agent", "do": "run", "command": "mlab compare sim_010 sim_011 sim_012", "say": "Compare this batch of candidates"}
+  ]
+}

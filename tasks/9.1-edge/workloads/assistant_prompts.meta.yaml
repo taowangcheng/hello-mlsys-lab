@@ -1,0 +1,8 @@
+schema: mlab.v1
+id: assistant_prompts
+mode: sequential
+requests_file: assistant_prompts.requests.jsonl
+status: draft
+source: Hand-written paper sample, used only to check the contract.
+force_output_length: true
+notes: Requests are sent one after another to measure single-request TTFT and tok/s.

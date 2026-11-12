@@ -1,0 +1,15 @@
+# Hand-written placeholder, not measured; replace it once measured data exists. Configurations not in the table return not_evaluated.
+# In 9.3 the trace fixes the models, and all three precisions are candidates given in the project plan, so all of them pass the floor.
+schema: mlab.v1
+task: "9.3"
+status: draft
+source: Hand-written placeholder, not measured
+metric: null
+floor: null
+entries:
+  - {model: llm-32b, precision: BF16, passes_floor: true}
+  - {model: llm-32b, precision: FP8, passes_floor: true}
+  - {model: llm-32b, precision: INT4, passes_floor: true}
+  - {model: llm-7b, precision: BF16, passes_floor: true}
+  - {model: llm-7b, precision: FP8, passes_floor: true}
+  - {model: llm-7b, precision: INT4, passes_floor: true}

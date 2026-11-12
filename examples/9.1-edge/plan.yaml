@@ -1,0 +1,18 @@
+schema: mlab.v1
+task: "9.1"
+iteration: 1
+question: Within 14 GB of VRAM, which precision lets a 7B model fit, and once it fits, is it fast enough?
+hypothesis_ref: hypothesis.md
+derived_requirements:
+  - name: VRAM for weights
+    value: 7B is about 14 GB in BF16, 7 GB in FP8 and 3.5 GB in INT4
+    derivation: Parameter count × bytes per parameter (Ch 3)
+  - name: Decode speed
+    value: 20 tok/s means at most 50 ms per token
+    derivation: 1000 / 20
+candidates:
+  - candidates/bf16_7b.yaml
+  - candidates/int4_7b.yaml
+  - candidates/fp8_3b.yaml
+seeds: [42]
+simulator: llm

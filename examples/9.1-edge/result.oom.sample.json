@@ -1,0 +1,21 @@
+{
+  "schema": "mlab.v1",
+  "run_id": "sim_001",
+  "task": "9.1",
+  "candidate_id": "bf16_7b",
+  "spec_hash": "sha256:paper-sample",
+  "backend": {"name": "paper-sample", "version": "0", "service_source": "first_order"},
+  "status": "failed",
+  "verdict": "constraints_violated",
+  "evidence_level": "simulated",
+  "failure_class": "oom",
+  "constraints": [
+    {"metric": "vram_peak_gib", "op": "<=", "value": 14, "observed": null, "met": null, "status": "draft"},
+    {"metric": "ttft_ms.p50", "op": "<=", "value": 500, "observed": null, "met": null, "status": "draft"},
+    {"metric": "decode_tok_s", "op": ">=", "value": 20, "observed": null, "met": null, "status": "draft"}
+  ],
+  "metrics": {},
+  "unsupported_metrics": {},
+  "quality": {"status": "not_evaluated"},
+  "coverage": {"in_domain": true, "extrapolated": [], "assumptions": ["Paper sample; the numbers are invented and only demonstrate the fields"]}
+}

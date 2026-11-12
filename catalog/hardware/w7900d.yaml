@@ -1,0 +1,6 @@
+id: w7900d
+name: Radeon PRO W7900 Dual Slot
+vram_gib: 48
+vram_source: Project plan Ch 6 and Ch 9.3 ("W7900D 48 G")
+peak_compute: null
+memory_bandwidth: null

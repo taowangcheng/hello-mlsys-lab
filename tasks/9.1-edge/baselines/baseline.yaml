@@ -1,0 +1,10 @@
+schema: mlab.v1
+id: baseline
+infra: rx9070xt_x1
+rationale: "Control: 3B model in FP8, default context length."
+strategy:
+  deployments:
+    - model: llm-3b
+      weight_precision: FP8
+      context_tokens: 8192
+      devices: [gpu0]

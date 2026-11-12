@@ -1,0 +1,8 @@
+schema: mlab.v1
+id: mixed_burst
+mode: open_loop
+requests_file: mixed_burst.requests.jsonl
+status: draft
+source: Hand-written paper sample, used only to check the contract. 12 requests cannot support a p99 conclusion.
+force_output_length: true
+notes: Mixed long and short requests plus one burst, matching the worked example in the implementation plan. Only this open-loop replay counts for the SLA verdict.

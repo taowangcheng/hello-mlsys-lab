@@ -1,0 +1,11 @@
+schema: mlab.v1
+id: int4_7b
+infra: rx9070xt_x1
+rationale: "The Ch 4 teaching point: INT4 fits but is not necessarily faster. See which of TTFT and tok/s misses its target first."
+strategy:
+  deployments:
+    - model: llm-7b
+      weight_precision: INT4
+      kv_precision: FP8
+      context_tokens: 8192
+      devices: [gpu0]

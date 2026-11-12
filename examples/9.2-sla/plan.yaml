@@ -1,0 +1,18 @@
+schema: mlab.v1
+task: "9.2"
+iteration: 1
+question: Do long prefills block decode and push the p99 TTFT of short requests over the limit during bursts?
+hypothesis_ref: hypothesis.md
+derived_requirements:
+  - name: VRAM capacity bound
+    value: 3B FP8 weights take about 3 GB, leaving about 10 GB for KV on a 16 GB GPU
+    derivation: VRAM for weights = parameter count × bytes per parameter (Ch 3)
+  - name: Queueing bound
+    value: With a target of p99 TTFT < 2 s, service time sets the safe concurrency; try 16 first
+    derivation: The capacity bound is the smaller of the VRAM bound and the queueing bound (Ch 9.2)
+candidates:
+  - candidates/baseline.yaml
+  - candidates/chunked_256.yaml
+  - candidates/low_concurrency.yaml
+seeds: [42, 43, 44]
+simulator: llm

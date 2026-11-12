@@ -1,0 +1,18 @@
+schema: mlab.v1
+task: "9.3"
+iteration: 1
+question: Is the total wall-clock time held up by the 32B controller nodes, or by 7B subagents waiting in queues?
+hypothesis_ref: hypothesis.md
+derived_requirements:
+  - name: Wall-clock lower bound
+    value: Sum of request service times along the critical path, plus dependency gaps
+    derivation: However many GPUs are added, wall-clock time cannot drop below the critical path
+  - name: VRAM accounting
+    value: 32B is about 64 GB in BF16, which needs TP=2; about 32 GB in FP8, leaving about 16 GB on one GPU; about 16 GB in INT4
+    derivation: Parameter count × bytes per parameter (Ch 3); 48 GB per GPU
+candidates:
+  - candidates/tp2_bf16.yaml
+  - candidates/fp8_single.yaml
+  - candidates/int4_single.yaml
+seeds: [42]
+simulator: llm

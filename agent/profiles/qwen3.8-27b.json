@@ -1,0 +1,17 @@
+{
+  "id": "qwen3.8-27b",
+  "tier": "Weaker-model candidate from the implementation plan",
+  "api_key_env": "QWEN38_API_KEY",
+  "required_env": ["QWEN38_BASE_URL", "QWEN38_MODEL"],
+  "env": {
+    "ANTHROPIC_BASE_URL": "${QWEN38_BASE_URL}",
+    "ANTHROPIC_MODEL": "${QWEN38_MODEL}",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "${QWEN38_MODEL}",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "${QWEN38_MODEL}",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "${QWEN38_MODEL}",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "${QWEN38_MODEL}",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144"
+  },
+  "source": "Hosted by a third party; endpoint set by environment variables; context length from third-party sources",
+  "verified_on": null
+}

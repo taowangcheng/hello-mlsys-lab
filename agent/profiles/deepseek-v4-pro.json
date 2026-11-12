@@ -1,0 +1,16 @@
+{
+  "id": "deepseek-v4-pro",
+  "tier": "Capability upper bound",
+  "api_key_env": "DEEPSEEK_API_KEY",
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+    "ANTHROPIC_MODEL": "deepseek-v4-pro",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-flash",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-flash",
+    "CLAUDE_CODE_EFFORT_LEVEL": "max"
+  },
+  "source": "https://api-docs.deepseek.com/guides/anthropic_api",
+  "verified_on": null
+}

@@ -1,0 +1,16 @@
+{
+  "id": "qwen3.6-flash",
+  "tier": "Weaker-model candidate",
+  "api_key_env": "DASHSCOPE_API_KEY",
+  "required_env": ["ALIYUN_WORKSPACE_ID"],
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://${ALIYUN_WORKSPACE_ID}.cn-beijing.maas.aliyuncs.com/apps/anthropic",
+    "ANTHROPIC_MODEL": "qwen3.6-flash",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3.6-flash",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3.6-flash",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.6-flash",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "qwen3.6-flash"
+  },
+  "source": "https://help.aliyun.com/zh/model-studio/claude-code",
+  "verified_on": null
+}

@@ -1,0 +1,17 @@
+{
+  "env": {
+    "DISABLE_UPDATES": "1",
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"
+  },
+  "permissions": {
+    "allow": ["Bash(mlab *)", "Read(./**)", "Edit(/analysis/**)", "Edit(/rounds/**/hypothesis.md)", "Edit(/rounds/**/review.md)", "Edit(/rounds/**/plan.yaml)", "Edit(/rounds/**/candidates/**)", "Edit(/rounds/**/analysis.md)", "Edit(/rounds/**/decision.md)", "Edit(/rounds/**/analysis.claims.json)", "Edit(/measurements/**/points.yaml)"],
+    "ask": ["Bash(mlab *workflow approve*)", "Bash(mlab *workflow decide*)", "Bash(mlab *workflow unlock*)", "Bash(mlab *measure approve*)", "Bash(mlab *measure unlock*)", "Bash(mlab *conclude*)"],
+    "deny": ["Edit(/task/**)", "Edit(**/runs/**)", "Edit(**/state.yaml)", "Edit(**/approval.json)", "Edit(**/frozen_plan.json)", "Edit(**/frozen_points.json)", "Edit(**/decision.confirmed.json)", "Edit(**/analysis.confirmed.json)", "Edit(/conclusions/**)", "Edit(/.mlab/**)", "Bash(ssh *)", "Agent", "Task"]
+  },
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "mlab next --hook", "timeout": 10}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "mlab hook user-prompt", "timeout": 5}]}]
+  }
+}

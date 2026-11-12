@@ -1,0 +1,5 @@
+id: rx9070xt_x1
+nodes:
+  - id: node0
+    devices:
+      - {id: gpu0, hardware: rx9070xt}

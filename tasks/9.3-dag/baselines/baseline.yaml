@@ -1,0 +1,20 @@
+schema: mlab.v1
+id: baseline
+infra: w7900d_x4
+rationale: "Control: 32B FP8 on one GPU, 7B FP8 with three replicas (one of the example configurations in the project plan, Ch 9.3)."
+strategy:
+  deployments:
+    - model: llm-32b
+      weight_precision: FP8
+      context_tokens: 32768
+      devices: [gpu0]
+    - model: llm-7b
+      weight_precision: FP8
+      context_tokens: 16384
+      replicas: 3
+      devices: [gpu1, gpu2, gpu3]
+  serving:
+    max_concurrency: 16
+    continuous_batching: true
+  scheduling:
+    priority: fifo

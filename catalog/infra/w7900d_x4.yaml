@@ -1,0 +1,9 @@
+# Four-GPU node used by 9.3.
+id: w7900d_x4
+nodes:
+  - id: node0
+    devices:
+      - {id: gpu0, hardware: w7900d}
+      - {id: gpu1, hardware: w7900d}
+      - {id: gpu2, hardware: w7900d}
+      - {id: gpu3, hardware: w7900d}

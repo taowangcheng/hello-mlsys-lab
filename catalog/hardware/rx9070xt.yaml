@@ -1,0 +1,6 @@
+id: rx9070xt
+name: Radeon RX 9070 XT
+vram_gib: 16
+vram_source: Project plan Ch 3 ("the 9070 XT's 16 GB"); the document says GB, treated as GiB for now
+peak_compute: null
+memory_bandwidth: null

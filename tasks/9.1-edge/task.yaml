@@ -1,0 +1,86 @@
+# Draft task; thresholds, traces and budgets are placeholders.
+schema: mlab.v1
+id: '9.1'
+title: On-device assistant
+status: draft
+source: Project plan Ch 9.1; energy objective in README week 6
+objective:
+  direction: satisfy
+  report:
+  - energy_j_per_req
+constraints:
+- metric: vram_peak_gib
+  op: <=
+  value: 14
+  status: draft
+  source: Project plan Ch 9.1
+  note: The document says "14 GB"; treated as GiB for now
+- metric: ttft_ms.p50
+  op: <=
+  value: 500
+  status: draft
+  source: Project plan Ch 9.1
+  note: The document names no percentile; Ch 4 takes the median of repeated runs, so p50 for now
+- metric: decode_tok_s
+  op: '>='
+  value: 20
+  status: draft
+  source: Project plan Ch 9.1
+required_metrics:
+- ttft_ms
+- decode_tok_s
+- vram_peak_gib
+- energy_j_per_req
+- tightest_constraint
+quality_table: quality_table.yaml
+workload_mode: sequential
+frozen:
+  workload_meta:
+    path: workloads/assistant_prompts.meta.yaml
+    sha256: sha256:efaaaad4e962343693cd8e571440213c4f5f2aefcde8be0799b469805a24bade
+  workload_requests:
+    path: workloads/assistant_prompts.requests.jsonl
+    sha256: sha256:c572d1617b82ed5628a7112546b85fc4ea3d088ad3e1e3ec6245a5855e407319
+infra_options:
+- rx9070xt_x1
+decision_space:
+  deployments.model:
+    type: enum
+    values:
+    - llm-0.5b
+    - llm-1.7b
+    - llm-3b
+    - llm-7b
+  deployments.weight_precision:
+    type: enum
+    values:
+    - BF16
+    - FP8
+    - INT8
+    - INT4
+  deployments.kv_precision:
+    type: enum
+    values:
+    - BF16
+    - FP8
+    - INT8
+  deployments.context_tokens:
+    type: range
+    min: 512
+    max: 32768
+  serving.gpu_memory_utilization:
+    type: range
+    min: 0.5
+    max: 0.95
+budget:
+  simulator:
+    runs_per_batch: 12
+  hardware:
+    runs_total: 8
+    runs_per_batch: 4
+    status: draft
+holdouts:
+- other_prompt_set
+key_metrics:
+- ttft_ms.p50
+duration_s: 300

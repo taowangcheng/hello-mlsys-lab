@@ -1,0 +1,21 @@
+schema: mlab.v1
+id: tp2_bf16
+infra: w7900d_x4
+rationale: 32B BF16 with TP across two GPUs, 7B as two single-GPU replicas. Checks whether communication overhead cancels out the gain.
+strategy:
+  deployments:
+    - model: llm-32b
+      weight_precision: BF16
+      context_tokens: 32768
+      parallel: {kind: tp, degree: 2}
+      devices: [gpu0, gpu1]
+    - model: llm-7b
+      weight_precision: FP8
+      context_tokens: 16384
+      replicas: 2
+      devices: [gpu2, gpu3]
+  serving:
+    max_concurrency: 16
+    continuous_batching: true
+  scheduling:
+    priority: fifo

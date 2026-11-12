@@ -1,0 +1,8 @@
+# Placeholders by size for now.
+# Parameter counts come from the sizes named in the project plan; VRAM for weights = parameter count × bytes per parameter (Ch 3).
+- {id: llm-0.5b, params_b: 0.5, real_model: null, source: Project plan Ch 9.1 (0.5B–3B)}
+- {id: llm-1.7b, params_b: 1.7, real_model: Qwen3-1.7B, source: Project plan Ch 2}
+- {id: llm-3b, params_b: 3, real_model: null, source: Project plan Ch 9.1 (0.5B–3B)}
+- {id: llm-4b, params_b: 4, real_model: Qwen3-4b, source: Project plan Ch 7}
+- {id: llm-7b, params_b: 7, real_model: null, source: Project plan Ch 9.3}
+- {id: llm-32b, params_b: 32, real_model: null, source: Project plan Ch 9.3}

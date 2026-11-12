@@ -1,0 +1,8 @@
+schema: mlab.v1
+id: deep_research_sample
+mode: dag
+requests_file: deep_research_sample.requests.jsonl
+status: draft
+source: Hand-written paper sample, used only to check the contract.
+force_output_length: true
+notes: Several controller nodes and two model sizes, 32B and 7B. Request contents are frozen; only the infra and strategy can change.

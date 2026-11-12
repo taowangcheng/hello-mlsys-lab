@@ -1,0 +1,42 @@
+{
+  "schema": "mlab.v1",
+  "backend": "llm",
+  "version": "0.1-planned",
+  "role": "simulator",
+  "evidence_level": "mock",
+  "tasks": [
+    "9.1",
+    "9.2",
+    "9.3"
+  ],
+  "mechanisms": [
+    "continuous_batching",
+    "chunked_prefill",
+    "multi_replica",
+    "tensor_parallel",
+    "kv_budget",
+    "dag_arrival",
+    "priority_scheduling",
+    "preemption",
+    "prefix_cache"
+  ],
+  "metrics": [
+    "ttft_ms",
+    "tpot_ms",
+    "e2e_ms",
+    "decode_tok_s",
+    "throughput_tok_s",
+    "goodput_tok_s",
+    "completion_rate",
+    "vram_peak_gib",
+    "kv_peak_gib",
+    "makespan_s",
+    "critical_path_s",
+    "per_device"
+  ],
+  "notes": [
+    "Capabilities the LLM simulator plans to support.",
+    "Speculative decoding and pipeline parallelism are not supported; requests for them always return E_MECHANISM_UNSUPPORTED.",
+    "Does not model energy; energy_j_per_req is null, with the reason given."
+  ]
+}

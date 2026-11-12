@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hello-mlsys workbench</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/app.css">
+<link rel="modulepreload" href="/static/charts.js">
+<link rel="modulepreload" href="/static/i18n.js">
+<script type="module" src="/static/app.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand" data-i18n>hello-mlsys workbench</div>
+  <div class="current" id="current"></div>
+  <div class="facts" id="facts"></div>
+</header>
+<nav class="switcher" id="switcher" aria-label="Columns">
+  <button type="button" data-pane="left" aria-pressed="false" data-i18n>Sessions</button>
+  <button type="button" data-pane="middle" aria-pressed="true" data-i18n>Records</button>
+  <button type="button" data-pane="right" aria-pressed="false" data-i18n>Chat</button>
+</nav>
+<main class="panes" id="panes">
+  <aside class="pane left" id="left" aria-label="Sessions"></aside>
+  <section class="pane middle shown" id="middle" aria-label="Records">
+    <div id="recnav"></div>
+    <div id="record"><p class="note" data-i18n>Loading… The first load through a port forward is slower; reload if this stays for more than half a minute.</p></div>
+  </section>
+  <aside class="pane right" id="right" aria-label="Chat"></aside>
+</main>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+</body>
+</html>

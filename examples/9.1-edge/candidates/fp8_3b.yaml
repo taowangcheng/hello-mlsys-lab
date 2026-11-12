@@ -1,0 +1,10 @@
+schema: mlab.v1
+id: fp8_3b
+infra: rx9070xt_x1
+rationale: "The other route: switch to a smaller model and keep a higher precision."
+strategy:
+  deployments:
+    - model: llm-3b
+      weight_precision: FP8
+      context_tokens: 8192
+      devices: [gpu0]

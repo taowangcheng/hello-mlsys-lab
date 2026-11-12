@@ -1,0 +1,121 @@
+# Draft task; thresholds, traces and budgets are placeholders.
+schema: mlab.v1
+id: '9.2'
+title: Single-node serving under an SLA
+status: draft
+source: Project plan Ch 9.2; TTFT/TPOT and goodput in README week 7
+objective:
+  direction: max
+  metric: goodput_tok_s
+constraints:
+- metric: ttft_ms.p99
+  op: <
+  value: 2000
+  status: draft
+  source: Project plan Ch 9.2
+  note: The document says "P99 < 2 s" without naming the latency; end-to-end latency depends on output length, so TTFT for now
+- metric: tpot_ms.p99
+  op: <
+  value: null
+  status: tbd
+  source: README week 7
+- metric: throughput_tok_s
+  op: '>='
+  value: null
+  status: tbd
+  source: Project plan Ch 9.2 (throughput ≥ X)
+- metric: completion_rate
+  op: '>='
+  value: 0.99
+  status: draft
+  source: Proposed in the lab plan
+  note: Prevents pushing p99 down by rejecting or truncating requests
+required_metrics:
+- ttft_ms
+- tpot_ms
+- e2e_ms
+- goodput_tok_s
+- throughput_tok_s
+- completion_rate
+- vram_peak_gib
+- kv_peak_gib
+quality_table: quality_table.yaml
+workload_mode: open_loop
+frozen:
+  workload_meta:
+    path: workloads/mixed_burst.meta.yaml
+    sha256: sha256:30a71be78de4f0a90bc01d02405db2dfe3dabf91c3755ef25ddb7a1cfda8f55c
+  workload_requests:
+    path: workloads/mixed_burst.requests.jsonl
+    sha256: sha256:b65174341b89c1afec09c09f47a6a15ab0cac1e315d37e3a4722094b02a1e964
+infra_options:
+- rx9070xt_x1
+- rx7900xtx_x1
+decision_space:
+  deployments.model:
+    type: enum
+    values:
+    - llm-1.7b
+    - llm-3b
+    - llm-4b
+    - llm-7b
+  deployments.weight_precision:
+    type: enum
+    values:
+    - BF16
+    - FP8
+    - INT8
+    - INT4
+  deployments.kv_precision:
+    type: enum
+    values:
+    - BF16
+    - FP8
+    - INT8
+  deployments.context_tokens:
+    type: range
+    min: 512
+    max: 32768
+  serving.max_concurrency:
+    type: range
+    min: 1
+    max: 64
+  serving.gpu_memory_utilization:
+    type: range
+    min: 0.5
+    max: 0.95
+  serving.kv_fraction:
+    type: range
+    min: 0.1
+    max: 0.9
+  serving.chunked_prefill_tokens:
+    type: range
+    min: 64
+    max: 4096
+  serving.continuous_batching:
+    type: enum
+    values:
+    - true
+    - false
+  cache.prefix_cache:
+    type: enum
+    values:
+    - true
+    - false
+  speculative:
+    type: enum
+    values:
+    - true
+budget:
+  simulator:
+    runs_per_batch: 12
+  hardware:
+    runs_total: 8
+    runs_per_batch: 4
+    status: draft
+holdouts:
+- short_prompt_distribution
+- long_prompt_distribution
+key_metrics:
+- ttft_ms.p99
+duration_s: 60

@@ -1,0 +1,10 @@
+{"request_id":"plan","arrival_ms":0,"input_tokens":2048,"output_tokens_target":512,"target_model":"llm-32b","controller_id":"c0"}
+{"request_id":"sub1","input_tokens":6144,"output_tokens_target":512,"target_model":"llm-7b","depends_on":["plan"],"gap_after_deps_ms":100,"controller_id":"c0","subagent_id":"s1","prefix_group":"rag-1"}
+{"request_id":"sub2","input_tokens":8192,"output_tokens_target":512,"target_model":"llm-7b","depends_on":["plan"],"gap_after_deps_ms":100,"controller_id":"c0","subagent_id":"s2","prefix_group":"rag-1"}
+{"request_id":"sub3","input_tokens":4096,"output_tokens_target":384,"target_model":"llm-7b","depends_on":["plan"],"gap_after_deps_ms":100,"controller_id":"c0","subagent_id":"s3","prefix_group":"rag-2"}
+{"request_id":"sub4","input_tokens":6144,"output_tokens_target":384,"target_model":"llm-7b","depends_on":["plan"],"gap_after_deps_ms":100,"controller_id":"c0","subagent_id":"s4","prefix_group":"rag-2"}
+{"request_id":"ctrl1","input_tokens":4096,"output_tokens_target":256,"target_model":"llm-32b","depends_on":["sub1","sub2"],"gap_after_deps_ms":200,"controller_id":"c1"}
+{"request_id":"ctrl2","input_tokens":4096,"output_tokens_target":256,"target_model":"llm-32b","depends_on":["sub3","sub4"],"gap_after_deps_ms":200,"controller_id":"c2"}
+{"request_id":"sub5","input_tokens":8192,"output_tokens_target":512,"target_model":"llm-7b","depends_on":["ctrl1"],"gap_after_deps_ms":100,"controller_id":"c1","subagent_id":"s5","prefix_group":"rag-3"}
+{"request_id":"sub6","input_tokens":4096,"output_tokens_target":512,"target_model":"llm-7b","depends_on":["ctrl1"],"gap_after_deps_ms":100,"controller_id":"c1","subagent_id":"s6","prefix_group":"rag-3"}
+{"request_id":"synth","input_tokens":16384,"output_tokens_target":1024,"target_model":"llm-32b","depends_on":["ctrl2","sub5","sub6"],"gap_after_deps_ms":300,"controller_id":"c0"}

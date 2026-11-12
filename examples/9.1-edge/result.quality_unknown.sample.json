@@ -1,0 +1,28 @@
+{
+  "schema": "mlab.v1",
+  "run_id": "sim_002",
+  "task": "9.1",
+  "candidate_id": "int4_7b",
+  "spec_hash": "sha256:paper-sample",
+  "backend": {"name": "paper-sample", "version": "0", "service_source": "first_order"},
+  "status": "succeeded",
+  "verdict": "not_evaluated",
+  "evidence_level": "simulated",
+  "failure_class": null,
+  "constraints": [
+    {"metric": "vram_peak_gib", "op": "<=", "value": 14, "observed": 6.2, "met": true, "status": "draft"},
+    {"metric": "ttft_ms.p50", "op": "<=", "value": 500, "observed": 430, "met": true, "status": "draft"},
+    {"metric": "decode_tok_s", "op": ">=", "value": 20, "observed": 21, "met": true, "status": "draft"}
+  ],
+  "tightest_constraint": "decode_tok_s",
+  "metrics": {
+    "ttft_ms": {"p50": 430, "p95": 510, "p99": 560},
+    "decode_tok_s": 21,
+    "vram_peak_gib": 6.2,
+    "energy_j_per_req": null
+  },
+  "unsupported_metrics": {"energy_j_per_req": "This backend does not model energy"},
+  "requests": {"total": 6, "completed": 6},
+  "quality": {"status": "not_evaluated"},
+  "coverage": {"in_domain": true, "extrapolated": [], "assumptions": ["Paper sample; the numbers are invented and only demonstrate the fields"]}
+}

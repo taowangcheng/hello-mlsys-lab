@@ -1,0 +1,11 @@
+{
+  "candidate_name": "Qwen3.8-27B",
+  "protocol": "openai",
+  "base_url": "https://YOUR-PROVIDER/v1",
+  "model": "YOUR-ACTUAL-MODEL-ID",
+  "api_key_env": "QWEN_API_KEY",
+  "api_key": "",
+  "max_output_tokens": 4096,
+  "request_timeout_seconds": 180,
+  "extra_body": {}
+}

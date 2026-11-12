@@ -1,0 +1,108 @@
+# Draft task; thresholds, traces and budgets are placeholders.
+schema: mlab.v1
+id: '9.3'
+title: Workload-driven inference cluster
+status: draft
+source: Project plan Ch 9.3
+objective:
+  direction: min
+  metric: makespan_s
+constraints:
+- metric: completion_rate
+  op: '>='
+  value: 1.0
+  status: draft
+  source: Project plan Ch 9.3
+  note: All requests must complete; otherwise wall-clock time is meaningless
+required_metrics:
+- makespan_s
+- critical_path_s
+- completion_rate
+- per_device
+quality_table: quality_table.yaml
+workload_mode: dag
+frozen:
+  workload_meta:
+    path: workloads/deep_research_sample.meta.yaml
+    sha256: sha256:c86c10fbcee7bfe6959ed8e62df2e95d47fc5b4e7f468a38e995048f165eb6e8
+  workload_requests:
+    path: workloads/deep_research_sample.requests.jsonl
+    sha256: sha256:cbec87df2b9853b84e5c7c67fe06f66f78a910423ef8d48ed162693ebf271058
+infra_options:
+- w7900d_x4
+decision_space:
+  deployments.model:
+    type: enum
+    values:
+    - llm-32b
+    - llm-7b
+  deployments.weight_precision:
+    type: enum
+    values:
+    - BF16
+    - FP8
+    - INT4
+  deployments.kv_precision:
+    type: enum
+    values:
+    - BF16
+    - FP8
+    - INT8
+  deployments.context_tokens:
+    type: range
+    min: 4096
+    max: 65536
+  deployments.replicas:
+    type: range
+    min: 1
+    max: 4
+  deployments.parallel.kind:
+    type: enum
+    values:
+    - none
+    - tp
+  deployments.parallel.degree:
+    type: enum
+    values:
+    - 1
+    - 2
+    - 4
+  serving.max_concurrency:
+    type: range
+    min: 1
+    max: 64
+  serving.kv_budget_gib:
+    type: range
+    min: 1
+    max: 48
+  serving.continuous_batching:
+    type: enum
+    values:
+    - true
+    - false
+  scheduling.priority:
+    type: enum
+    values:
+    - fifo
+    - short_first
+    - critical_path
+  scheduling.preemption:
+    type: enum
+    values:
+    - none
+    - kv_swap
+    - restart
+min_candidates: 3
+budget:
+  simulator:
+    runs_per_batch: 12
+  hardware:
+    runs_total: 6
+    runs_per_batch: 3
+    status: draft
+holdouts:
+- one_dimension_change
+- second_dag_same_distribution
+key_metrics:
+- makespan_s
+duration_s: 300

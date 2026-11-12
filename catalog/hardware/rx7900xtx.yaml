@@ -1,0 +1,6 @@
+id: rx7900xtx
+name: Radeon RX 7900 XTX
+vram_gib: 24
+vram_source: AMD public specification; not stated in the course documents
+peak_compute: null
+memory_bandwidth: null

@@ -1,0 +1,15 @@
+schema: mlab.v1
+id: chunked_256
+infra: rx9070xt_x1
+rationale: 'Tests "long prefills block decode": prefill at most 256 tokens per step and see whether the p99 TTFT of short requests improves.'
+strategy:
+  deployments:
+  - model: llm-3b
+    weight_precision: FP8
+    context_tokens: 16384
+    devices:
+    - gpu0
+  serving:
+    max_concurrency: 32
+    continuous_batching: true
+    chunked_prefill_tokens: 256

@@ -1,0 +1,5 @@
+id: rx7900xtx_x1
+nodes:
+  - id: node0
+    devices:
+      - {id: gpu0, hardware: rx7900xtx}

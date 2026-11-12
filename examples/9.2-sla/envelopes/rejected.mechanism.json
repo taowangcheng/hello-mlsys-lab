@@ -1,0 +1,15 @@
+{
+  "schema": "mlab.v1",
+  "ok": false,
+  "status": "rejected",
+  "evidence_level": "mock",
+  "error": {
+    "code": "E_MECHANISM_UNSUPPORTED",
+    "message": "llm does not support speculative_decoding",
+    "field": "strategy.speculative"
+  },
+  "next_actions": [
+    {"actor": "agent", "do": "end_turn", "say": "Tell the student that this backend does not support the mechanism; do not remove the parameter and retry"},
+    {"actor": "student", "do": "choose", "say": "Remove the mechanism, or end this round"}
+  ]
+}

@@ -1,0 +1,21 @@
+schema: mlab.v1
+id: int4_single
+infra: w7900d_x4
+rationale: 32B INT4 on one GPU, with the most KV headroom, but dequantization may slow the critical path.
+strategy:
+  deployments:
+    - model: llm-32b
+      weight_precision: INT4
+      kv_precision: FP8
+      context_tokens: 65536
+      devices: [gpu0]
+    - model: llm-7b
+      weight_precision: FP8
+      context_tokens: 16384
+      replicas: 3
+      devices: [gpu1, gpu2, gpu3]
+  serving:
+    max_concurrency: 16
+    continuous_batching: true
+  scheduling:
+    priority: critical_path

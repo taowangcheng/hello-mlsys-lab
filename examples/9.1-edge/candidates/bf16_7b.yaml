@@ -1,0 +1,10 @@
+schema: mlab.v1
+id: bf16_7b
+infra: rx9070xt_x1
+rationale: The weights sit right at the 14 GB limit and are not expected to fit; this checks the VRAM accounting.
+strategy:
+  deployments:
+    - model: llm-7b
+      weight_precision: BF16
+      context_tokens: 8192
+      devices: [gpu0]

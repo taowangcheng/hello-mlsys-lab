@@ -1,0 +1,13 @@
+{
+  "candidate_name": "Qwen3.8-27B",
+  "protocol": "anthropic",
+  "base_url": "https://YOUR-PROVIDER/anthropic",
+  "model": "YOUR-ACTUAL-MODEL-ID",
+  "base_url_env": "ANTHROPIC_BASE_URL",
+  "model_env": "ANTHROPIC_MODEL",
+  "api_key_env": "ANTHROPIC_API_KEY",
+  "api_key": "",
+  "auth_mode": "api_key",
+  "max_output_tokens": 4096,
+  "request_timeout_seconds": 180
+}

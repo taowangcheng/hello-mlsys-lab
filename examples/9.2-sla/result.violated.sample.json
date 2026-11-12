@@ -1,0 +1,34 @@
+{
+  "schema": "mlab.v1",
+  "run_id": "sim_012",
+  "task": "9.2",
+  "candidate_id": "baseline",
+  "spec_hash": "sha256:paper-sample",
+  "backend": {"name": "paper-sample", "version": "0", "service_source": "first_order"},
+  "status": "succeeded",
+  "verdict": "constraints_violated",
+  "evidence_level": "simulated",
+  "failure_class": null,
+  "constraints": [
+    {"metric": "ttft_ms.p99", "op": "<", "value": 2000, "observed": 2310, "met": false, "status": "draft"},
+    {"metric": "tpot_ms.p99", "op": "<", "value": null, "observed": 62, "met": null, "status": "tbd"},
+    {"metric": "throughput_tok_s", "op": ">=", "value": null, "observed": 3400, "met": null, "status": "tbd"},
+    {"metric": "completion_rate", "op": ">=", "value": 0.99, "observed": 0.997, "met": true, "status": "draft"}
+  ],
+  "tightest_constraint": "ttft_ms.p99",
+  "metrics": {
+    "ttft_ms": {"p50": 210, "p95": 640, "p99": 2310},
+    "tpot_ms": {"p50": 38, "p95": 51, "p99": 62},
+    "e2e_ms": {"p50": 3100, "p95": 7400, "p99": 12900},
+    "throughput_tok_s": 3400,
+    "goodput_tok_s": 3100,
+    "completion_rate": 0.997,
+    "vram_peak_gib": 14.2,
+    "kv_peak_gib": 10.1,
+    "energy_j_per_req": null
+  },
+  "unsupported_metrics": {"energy_j_per_req": "This backend does not model energy"},
+  "requests": {"total": 1000, "completed": 997, "failed": 0, "rejected": 2, "timed_out": 1, "truncated": 0},
+  "quality": {"status": "not_evaluated"},
+  "coverage": {"in_domain": true, "extrapolated": [], "assumptions": ["Paper sample; the numbers are invented and only demonstrate the fields"]}
+}
