@@ -4,7 +4,7 @@ from ..backends.local import load_requests
 from ..core.configs import catalog, evidence, pairs, validation
 from ..core.evidence import check_claims
 from ..core.history import resolve, timeline
-from ..core.io import NOTICE, TERMINAL, LabError, hashed, load
+from ..core.io import NOTICE, TERMINAL, LabError, hashed, inside, load, require
 from ..core.metrics import get_metric
 from ..core.reporting import render_report, report_data
 from ..core.workspace import comments, hypothesis_parts, margin, read_rows, rounded, sections
@@ -82,7 +82,7 @@ def task_overview(lab):
     space = {path: (rule["values"] if rule["type"] == "enum" else [rule["min"], rule["max"]]) for path, rule in task["decision_space"].items()}
     return {"task": task["id"], "title": task["title"], "objective": task["objective"], "key_metrics": task["key_metrics"],
             "constraints": [{k: c.get(k) for k in ("metric", "op", "value", "status", "note")} for c in task["constraints"]],
-            "holdouts": task["holdouts"], "decision_space": space,
+            "holdouts": task["holdouts"], "decision_space": space, "decision_rules": task["decision_space"],
             "budget": {"simulator_per_batch": task["budget"]["simulator"]["runs_per_batch"], "hardware": lab.hardware_budget(),
                        "hardware_per_batch": task["budget"]["hardware"]["runs_per_batch"]},
             "backends": {"simulator": lab.simulator, "hardware": lab.hardware}, "guide": text_of(lab.root / "task/GUIDE.md"),
@@ -216,6 +216,8 @@ def run_view(lab, run_id):
         raise LabError("E_SCHEMA", f"unknown run {run_id}", 2)
     view = run_summary(lab, run)
     view.update(kind="run", owner=run.get("workflow") or run.get("measurement"), config=config_name(lab, run))
+    logs = text_of(inside(lab.root, run["folder"]) / "logs.txt")
+    view.update(logs=logs[:2000], logs_truncated=len(logs) > 2000)
     spec = load(lab.root / run["folder"] / "spec.json")
     if hashed(spec) != run["spec_hash"]:
         raise LabError("E_FROZEN_CHANGED", "run spec changed")
@@ -231,7 +233,6 @@ def run_view(lab, run_id):
         approval = load(lab.root / lab.store.get("measurement", run["measurement"])["folder"] / "approval.json")
         prediction = next((p for p in approval["sim_predictions"] if p["point"] == run["point"]), None)
         paired = prediction and {k: prediction[k] for k in ("sim_run", "simulated", "sim_margin_pct")}
-    logs = text_of(folder / "logs.txt")
     return {**view, "evidence_level": result["evidence_level"], "metrics": result["metrics"], "unsupported": result["unsupported_metrics"],
             "quality": result["quality"], "coverage": result["coverage"], "requests": result["requests"],
             "strategy": spec["strategy"], "workload": spec["workload"]["requests"]["path"], "seed": spec["execution"]["seed"],
@@ -239,6 +240,14 @@ def run_view(lab, run_id):
             "config_diff": [{"field": f"serving.{k}", "requested": spec["strategy"]["serving"].get(k), "effective": v}
                             for k, v in effective.items() if spec["strategy"]["serving"].get(k) != v],
             "environment": manifest.get("environment"), "paired": paired, "logs": logs[:2000], "logs_truncated": len(logs) > 2000}
+
+
+def run_log_file(lab, run_id):
+    run = lab.store.get("run", run_id)
+    require(run, "E_SCHEMA", f"unknown run {run_id}", 2)
+    path = inside(lab.root, f"{run['folder']}/logs.txt")
+    require(path.is_file(), "E_SCHEMA", "No log entries yet.", 2)
+    return {"path": str(path)}
 
 
 def run_requests(lab, run_id):

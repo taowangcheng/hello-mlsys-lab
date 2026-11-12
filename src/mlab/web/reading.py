@@ -18,16 +18,28 @@ def snapshot(root, text, suffix="json"):
     digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
     relative = f".mlab/evidence/{digest}.{suffix}"
     path = root / relative
-    if not path.exists():
+    if path.exists():
+        require(path.read_bytes() == text.encode("utf-8"), "E_FROZEN_CHANGED", "Evidence snapshot changed")
+    else:
         atomic(path, text, text=True)
     return relative
+
+
+def read_file(root, path):
+    content = path.read_bytes().decode("utf-8")
+    relative = path.relative_to(root.resolve()).as_posix()
+    match = re.fullmatch(r"\.mlab/evidence/([a-f0-9]{64})\.(?:json|txt)", relative)
+    if match:
+        require(hashlib.sha256(content.encode("utf-8")).hexdigest() == match[1],
+                "E_FROZEN_CHANGED", "Evidence snapshot changed")
+    return content
 
 
 def pointer_part(value):
     return str(value).replace("~", "~0").replace("/", "~1")
 
 
-def preview(root, value):
+def preview(root, value, max_output=MAX_OUTPUT):
     """Keep a usable record shape and give every omitted field an exact Read call."""
     source = snapshot(root, encoded(value))
     omitted = []
@@ -49,14 +61,14 @@ def preview(root, value):
     result = compact(value)
     reading = {"complete": not omitted, "source": {"file_path": source}, "omitted": omitted}
     result = {**result, "_reading": reading} if isinstance(result, dict) else {"value": result, "_reading": reading}
-    if len(encoded(result)) > MAX_OUTPUT:
-        return json.loads(read_text(encoded(value), {"file_path": source, "offset": 0, "limit": PAGE_SIZE}))
+    if len(encoded(result)) > max_output or any(len(item["path"]) > 4096 for item in omitted):
+        return json.loads(read_text(encoded(value), {"file_path": source, "offset": 0, "limit": PAGE_SIZE}, max_output))
     return result
 
 
 def select(value, pointer):
-    require(isinstance(pointer, str) and (pointer == "" or pointer.startswith("/")),
-            "E_SCHEMA", "json_pointer must be empty or start with /", 2)
+    require(isinstance(pointer, str) and len(pointer) <= 4096 and (pointer == "" or pointer.startswith("/")),
+            "E_SCHEMA", "json_pointer must be empty or start with / and contain at most 4096 characters", 2)
     if pointer == "":
         return value
     for part in pointer[1:].split("/"):
@@ -72,7 +84,7 @@ def select(value, pointer):
     return value
 
 
-def read_text(content, args):
+def read_text(content, args, max_output=MAX_OUTPUT):
     """Offsets count Unicode characters in the selected text or serialized JSON value."""
     version = hashlib.sha256(content.encode("utf-8")).hexdigest()
     require(args.get("version", version) == version, "E_FROZEN_CHANGED",
@@ -93,8 +105,9 @@ def read_text(content, args):
                   "offset": offset, "end": end, "total_chars": len(text), "complete": end == len(text),
                   "version": version, "next": next_call if end < len(text) else None}
         output = encoded(result)
-        if len(output) <= MAX_OUTPUT or end == offset:
+        if len(output) <= max_output:
             return output
+        require(end - offset > 1, "E_SCHEMA", "Read metadata exceeds the output limit", 2)
         end = offset + max(1, (end - offset) // 2)
 
 

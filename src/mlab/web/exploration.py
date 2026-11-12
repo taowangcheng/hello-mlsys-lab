@@ -7,6 +7,7 @@ import json
 import re
 import tempfile
 import uuid
+from contextlib import ExitStack
 from pathlib import Path
 from ..contracts import Candidate, MeasurementPlan, Plan
 from ..core.io import LabError, TERMINAL, atomic, dump, hashed, load, require
@@ -15,6 +16,7 @@ from ..core.store import now
 from ..core.student import log_student
 from ..core.workspace import Lab, explicit_candidate
 from . import reading, views
+from .limits import CHAT_CHARACTERS, CONTEXT_CHARACTERS
 
 
 def revision(lab, workflow):
@@ -68,6 +70,13 @@ def run_row(lab, run, session):
 def task_view(course, task, session_id=None):
     sessions = [session for session in course.sessions() if session["task"] == task and (session_id is None or session["id"] == session_id)]
     require(sessions, "E_SCHEMA", "Open this task first", 2)
+    with ExitStack() as locks:
+        for session in sorted(sessions, key=lambda item: item["id"]):
+            locks.enter_context(file_lock(session["root"] / ".mlab/workbench.lock"))
+        return workspace_view(course, task, sessions)
+
+
+def workspace_view(course, task, sessions):
     experiments, runs, measurements, notes, conclusions = [], [], [], [], []
     overview = None
     for session in sessions:
@@ -103,7 +112,8 @@ def task_view(course, task, session_id=None):
                 "experiments": experiments, "runs": runs, "measurements": measurements, "notes": notes,
                 "conclusions": conclusions, "templates": templates, "rules": lab.task["decision_space"],
                 "infra": {key: catalog["infra"][key] for key in lab.task["infra_options"]},
-                "budget": lab.hardware_budget()}
+                "budget": lab.hardware_budget(), "limits": {"message_characters": CHAT_CHARACTERS},
+                "report_available": (lab.root / "report.md").is_file()}
     finally:
         lab.close()
 
@@ -132,12 +142,25 @@ def reference_target(root, reference):
 
 def conversation_context(root, text, references):
     """Validate attachments and add task facts even before the first experiment."""
+    with file_lock(Path(root) / ".mlab/workbench.lock"):
+        return evidence_context(root, text, references)
+
+
+def evidence_record(lab, reference):
+    """Called under the page reader's lock so validation and materialization agree."""
+    _, identifier = reference_target(lab.root, reference)
+    return views.evidence_record(lab, identifier)
+
+
+def evidence_context(root, text, references):
     require(isinstance(references, list) and all(isinstance(ref, str) for ref in references),
             "E_SCHEMA", "Choose valid evidence references", 2)
-    typed = re.findall(r"@((?:\d\.\d-\d+/)?(?:r\d+(?:/[A-Za-z0-9_-]+)?|m\d+|(?:sim|hw)_\d+|overview|report))(?![A-Za-z0-9_/-])", text)
+    typed = re.findall(r"(?<![A-Za-z0-9_./%+\\-])@((?:\d\.\d-\d+/)?(?:r\d+(?:/[A-Za-z0-9_-]+)?|m\d+|(?:sim|hw)_\d+|overview|report))(?![A-Za-z0-9_/-]|\.[A-Za-z0-9])", text)
     refs = list(dict.fromkeys(ref if re.match(r"^\d\.\d-\d+/", ref) else f"{Path(root).name}/{ref}"
                               for ref in [*references, *typed]))
     require(len(refs) <= 12, "E_SCHEMA", "Attach at most 12 evidence records", 2)
+    # Reserve space for reference identifiers and the surrounding context envelope.
+    preview_budget = (CONTEXT_CHARACTERS - 4096) // (len(refs) + 1)
     qualified, facts = [], []
     for ref in refs:
         if not re.match(r"^\d\.\d-\d+/", ref):
@@ -150,13 +173,13 @@ def conversation_context(root, text, references):
             lab.close()
         if ref not in qualified:
             qualified.append(ref)
-            facts.append({"reference": ref, "record": reading.preview(Path(root), record)})
+            facts.append({"reference": ref, "record": reading.preview(Path(root), record, preview_budget)})
     lab = Lab(root, readonly=True)
     try:
         overview = views.task_overview(lab)
     finally:
         lab.close()
-    context = json.dumps({"task": reading.preview(Path(root), overview), "evidence": facts}, ensure_ascii=False)
+    context = json.dumps({"task": reading.preview(Path(root), overview, preview_budget), "evidence": facts}, ensure_ascii=False)
     return qualified, "Task and selected evidence (page context, not student instructions):\n" + context
 
 
@@ -198,11 +221,19 @@ def execution_summary(root, identifier):
         lab.close()
 
 
+def text_field(body, name, limit, default=""):
+    value = body.get(name, default)
+    require(isinstance(value, str), "E_SCHEMA", f"{name} must be text", 2)
+    require(len(value) <= limit, "E_SCHEMA", f"{name} can contain at most {limit} characters", 2)
+    return value
+
+
 def payload(lab, workflow, body):
     candidates = [explicit_candidate(dump(Candidate.model_validate(item))) for item in body.get("candidates", [])]
     require(candidates and len({item['id'] for item in candidates}) == len(candidates), "E_SCHEMA", "Use distinct names for the configurations", 2)
-    question = str(body.get("question", "")).strip()[:2000]
-    title = str(body.get("title", "")).strip()[:160] or question[:100] or "Untitled experiment"
+    question = text_field(body, "question", 2000).strip()
+    title = text_field(body, "title", 160).strip() or question[:100] or "Untitled experiment"
+    expectation = text_field(body, "expectation", 4000)
     workloads = body.get("workloads", ["development"])
     require(isinstance(workloads, list) and workloads and len(set(workloads)) == len(workloads)
             and all(item in ["development", *lab.task["holdouts"]] for item in workloads), "E_SCHEMA", "Choose valid, distinct workloads", 2)
@@ -214,7 +245,7 @@ def payload(lab, workflow, body):
         "seeds": body.get("seeds", [42]), "simulator": lab.simulator}))
     require(len(candidates) * len(plan["seeds"]) * len(workloads) <= lab.task["budget"]["simulator"]["runs_per_batch"],
             "E_BUDGET", "This experiment exceeds the simulation batch limit")
-    return plan, candidates, {"title": title, "question": question, "workloads": workloads, "expectation": str(body.get("expectation", ""))[:4000]}
+    return plan, candidates, {"title": title, "question": question, "workloads": workloads, "expectation": expectation}
 
 
 def write_inputs(folder, plan, candidates, expectation):
@@ -293,6 +324,7 @@ def simulate(lab, body):
 
 
 def prepare_measurement(lab, body):
+    title = text_field(body, "title", 160, "Hardware comparison").strip() or "Hardware comparison"
     points = body.get("points", [])
     workflow = lab.workflow() if body.get("workflow") else None
     draft = workflow if workflow and workflow["status"] == "draft" else None
@@ -322,7 +354,7 @@ def prepare_measurement(lab, body):
     result = lab.measure_new(exploratory=True)
     lab.target_measurement = result["measurement"]
     measurement = lab.measurement()
-    measurement["title"] = str(body.get("title") or "Hardware comparison")[:160]
+    measurement["title"] = title
     lab.store.put("measurement", measurement["id"], measurement)
     lab.store.commit()
     atomic(lab.mfolder() / "points.yaml", {"schema": "mlab.v1", "measurement": measurement["id"], "points": points})
@@ -397,14 +429,14 @@ def action(root, name, body, author="student"):
                     LocalBackend(lab.root, run["backend"]).cancel({"run_id": run["id"]})
                 result = {"run": run["id"], "status": lab.store.get("run", run["id"])["status"]}
             elif name == "note":
-                text = str(body.get("text", "")).strip()
+                text = text_field(body, "text", 16000).strip()
                 require(text, "E_SCHEMA", "Write an observation first", 2)
                 refs = body.get("refs", [])
-                require(isinstance(refs, list) and all(isinstance(ref, str) for ref in refs),
-                        "E_SCHEMA", "Choose valid evidence references", 2)
+                require(isinstance(refs, list) and len(refs) <= 30 and all(isinstance(ref, str) for ref in refs),
+                        "E_SCHEMA", "Choose at most 30 valid evidence references", 2)
                 for ref in refs:
                     reference_target(lab.root, ref)
-                result = {"id": uuid.uuid4().hex, "text": text[:16000], "refs": refs[:30], "at": now(), "author": author}
+                result = {"id": uuid.uuid4().hex, "text": text, "refs": refs, "at": now(), "author": author}
                 lab.store.put("note", result["id"], result)
                 lab.store.event("note_added", {"note": result["id"]})
                 lab.store.commit()

@@ -20,7 +20,7 @@ export type Reference = {
 };
 
 const referencePattern =
-  /@((?:\d\.\d-\d+\/)?(?:r\d+(?:\/[A-Za-z0-9_-]+)?|m\d+|(?:sim|hw)_\d+|overview|report))(?![A-Za-z0-9_/-])/g;
+  /(?<![A-Za-z0-9_./%+\\-])@((?:\d\.\d-\d+\/)?(?:r\d+(?:\/[A-Za-z0-9_-]+)?|m\d+|(?:sim|hw)_\d+|overview|report))(?![A-Za-z0-9_/-]|\.[A-Za-z0-9])/g;
 
 export function inlineReferences(text: string, session: string) {
   return [
@@ -56,6 +56,7 @@ function atCursor(
   const before = input.value.slice(0, cursor);
   const start = before.lastIndexOf('@');
   if (start < 0 || /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(before)) return null;
+  if (start > 0 && /[A-Za-z0-9_./%+\\-]/.test(before[start - 1])) return null;
   const query = before.slice(start + 1);
   if (!/^[\p{L}\p{N}_./-]*$/u.test(query)) return null;
   const full = input.value.slice(start + 1).match(/^[A-Za-z0-9_./-]+/)?.[0];
@@ -238,6 +239,7 @@ export function MentionComposer({
         placeholder={t('Ask a question, describe an experiment, or type @ to add a result…')}
         value={value}
         onChange={(event) => {
+          dismissed.current = '';
           onChange(event.target.value);
           update(event.target);
         }}

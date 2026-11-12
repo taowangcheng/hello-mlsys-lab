@@ -3,13 +3,16 @@ import words from '../../src/mlab/web/static/locales/zh.json' with { type: 'json
 
 test('a student controls experiments, measurements, history and evidence discussion', async ({
   page,
+  request,
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
   });
-  await page.goto('/#/9.2/runs');
+  const opened = await (await request.post('/api/sessions', { data: { task: '9.2' } })).json();
+  expect(opened.ok).toBe(true);
+  await page.goto(`/#/${opened.session}/runs`);
   await page.locator('.manual-setup > summary').click();
   await page
     .locator('.manual-setup')
@@ -30,6 +33,7 @@ test('a student controls experiments, measurements, history and evidence discuss
   await page.getByRole('button', { name: 'Save draft', exact: true }).click();
   await expect(page.getByText('Draft saved', { exact: true })).toBeVisible();
   await page.reload();
+  await expect(page.getByText('Draft saved', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Experiment name', { exact: true })).toHaveValue(
     'Concurrency near the SLA',
   );

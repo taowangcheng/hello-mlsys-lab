@@ -17,7 +17,7 @@ from starlette.applications import Starlette
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
-from starlette.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
+from starlette.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 from ..core.io import NOTICE, LabError, hashed, require
@@ -28,10 +28,24 @@ from .agent import TaskRuntime
 from .bus import Bus
 from .course import Course
 from .watcher import Watcher
+from .limits import CHAT_CHARACTERS
 
 STATIC = Path(__file__).parent / "static"
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; "
        "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+
+
+def message_input(body):
+    text = body.get("text")
+    require(isinstance(text, str) and bool(text.strip()), "E_SCHEMA", "Write a message first", 2)
+    text = text.strip()
+    require(len(text) <= CHAT_CHARACTERS, "E_SCHEMA", f"Messages can contain at most {CHAT_CHARACTERS} characters", 2)
+    mode = body.get("mode", "queue")
+    require(mode in ("queue", "interrupt_then_send"), "E_SCHEMA", "Choose queue or interrupt_then_send", 2)
+    refs = body.get("refs", [])
+    require(isinstance(refs, list) and all(isinstance(ref, str) for ref in refs),
+            "E_SCHEMA", "Choose valid evidence references", 2)
+    return text, mode, refs
 
 
 class Guard:
@@ -77,9 +91,10 @@ def read(root, function, *args):
     """function(read-only Lab, *args) in the CLI's envelope."""
     lab = None
     try:
-        lab = Lab(root, readonly=True)
-        output = function(lab, *args)
-        return {"ok": True, **output} if isinstance(output, dict) else {"ok": True, "items": output}
+        with file_lock(Path(root) / ".mlab/workbench.lock"):
+            lab = Lab(root, readonly=True)
+            output = function(lab, *args)
+            return {"ok": True, **output} if isinstance(output, dict) else {"ok": True, "items": output}
     except (LabError, ValueError, KeyError, TypeError, OSError) as error:
         return forms.rejected(error)
     finally:
@@ -138,7 +153,8 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
     def endpoint(handler):
         async def wrapped(request):
             try:
-                return JSONResponse(await handler(request))
+                result = await handler(request)
+                return result if isinstance(result, Response) else JSONResponse(result)
             except LabError as error:
                 status = 404 if str(error).startswith("unknown session") else 200
                 return JSONResponse(forms.rejected(error), status)
@@ -247,14 +263,10 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         if agent == "sdk":
             return failure("E_BACKEND_UNAVAILABLE", "Restart the lab with Codex to discuss experiments here. Open /classic to inspect earlier records. Experiment controls still work here.")
         body = await body_of(request)
-        text = str(body.get("text") or "").strip()
-        if not text:
-            return failure("E_SCHEMA", "Write a message first")
-        refs, context = await asyncio.to_thread(exploration.conversation_context, runtime.root, text, body.get("refs", []))
+        text, mode, requested_refs = message_input(body)
+        refs, context = await asyncio.to_thread(exploration.conversation_context, runtime.root, text, requested_refs)
         await use_exploration(runtime)
-        mode = body.get("mode", "queue")
-        require(mode in {"queue", "interrupt_then_send"}, "E_SCHEMA", "Choose queue or interrupt_then_send", 2)
-        outcome = await runtime.say(text[:4000], refs, interrupt=mode == "interrupt_then_send", context=context)
+        outcome = await runtime.say(text, refs, interrupt=mode == "interrupt_then_send", context=context)
         return {"ok": True, "status": outcome, "refs": refs, "agent": runtime.snapshot()}
 
     async def state(request):
@@ -292,6 +304,14 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         runtime = runtime_of(request)
         return await asyncio.to_thread(read, runtime.root, views.record, request.path_params["record"], runtime.lang)
 
+    async def run_logs(request):
+        runtime = runtime_of(request)
+        identifier = request.path_params["run"]
+        result = await asyncio.to_thread(read, runtime.root, views.run_log_file, identifier)
+        if not result["ok"]:
+            return result
+        return FileResponse(result["path"], media_type="text/plain; charset=utf-8", filename=f"{identifier}-logs.txt")
+
     async def pairs(request):
         runtime = runtime_of(request)
         return await asyncio.to_thread(read, runtime.root, views.alignment_pairs, request.path_params["measurement"],
@@ -313,7 +333,10 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
 
     async def chat_history(request):
         runtime = runtime_of(request)
-        limit = max(1, min(int(request.query_params.get("limit", 200)), 500))
+        raw_limit = request.query_params.get("limit", "200")
+        require(raw_limit.isascii() and raw_limit.isdecimal() and len(raw_limit) <= 6,
+                "E_SCHEMA", "limit must be a positive integer", 2)
+        limit = max(1, min(int(raw_limit), 500))
         entries = await asyncio.to_thread(runtime.chat.read, limit, request.query_params.get("before"))
         return {"ok": True, "entries": entries, "agent": runtime.snapshot()}
 
@@ -338,14 +361,10 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
     async def chat(request):
         runtime = runtime_of(request)
         body = await body_of(request)
-        text = str(body.get("text") or "").strip()
-        if not text:
-            return failure("E_SCHEMA", "The message is empty")
-        refs = list(dict.fromkeys(views.references(text) + [r for r in body.get("refs") or [] if isinstance(r, str)]))
-        mode = body.get("mode", "queue")
-        if mode not in {"queue", "interrupt_then_send"}:
-            return failure("E_SCHEMA", "mode must be queue or interrupt_then_send")
-        outcome = await runtime.say(text[:4000], refs, interrupt=mode == "interrupt_then_send")
+        text, mode, requested_refs = message_input(body)
+        refs = list(dict.fromkeys(views.references(text) + requested_refs))
+        require(len(refs) <= 12, "E_SCHEMA", "Attach at most 12 evidence records", 2)
+        outcome = await runtime.say(text, refs, interrupt=mode == "interrupt_then_send")
         return {"ok": True, "status": outcome, "refs": refs, "agent": runtime.snapshot()}
 
     async def agent_action(request):
@@ -370,7 +389,7 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         runtime = runtime_of(request)
         body = await body_of(request)
         decision = body.get("decision")
-        if decision not in {"allow", "deny"}:
+        if decision not in ("allow", "deny"):
             return failure("E_SCHEMA", "decision must be allow or deny")
         done = runtime.resolve(request.path_params["card"], {"allow": decision == "allow", "reason": str(body.get("reason") or "")[:2000]})
         return {"ok": done, **({} if done else failure("E_SCHEMA", "This card was already handled or does not exist"))}
@@ -401,8 +420,10 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
     async def events(request):
         """Events after ?last=N, answered at once. Without last: only the current number, to start from."""
         last = request.query_params.get("last", "")
-        if not last.isdigit():
+        if not (last.isascii() and last.isdecimal() and len(last) <= 18):
             return {"ok": True, "last": bus.last, "events": []}
+        if int(last) > bus.last:
+            return {"ok": True, "last": bus.last, "events": [], "resync": True}
         missed = bus.since(int(last))
         if missed is None:
             return {"ok": True, "last": bus.last, "events": [], "resync": True}
@@ -429,6 +450,7 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         Route("/api/sessions/{session}/overview", endpoint(reader(views.task_overview)), methods=get),
         Route("/api/sessions/{session}/notebook", endpoint(reader(views.task_notebook)), methods=get),
         Route("/api/sessions/{session}/records/{record:path}", endpoint(record_view), methods=get),
+        Route("/api/sessions/{session}/runs/{run}/logs", endpoint(run_logs), methods=get),
         Route("/api/sessions/{session}/runs/{run}/requests", endpoint(reader(views.run_requests, "run")), methods=get),
         Route("/api/sessions/{session}/measurements/{measurement}/pairs", endpoint(pairs), methods=get),
         Route("/api/sessions/{session}/preview/{kind}", endpoint(preview), methods=get),

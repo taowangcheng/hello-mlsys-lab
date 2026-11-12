@@ -43,11 +43,46 @@ export type Workspace = Data & {
   budget: Data;
 };
 
+const volatileStorage = new Map<string, string>();
+const storageListeners = new Set<() => void>();
+let storageHealthy = true;
+export function storageAvailable() {
+  return storageHealthy;
+}
+export function subscribeStorage(listener: () => void) {
+  storageListeners.add(listener);
+  return () => {
+    storageListeners.delete(listener);
+  };
+}
+function storageFailed() {
+  if (!storageHealthy) return;
+  storageHealthy = false;
+  storageListeners.forEach((listener) => listener());
+}
+function readStorage(key: string) {
+  if (volatileStorage.has(key)) return volatileStorage.get(key)!;
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    storageFailed();
+    return null;
+  }
+}
+function writeStorage(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+    volatileStorage.delete(key);
+  } catch {
+    volatileStorage.set(key, value);
+    storageFailed();
+  }
+}
 export let language =
-  localStorage.getItem('mlab-language') || (navigator.language.startsWith('zh') ? 'zh' : 'en');
+  readStorage('mlab-language') || (navigator.language.startsWith('zh') ? 'zh' : 'en');
 export function setLanguage(value: string) {
   language = value;
-  localStorage.setItem('mlab-language', value);
+  writeStorage('mlab-language', value);
   document.documentElement.lang = value;
 }
 export function t(text: string, values: Data = {}) {
@@ -67,13 +102,13 @@ function storageKey(key: string) {
 }
 export function stored<T>(key: string, fallback: T): T {
   try {
-    return JSON.parse(localStorage.getItem(storageKey(key)) || 'null') ?? fallback;
+    return JSON.parse(readStorage(storageKey(key)) || 'null') ?? fallback;
   } catch {
     return fallback;
   }
 }
 export function store(key: string, value: unknown) {
-  localStorage.setItem(storageKey(key), JSON.stringify(value));
+  writeStorage(storageKey(key), JSON.stringify(value) ?? 'null');
 }
 export async function api(path: string, body?: Data): Promise<any> {
   const response = await fetch(path, {
@@ -100,6 +135,21 @@ export function nav(target: string, page: string, key = '') {
       ? current.session
       : target;
   location.hash = `/${session}/${page}${key ? '/' + encodeURIComponent(key) : ''}`;
+}
+export function openReference(key: string) {
+  const [session, ...parts] = key.split('/');
+  const id = parts.join('/');
+  const page =
+    id === 'report' || id === 'overview'
+      ? id
+      : parts.length > 1
+        ? 'config'
+        : /^m\d+$/.test(id)
+          ? 'measurements'
+          : /^r\d+$/.test(id)
+            ? 'plans'
+            : 'runs';
+  nav(session, page, key);
 }
 export function route() {
   const [target = '9.2', page = 'overview', key = ''] = location.hash

@@ -82,7 +82,7 @@ function references(workspace: Workspace): Reference[] {
       detail: t('Simulation and sandbox results'),
       search: `${measurement.key} ${measurement.title}`,
     });
-  if (workspace.notebook?.report || workspace.conclusions?.length)
+  if (workspace.report_available || workspace.notebook?.report || workspace.conclusions?.length)
     items.push({
       key: `${session}/report`,
       title: t('Report'),
@@ -487,6 +487,10 @@ export function Chat({
   const matches = allReferences.filter((item) => matchesReference(item, search));
   const inline = inlineReferences(text, session).filter((key) => byKey.has(key));
   const attached = [...new Set([...refs, ...inline])];
+  const messageLimit = workspace.limits?.message_characters || 32000;
+  const oversized = [...text.trim()].length > messageLimit;
+  const currentDraft = useRef({ text, refs });
+  currentDraft.current = { text, refs };
   const status = agent.status || 'offline';
   const busy = busyStatuses.includes(status);
   useEffect(() => {
@@ -598,6 +602,7 @@ export function Chat({
     if (scroll.current && follow.current) scroll.current.scrollTop = scroll.current.scrollHeight;
   }, [messages, streaming, mode]);
   function draft(value: string) {
+    currentDraft.current.text = value;
     setText(value);
     store(draftKey, value);
   }
@@ -629,7 +634,7 @@ export function Chat({
     }
   }
   async function send() {
-    if (!text.trim() || sending) return;
+    if (!text.trim() || sending || oversized) return;
     setSending(true);
     setError('');
     follow.current = true;
@@ -640,8 +645,13 @@ export function Chat({
         mode: interruptFirst ? 'interrupt_then_send' : 'queue',
       });
       if (!active.current) return;
-      draft('');
-      setRefs([]);
+      if (
+        currentDraft.current.text === text &&
+        JSON.stringify(currentDraft.current.refs) === JSON.stringify(refs)
+      ) {
+        draft('');
+        setRefs([]);
+      }
       setInterruptFirst(false);
       changed();
     } catch (error) {
@@ -892,7 +902,15 @@ export function Chat({
         )}
       </div>
       <div className="discussion-composer">
-        <ErrorLine text={error || connectionError} />
+        <ErrorLine
+          text={
+            oversized
+              ? t('Messages can contain at most {limit} characters. Your draft is kept.', {
+                  limit: messageLimit,
+                })
+              : error || connectionError
+          }
+        />
         {attached.length > 0 && (
           <div className="discussion-context">
             <span className="eyebrow">{t('ATTACHED TO YOUR NEXT MESSAGE')}</span>
@@ -946,7 +964,7 @@ export function Chat({
             className="primary icon-button"
             aria-label={t('Send')}
             busy={sending}
-            disabled={!text.trim()}
+            disabled={!text.trim() || oversized}
             onClick={send}
           >
             <ArrowUp size={17} />

@@ -1151,5 +1151,11 @@
  "Matching records": "匹配的记录",
  "Attached": "已引用",
  "Up to 12 records per message. Remove one to add another.": "每条消息最多引用 12 项，移除一项后可以继续添加。",
- "↑ ↓ to choose · Enter or Tab to add · Esc to close": "↑ ↓ 选择 · Enter 或 Tab 添加 · Esc 收起"
+ "↑ ↓ to choose · Enter or Tab to add · Esc to close": "↑ ↓ 选择 · Enter 或 Tab 添加 · Esc 收起",
+ "Messages can contain at most {limit} characters. Your draft is kept.": "每条消息最多 {limit} 个字符，草稿已保留。",
+ "Browser storage is unavailable. Drafts are kept only while this page stays open.": "浏览器存储不可用，草稿仅在当前页面保持打开时保留。",
+ "Changes kept in this tab": "修改保留在当前页面",
+ "Reconnected with your earlier discussion and records.": "已重新连接，可以继续之前的讨论并查看记录。",
+ "Showing the first 2,000 characters.": "当前显示前 2,000 个字符。",
+ "Download complete log": "下载完整日志"
 }

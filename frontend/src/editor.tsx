@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,6 +16,7 @@ import {
   api,
   t,
   store,
+  storageAvailable,
   stored,
   nav,
   route,
@@ -35,6 +36,17 @@ function setValue(object: Data, parts: string[], value: any) {
   const parent = parts.slice(0, -1).reduce<Data>((item, key) => (item[key] ||= {}), object);
   if (value === undefined) delete parent[last];
   else parent[last] = value;
+}
+
+function editableContent(value: Experiment) {
+  return JSON.stringify({
+    title: value.title,
+    question: value.question || '',
+    expectation: value.expectation || '',
+    candidates: value.candidates,
+    seeds: value.seeds,
+    workloads: value.workloads,
+  });
 }
 
 export function Editor({
@@ -62,8 +74,15 @@ export function Editor({
       : '',
   );
   const [review, setReview] = useState(false);
-  const [saved, setSaved] = useState(JSON.stringify(original));
-  const dirty = JSON.stringify(draft) !== saved;
+  const [saved, setSaved] = useState(editableContent(original));
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const dirty = editableContent(draft) !== saved;
   const candidate = draft.candidates[active] || draft.candidates[0];
   const count = draft.candidates.length * draft.seeds.length * draft.workloads.length;
   useEffect(() => {
@@ -77,13 +96,20 @@ export function Editor({
     });
   async function saveDraft() {
     const value = await act(draft.session, 'save', { ...draft, workflow: draft.id });
-    setDraft(value);
-    setSaved(JSON.stringify(value));
-    store(localKey, value);
+    if (mounted.current) {
+      setDraft((current) =>
+        editableContent(current) === editableContent(draft)
+          ? value
+          : { ...current, revision: value.revision },
+      );
+      setSaved(editableContent(value));
+    }
     await reload();
     return value as Experiment;
   }
   async function submit(run = false) {
+    if (busy) return;
+    const startingLocation = window.location.hash;
     setBusy(true);
     setError('');
     try {
@@ -96,7 +122,7 @@ export function Editor({
         });
         store(localKey, null);
         await reload();
-        if (route().session === workspace.session) nav(workspace.session, 'runs');
+        if (window.location.hash === startingLocation) nav(workspace.session, 'runs');
       }
       setReview(false);
     } catch (failure) {
@@ -107,11 +133,13 @@ export function Editor({
   }
   if (!candidate) return null;
   async function arrangeMeasurement() {
+    if (busy) return;
+    const startingLocation = window.location.hash;
     setBusy(true);
     setError('');
     try {
       const value = await saveDraft();
-      if (route().session === workspace.session) onMeasure(value);
+      if (mounted.current && window.location.hash === startingLocation) onMeasure(value);
     } catch (error) {
       setError((error as Error).message);
     } finally {
@@ -119,11 +147,14 @@ export function Editor({
     }
   }
   async function preserveDraft() {
+    if (busy) return;
+    const startingLocation = window.location.hash;
     setBusy(true);
     try {
       const value = await act(draft.session, 'create', { ...draft, source: original.key });
       await reload();
-      if (route().session === workspace.session) nav(workspace.session, 'plans', value.key);
+      if (mounted.current && window.location.hash === startingLocation)
+        nav(workspace.session, 'plans', value.key);
     } catch (error) {
       setError((error as Error).message);
     } finally {
@@ -148,7 +179,7 @@ export function Editor({
         <div className="actions">
           <span className="save-state">
             {dirty ? (
-              t('Changes saved in this browser')
+              t(storageAvailable() ? 'Changes saved in this browser' : 'Changes kept in this tab')
             ) : (
               <>
                 <Check size={13} />
@@ -164,7 +195,7 @@ export function Editor({
             <Cpu size={15} />
             {t('Arrange measurement')}
           </Button>
-          <Button className="primary" onClick={() => setReview(true)}>
+          <Button className="primary" disabled={busy} onClick={() => setReview(true)}>
             <Play size={15} />
             {t('Run simulations')}
           </Button>
@@ -494,7 +525,7 @@ export function Editor({
                     const count = Math.max(1, Math.min(12, Number(event.target.value)));
                     value.seeds = Array.from(
                       { length: count },
-                      (_, index) => (value.seeds[0] || 42) + index,
+                      (_, index) => (value.seeds[0] ?? 42) + index,
                     );
                   })
                 }

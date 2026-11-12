@@ -4,6 +4,7 @@ import {
   isValidElement,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactElement,
   type ReactNode,
@@ -1000,6 +1001,15 @@ export function ExperimentReflection({
 }) {
   const key = `mlab-note-reflection-${experiment.key}`;
   const [text, setText] = useState(() => stored(key, ''));
+  const currentDraft = useRef({ key, text });
+  currentDraft.current = { key, text };
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const [data, setData] = useState<{ key: string; record?: Data; error?: string }>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -1035,13 +1045,19 @@ export function ExperimentReflection({
     (note) => note.session === workspace.session && note.refs?.includes(experiment.key),
   );
   async function save() {
-    if (!text.trim()) return;
+    if (!text.trim() || busy) return;
     setBusy(true);
     setError('');
     try {
       await act(workspace.session, 'note', { text: text.trim(), refs: [experiment.key] });
-      setText('');
-      store(key, '');
+      if (
+        mounted.current &&
+        currentDraft.current.key === key &&
+        currentDraft.current.text === text
+      ) {
+        setText('');
+        store(key, '');
+      }
       reload();
     } catch (problem) {
       setError((problem as Error).message);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -28,6 +28,7 @@ import {
   metric,
   nav,
   number,
+  openReference,
   secondaryMetric,
   store,
   stored,
@@ -643,6 +644,14 @@ export function RunDetail({
             <details>
               <summary>{t('Execution log')}</summary>
               <pre>{data.logs || t('No log entries yet.')}</pre>
+              {data.logs_truncated && (
+                <p className="muted">{t('Showing the first 2,000 characters.')}</p>
+              )}
+              {data.logs && (
+                <a href={`/api/sessions/${run.session}/runs/${run.id}/logs`} download>
+                  {t('Download complete log')}
+                </a>
+              )}
             </details>
           </section>
         </div>
@@ -1007,6 +1016,17 @@ export function Notes({
 }) {
   const noteKey = `mlab-note-${workspace.session}-${compact ? refs.join(',') : 'task'}`;
   const [text, setText] = useState(stored(noteKey, ''));
+  const currentNote = useRef({ key: noteKey, text });
+  currentNote.current = { key: noteKey, text };
+  const mounted = useRef(true);
+  const previewRequest = useRef(0);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      ++previewRequest.current;
+    };
+  }, []);
   useEffect(() => {
     store(noteKey, text);
   }, [noteKey, text]);
@@ -1022,10 +1042,17 @@ export function Notes({
     .slice()
     .reverse();
   async function save() {
+    if (busy || !text.trim()) return;
     setBusy(true);
+    setError('');
     try {
       await act(workspace.session, 'note', { text, refs });
-      setText('');
+      if (
+        mounted.current &&
+        currentNote.current.key === noteKey &&
+        currentNote.current.text === text
+      )
+        setText('');
       await reload();
     } catch (error) {
       setError((error as Error).message);
@@ -1034,20 +1061,26 @@ export function Notes({
     }
   }
   async function choose(value: string) {
+    const request = ++previewRequest.current;
     setSelection(value);
     setPreview(null);
     setError('');
     if (!value) return;
     const [session, ...parts] = value.split('/');
     try {
-      setPreview(
-        await api(
-          `/api/sessions/${session}/preview/conclude?candidate=${encodeURIComponent(parts.join('/'))}`,
-        ),
+      const preview = await api(
+        `/api/sessions/${session}/preview/conclude?candidate=${encodeURIComponent(parts.join('/'))}`,
       );
+      if (request === previewRequest.current) setPreview(preview);
     } catch (error) {
-      setError((error as Error).message);
+      if (request === previewRequest.current) setError((error as Error).message);
     }
+  }
+  function closeConclusion() {
+    ++previewRequest.current;
+    setConclusion(false);
+    setSelection('');
+    setPreview(null);
   }
   async function submit() {
     setBusy(true);
@@ -1055,7 +1088,7 @@ export function Notes({
     try {
       await act(session, 'conclude', { candidate: parts.join('/'), confirm: true });
       await reload();
-      setConclusion(false);
+      closeConclusion();
     } catch (error) {
       setError((error as Error).message);
     } finally {
@@ -1113,7 +1146,7 @@ export function Notes({
             <ReactMarkdown>{note.text}</ReactMarkdown>
             <div className="reference-chips">
               {note.refs.map((ref: string) => (
-                <button key={ref} onClick={() => nav(workspace.task, 'runs', ref)}>
+                <button key={ref} onClick={() => openReference(ref)}>
                   {ref}
                   <ArrowUpRight size={12} />
                 </button>
@@ -1154,13 +1187,17 @@ export function Notes({
       )}
       <Modal
         open={conclusion}
-        onClose={() => setConclusion(false)}
+        onClose={closeConclusion}
         title={t('Submit a conclusion')}
         description={t('Choose a configuration and review the evidence supporting it.')}
       >
         <label>
           {t('Configuration')}
-          <select value={selection} onChange={(event) => choose(event.target.value)}>
+          <select
+            value={selection}
+            disabled={busy}
+            onChange={(event) => choose(event.target.value)}
+          >
             <option value="">{t('Choose a configuration')}</option>
             {workspace.experiments
               .filter((item) => item.approved)
@@ -1186,7 +1223,7 @@ export function Notes({
         )}
         <ErrorLine text={error} />
         <div className="dialog-actions">
-          <Button onClick={() => setConclusion(false)}>{t('Close')}</Button>
+          <Button onClick={closeConclusion}>{t('Close')}</Button>
           <Button
             className="primary"
             busy={busy}

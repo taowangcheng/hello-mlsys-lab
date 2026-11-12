@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity,
@@ -29,9 +29,12 @@ import {
   language,
   nav,
   number,
+  openReference as navigateReference,
   route,
   setLanguage,
   setStorageScope,
+  storageAvailable,
+  subscribeStorage,
   store,
   stored,
   t,
@@ -59,6 +62,7 @@ const sections = [
 ] as const;
 
 function App() {
+  const storageReady = useSyncExternalStore(subscribeStorage, storageAvailable);
   const [location, setLocation] = useState(route);
   const [course, setCourse] = useState<Data | null>(null);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
@@ -80,6 +84,8 @@ function App() {
   } | null>(null);
   const contentRef = useRef<HTMLElement>(null);
   const positions = useRef<Record<string, number>>({});
+  const workspaceRequest = useRef(0);
+  const workspaceApplied = useRef(0);
   const [directory, setDirectory] = useState(false);
   const draftCount = workspace?.experiments.filter((item) => item.editable).length || 0;
   useEffect(() => {
@@ -104,17 +110,20 @@ function App() {
   }, [locale]);
   const reload = useCallback(async () => {
     if (!location.session) return;
+    const request = ++workspaceRequest.current;
     const [value, latest] = await Promise.all([
       api(`/api/workbench/sessions/${location.session}`),
       api('/api/course'),
     ]);
-    if (route().session === location.session) {
+    if (request > workspaceApplied.current && route().session === location.session) {
+      workspaceApplied.current = request;
       setWorkspace(value);
       setCourse(latest);
     }
   }, [location.session]);
   useEffect(() => {
     let current = true;
+    workspaceApplied.current = ++workspaceRequest.current;
     setWorkspace(null);
     setError('');
     setRefs([]);
@@ -146,30 +155,22 @@ function App() {
       store(`mlab-session-${location.task}`, location.session);
       updateSelected(stored(`mlab-compare-${location.session}`, []));
       await api(`/api/workbench/sessions/${location.session}/open`, {});
-      const value = await api(`/api/workbench/sessions/${location.session}`);
-      if (current) setWorkspace(value);
+      if (current) await reload();
     }
     load().catch((failure) => {
       if (current) setError(failure.message);
     });
     const timer = setInterval(() => {
       if (!document.hidden && location.session)
-        Promise.all([api(`/api/workbench/sessions/${location.session}`), api('/api/course')])
-          .then(([value, latest]) => {
-            if (current) {
-              setWorkspace(value);
-              setCourse(latest);
-            }
-          })
-          .catch((failure) => {
-            if (current) setError(failure.message);
-          });
+        reload().catch((failure) => {
+          if (current) setError(failure.message);
+        });
     }, 2200);
     return () => {
       current = false;
       clearInterval(timer);
     };
-  }, [location.task, location.session]);
+  }, [location.task, location.session, reload]);
   const viewKey = `${location.session}/${location.page}/${location.key}`;
   useEffect(() => {
     if (manualSetup.current) manualSetup.current.open = false;
@@ -224,6 +225,7 @@ function App() {
   }
   async function create(source?: Experiment, selectedRun?: Run) {
     if (!workspace) return;
+    const startingLocation = window.location.hash;
     setWorking(true);
     setError('');
     try {
@@ -260,7 +262,7 @@ function App() {
         source: selectedRun?.key || source?.key,
       });
       await reload();
-      if (route().session === workspace.session) nav(workspace.session, 'plans', value.key);
+      if (window.location.hash === startingLocation) nav(workspace.session, 'plans', value.key);
     } catch (failure) {
       setError((failure as Error).message);
     } finally {
@@ -277,20 +279,7 @@ function App() {
   }
   function openReference(key: string) {
     if (!workspace || !key.startsWith(workspace.session + '/')) return;
-    const identifier = key.slice(workspace.session.length + 1);
-    const page =
-      identifier === 'report'
-        ? 'report'
-        : identifier === 'overview'
-          ? 'overview'
-          : identifier.includes('/')
-            ? 'config'
-            : identifier.startsWith('m')
-              ? 'measurements'
-              : identifier.startsWith('r')
-                ? 'plans'
-                : 'runs';
-    nav(workspace.session, page, key);
+    navigateReference(key);
     setPane('workbench');
     setFocused(false);
   }
@@ -588,6 +577,15 @@ function App() {
           ))}
         </nav>
         <ErrorLine text={error} />
+        <ErrorLine
+          text={
+            storageReady
+              ? ''
+              : t(
+                  'Browser storage is unavailable. Drafts are kept only while this page stays open.',
+                )
+          }
+        />
         <div className="studio-columns">
           <section className="evidence-workbench" aria-label={t('Experiment workbench')}>
             <nav className="section-nav record-tabs">
