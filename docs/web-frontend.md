@@ -62,7 +62,11 @@ npm run test:browser
 npm run format:check
 ```
 
-Browser checks create a disposable course under `.test-runs/`, serve it on loopback port 8877, and use an isolated browser profile. They exercise student editing, draft recovery, simulation, measurement confirmation, evidence navigation, notes, comparisons, contextual discussion, Chinese, dark mode and mobile width. Screenshots and failure traces go to `workspaces/ui-refactor-check/`. No model is called by those checks.
+The general browser checks create a disposable course under `.test-runs/`, serve it on loopback port 8877, and use an isolated browser profile. They exercise student editing, draft recovery, simulation, measurement confirmation, evidence navigation, notes, comparisons, contextual discussion, Chinese, dark mode and mobile width. Screenshots and failure traces go to `workspaces/ui-refactor-check/`. No live model is called by these checks.
+
+`frontend/tests/all-tasks.spec.ts` additionally completes a full investigation in each of tasks 9.1, 9.2 and 9.3: edit two configurations, simulate every provided workload with repetitions, inspect requests, compare results, measure the selected configuration twice on development and once on every holdout, write an observation, submit a conclusion, open its report, and reuse an earlier configuration in a new draft. Each task exports ten numbered screenshots and `evidence.json` under `workspaces/all-tasks-review/offline/task-9.x/`. Its separate disposable course and generated reports remain under `workspaces/all-tasks-review/offline/course-*`; the test server chooses an available loopback port. Run just these scenarios from `frontend` with `npm run test:browser -- all-tasks.spec.ts`.
+
+These offline scenarios use fixture simulations and hardware stand-in results. Real SoC conversations, recordings and the review gallery are generated separately; follow [the live recording procedure](demo.md#record-all-three-tasks-with-a-real-assistant). Record into a fresh course: a new session does not reset the task-wide measurement budget.
 
 ## Consistency and compatibility
 

@@ -82,6 +82,71 @@ def test_students_can_run_multiple_experiments_without_a_decision_or_assistant(w
     assert exploration.task_view(course, task)["budget"]["used"] == 1
 
 
+@pytest.mark.parametrize("task,candidate_id", [("9.1", "fp8_3b"), ("9.2", "baseline"), ("9.3", "fp8_single")])
+def test_every_task_can_complete_simulation_measurement_notes_and_conclusion_via_api(workspace_path, task, candidate_id):
+    """The full workbench lifecycle includes every validation split and a truthful report."""
+    course = Course(workspace_path)
+    course.ensure("fixture")
+    with TestClient(create_app(workspace_path, "fake", opening=False)) as web:
+        session = web.post(f"/api/workbench/tasks/{task}/open", json={}).json()["session"]
+        prefix = f"/api/workbench/sessions/{session}"
+        def action(name, body):
+            result = web.post(f"{prefix}/{name}", json=body).json()
+            assert result["ok"], result
+            return result
+        def view():
+            return web.get(f"/api/workbench/tasks/{task}").json()
+        def finished(ids):
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                runs = [row for row in view()["runs"] if row["id"] in ids]
+                if len(runs) == len(ids) and all(row["status"] in {"succeeded", "failed", "cancelled", "timed_out"} for row in runs):
+                    assert all(row["status"] == "succeeded" and row["verdict"] == "constraints_met" for row in runs), runs
+                    return runs
+                time.sleep(.1)
+            pytest.fail(f"Runs did not finish: {ids}")
+        initial = view()
+        candidate = next(item for item in initial["templates"] if item["id"] == candidate_id)
+        if task == "9.2":
+            candidate["id"] = "c16"
+            candidate["strategy"]["serving"]["max_concurrency"] = 16
+            candidate["rationale"] = "Reduce concurrency to 16 to retain headroom under the latency limit."
+        workloads = ["development", *initial["overview"]["holdouts"]]
+        experiment = action("create", {"title": f"Validate {candidate['id']} on task {task}",
+                            "question": "Does the configuration meet every task constraint across workloads?",
+                            "candidates": [candidate], "seeds": [42, 43], "workloads": workloads})
+        simulation = action("simulate", {"workflow": experiment["id"], "revision": experiment["revision"], "confirm": True})
+        sim_runs = finished(simulation["runs"])
+        points = [{"candidate": candidate["id"], "workflow": experiment["id"], "workload": workload,
+                   "runs": 2 if workload == "development" else 1,
+                   "rationale": "Check repeatability and transfer to every held-out workload"} for workload in workloads]
+        hardware = []
+        # Separate workload submissions mirror the page's measurement composer.
+        for point in points:
+            preview = action("prepare_measurement", {"points": [point]})
+            assert "plan_hash" in preview, preview
+            submitted = action("measure", {"measurement": preview["id"], "revision": preview["plan_hash"], "confirm": True})
+            hardware.extend(finished(submitted["run_ids"]))
+        refs = [row["key"] for row in [*sim_runs, *hardware]]
+        note = action("note", {"text": "All requested workloads passed in this demonstration. These synthetic results do not establish real GPU performance.", "refs": refs})
+        assert note["refs"] == refs
+        conclusion = action("conclude", {"candidate": f"{experiment['id']}/{candidate['id']}", "confirm": True})
+        final = view()
+        assert final["conclusions"][-1]["conclusion"] == "mock_only", conclusion
+        assert len(final["notes"]) == 1
+        assert final["budget"]["used"] == len(workloads) + 1
+        assert final["budget"]["remaining"] >= 0
+        for rows in (sim_runs, hardware):
+            assert {row["split"] for row in rows} == {"development", "repeat", "holdout"}
+            assert {row["holdout"] for row in rows if row["split"] == "holdout"} == set(workloads[1:])
+        report = web.get(f"/api/sessions/{session}/records/report").json()
+        assert report["ok"] and candidate["id"] in report["markdown"]
+        assert (workspace_path / session / "report.md").is_file()
+        print(json.dumps({"task": task, "candidate": candidate, "budget": final["budget"],
+                          "conclusion": final["conclusions"][-1]["conclusion"],
+                          "runs": [{key: row.get(key) for key in ("id", "role", "split", "holdout", "key_value", "verdict")} for row in final["runs"]]}))
+
+
 def test_a_student_can_arrange_measurement_directly_from_a_draft(workspace_path):
     course, root = setup(workspace_path)
     experiment = draft(course, root)
@@ -238,6 +303,59 @@ def test_assistant_can_propose_but_cannot_execute_or_write_student_notes(workspa
         exploration.action(root, "note", {"text": "A student observation"}, author="assistant")
 
 
+@pytest.mark.parametrize("task,payload,ids", [
+    ("9.1", {"template_ids": ["int4_7b", "fp8_3b"]}, ["int4_7b", "fp8_3b"]),
+    ("9.2", {"variants": [
+        {"template_id": "baseline", "id": "c16", "changes": [{"field": "serving.max_concurrency", "value": "16"}]},
+        {"template_id": "baseline", "id": "c20", "changes": [{"field": "serving.max_concurrency", "value": "20"}]}]}, ["c16", "c20"]),
+    ("9.3", {"variants": [
+        {"template_id": "fp8_single", "id": "fp8_single", "changes": []},
+        {"template_id": "fp8_single", "id": "int4_control", "changes": [{"field": "deployments.0.weight_precision", "value": "INT4"}]}]}, ["fp8_single", "int4_control"]),
+])
+def test_structured_example_drafts_copy_complete_candidates_and_only_requested_changes(workspace_path, task, payload, ids):
+    from mlab.core.workspace import explicit_candidate
+    course, root = setup(workspace_path, task)
+    templates = {item["id"]: item for item in exploration.task_view(course, task)["templates"]}
+    async def scenario():
+        runtime = TaskRuntime(root.name, root, Bus(), lambda _: None, opening=False)
+        runtime.exploration = True
+        output, failed = await LabTools(runtime).execute("Explore", {"action": "draft", "title": "Controlled comparison", **payload})
+        assert not failed, output
+        return json.loads(output)
+    result = asyncio.run(scenario())
+    assert [item["id"] for item in result["candidates"]] == ids
+    assert result["editable"] and not result["runs"] and result["author"] == "assistant"
+    if task == "9.1":
+        assert result["candidates"] == [explicit_candidate(templates[item]) for item in ids]
+    elif task == "9.2":
+        assert [item["strategy"]["serving"]["max_concurrency"] for item in result["candidates"]] == [16, 20]
+        assert all(item["strategy"]["deployments"] == templates["baseline"]["strategy"]["deployments"] for item in result["candidates"])
+    else:
+        first, second = result["candidates"]
+        assert first == explicit_candidate(templates["fp8_single"])
+        assert second["strategy"]["deployments"][0]["weight_precision"] == "INT4"
+        expected = copy.deepcopy(first["strategy"])
+        expected["deployments"][0]["weight_precision"] = "INT4"
+        assert second["strategy"] == expected
+    assert not exploration.task_view(course, task)["runs"]
+
+
+def test_structured_variants_cannot_change_task_rules_or_bypass_parameter_validation(workspace_path):
+    course, root = setup(workspace_path)
+    async def scenario():
+        runtime = TaskRuntime(root.name, root, Bus(), lambda _: None, opening=False)
+        runtime.exploration = True
+        tools = LabTools(runtime)
+        for field, value in [("constraints.0.value", "9999"), ("serving.max_concurrency", "10000"), ("deployments.9.weight_precision", "INT4")]:
+            output, failed = await tools.execute("Explore", {"action": "draft", "title": "Invalid change", "variants": [
+                {"template_id": "baseline", "id": "invalid", "changes": [{"field": field, "value": value}]}]})
+            assert failed, output
+        output, failed = await tools.execute("Bash", {"command": "mlab list"})
+        assert failed and "template_ids" in output and "mlab task show" in output
+    asyncio.run(scenario())
+    assert not exploration.task_view(course, "9.2")["experiments"]
+
+
 def test_codex_switches_to_exploration_tools_and_creates_an_editable_proposal(workspace_path):
     from test_codex import make_runtime, until
     course, root = setup(workspace_path)
@@ -265,6 +383,59 @@ def test_codex_switches_to_exploration_tools_and_creates_an_editable_proposal(wo
     assert len(view["experiments"]) == 2 and not view["runs"]
     assert view["experiments"][-1]["author"] == "assistant" and view["experiments"][-1]["editable"]
     assert not (root / "analysis/note.md").exists()
+
+
+@pytest.mark.parametrize("previous_revision,changed_policy", [(None, "instructions"), ("obsolete", "tools")])
+def test_exploration_reconnect_migrates_changed_policies_and_resumes_matching_policies(workspace_path, monkeypatch, previous_revision, changed_policy):
+    from test_codex import make_runtime
+    from mlab.web import codex_client
+    course, root = setup(workspace_path)
+    original = draft(course, root)
+    runtime = make_runtime(root)
+    message = runtime.add("student", "Keep this experiment and our earlier discussion.")
+    runtime.meta.update({"session": "test-codex-session", "backend": "codex", "model": codex_client.MODEL,
+                         "interaction": "exploration", "input_tokens": 77, "codex_usage_seen": {"inputTokens": 77}})
+    if previous_revision is not None:
+        runtime.meta["exploration_revision"] = previous_revision
+    runtime.save_meta()
+
+    async def connect():
+        current = make_runtime(root)
+        current.exploration = True
+        client = current.factory(current)
+        methods = []
+        request = client.server.request
+        async def tracked_request(method, params):
+            if method.startswith("thread/"):
+                methods.append(method)
+            return await request(method, params)
+        client.server.request = tracked_request
+        try:
+            await client.connect(current.meta["session"])
+            assert current.meta["input_tokens"] == 77
+            assert "codex_usage_seen" not in current.meta
+            assert message in current.chat.read()
+            assert load(current.meta_path)["exploration_revision"] == current.meta["exploration_revision"]
+            return methods, current.meta["exploration_revision"]
+        finally:
+            await client.disconnect()
+
+    async def scenario():
+        methods, revision = await connect()
+        assert methods == ["thread/start"] and re.fullmatch(r"sha256:[a-f0-9]{64}", revision)
+        assert await connect() == (["thread/resume"], revision)
+        if changed_policy == "instructions":
+            monkeypatch.setattr(codex_client, "EXPLORATION", codex_client.EXPLORATION + "Keep comparisons focused.\n")
+        else:
+            tools = copy.deepcopy(codex_client.TOOLS)
+            tools[0]["inputSchema"]["properties"]["title"]["description"] += " Use a short name."
+            monkeypatch.setattr(codex_client, "TOOLS", tools)
+        methods, updated_revision = await connect()
+        assert methods == ["thread/start"] and updated_revision != revision
+        assert await connect() == (["thread/resume"], updated_revision)
+
+    asyncio.run(scenario())
+    assert exploration.task_view(course, "9.2")["experiments"] == [original]
 
 
 def test_workbench_api_is_usable_without_a_model(workspace_path):

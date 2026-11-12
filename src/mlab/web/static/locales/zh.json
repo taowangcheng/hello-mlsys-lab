@@ -926,5 +926,13 @@
  "truncated": "未完全生成",
  "Loading measurement…": "正在读取实测安排……",
  "Could not load this measurement. Close it and try again.": "未能读取这次实测安排，请关闭后重试。",
- "Not enough measurement runs remain. Choose fewer configurations in a new measurement.": "剩余实测次数不足，请重新安排并减少配置数量。"
+ "Not enough measurement runs remain. Choose fewer configurations in a new measurement.": "剩余实测次数不足，请重新安排并减少配置数量。",
+ "KV cache budget": "KV 缓存容量",
+ "Device placement": "设备分配",
+ "Scheduling priority": "调度优先级",
+ "Preemption policy": "抢占策略",
+ "Alternative prompts": "另一组提示",
+ "Another dependency graph": "另一组依赖图",
+ "Device {number}": "设备 {number}",
+ "Model {number} · {setting}": "模型 {number} · {setting}"
 }

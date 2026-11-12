@@ -134,6 +134,7 @@ export function label(key: string) {
     'serving.chunked_prefill_tokens': 'Prefill chunk size',
     'serving.gpu_memory_utilization': 'GPU memory utilization',
     'serving.kv_fraction': 'KV cache fraction',
+    'serving.kv_budget_gib': 'KV cache budget',
     'serving.continuous_batching': 'Continuous batching',
     'cache.prefix_cache': 'Prefix caching',
     'deployments.model': 'Model',
@@ -143,6 +144,9 @@ export function label(key: string) {
     'deployments.parallel.kind': 'Parallelism',
     'deployments.parallel.degree': 'Parallel degree',
     'deployments.replicas': 'Replicas',
+    'deployments.devices': 'Device placement',
+    'scheduling.priority': 'Scheduling priority',
+    'scheduling.preemption': 'Preemption policy',
     speculative: 'Speculative decoding',
     development: 'Development workload',
     short_prompt_distribution: 'Short prompts',
@@ -150,9 +154,20 @@ export function label(key: string) {
     one_dimension_change: 'Changed workload',
     typical: 'Typical workload',
     long_context: 'Long context',
+    other_prompt_set: 'Alternative prompts',
+    second_dag_same_distribution: 'Another dependency graph',
     'routing.kind': 'Routing policy',
     'routing.policy': 'Routing policy',
   };
+  const deployment = key.match(/^deployments\[(\d+)\]\.(.+)$/);
+  if (deployment) {
+    const field = deployment[2];
+    const device = field.match(/^devices\[(\d+)\]$/);
+    const setting = device
+      ? t('Device {number}', { number: Number(device[1]) + 1 })
+      : t(labels[`deployments.${field}`] || field.replaceAll('_', ' '));
+    return t('Model {number} · {setting}', { number: Number(deployment[1]) + 1, setting });
+  }
   return t(labels[key] || key.replaceAll('_', ' '));
 }
 export function time(value: string) {

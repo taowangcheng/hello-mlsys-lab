@@ -100,7 +100,7 @@ def agent_factory(kind, provider=None):
     legacy_factory = factory(provider)
     def legacy_client(runtime):
         require(not getattr(runtime, "exploration", False), "E_BACKEND_UNAVAILABLE",
-                "Use the Codex assistant for this workbench, or open /classic for the earlier guided interface")
+                "Restart the lab with Codex to discuss experiments here. Open /classic to inspect earlier records")
         return legacy_factory(runtime)
     return legacy_client
 
@@ -224,7 +224,7 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
     async def workbench_chat(request):
         runtime = runtime_of(request)
         if agent == "sdk":
-            return failure("E_BACKEND_UNAVAILABLE", "Use the Codex assistant for this workbench, or open /classic for the earlier guided interface. Experiment controls still work here.")
+            return failure("E_BACKEND_UNAVAILABLE", "Restart the lab with Codex to discuss experiments here. Open /classic to inspect earlier records. Experiment controls still work here.")
         body = await body_of(request)
         text = str(body.get("text") or "").strip()
         if not text:

@@ -39,6 +39,30 @@ Students may also click **Arrange measurement** while editing a draft, without f
 
 The automated browser checks use a fresh disposable course and no live model. Their setup and artifact locations are in [Frontend verification](web-frontend.md#build-and-verify).
 
+## Record all three tasks with a real assistant
+
+The recorder runs a complete example in each task: a real assistant proposes a draft, the student edits and confirms execution, simulations cover the available workloads, measurements include repetitions and holdouts, and the student submits a conclusion. It saves the assistant's actual replies without rewriting them and refreshes the partial transcript after every completed turn, so earlier replies remain available if a later step fails. The performance backends are still the fixture and hardware stand-in.
+
+Start a separate local server from the repository root using a fresh course directory. The launcher reads the SoC credential privately; do not put it in a command or recording:
+
+```bash
+scripts/start-soc.sh workspaces/all-tasks-review/course --port 8878 --no-browser --no-opening
+```
+
+In another terminal, after installing the isolated browser described in [Frontend verification](web-frontend.md#build-and-verify):
+
+```bash
+cd frontend
+PLAYWRIGHT_BROWSERS_PATH=../.venv/playwright node_modules/.bin/node scripts/record-all-tasks.mjs
+node_modules/.bin/node scripts/build-evidence-index.mjs
+```
+
+With no arguments, the recorder visits 9.1, 9.2 and 9.3 in order. To record particular tasks, append their IDs, for example `scripts/record-all-tasks.mjs 9.2 9.3`. Each recorded task creates a new session, but all sessions share the task's measurement budget. The recording needs 3 measurement runs for task 9.1 and 4 each for tasks 9.2 and 9.3. Use a fresh course for another full take. A repeated invocation replaces that task's exported screenshots and transcript in the same output directory; use a separate output directory to retain different takes.
+
+`MLAB_REVIEW_URL` selects the running server and defaults to `http://127.0.0.1:8878`. `MLAB_REVIEW_DIR` selects the recording directory; by default, both scripts derive the repository location from their own path and use `workspaces/all-tasks-review/live`, independently of the working directory. Use the same directory for the recorder and index generator. The generator writes `index.html` and `README.md` into that directory's parent and can be rerun while tasks are still recording; missing artifacts appear as pending.
+
+Open `workspaces/all-tasks-review/index.html` for the gallery. Each task links its numbered screenshots, full `conversation.md` and `conversation.json`, public `evidence.json`, and `walkthrough.webm`. If a `walkthrough.mp4` is added beside the WebM, the gallery offers both. Videos use normal recording speed; the gallery applies no speed change. The index reads only these public recording artifacts, not credentials, private reasoning or internal tool logs.
+
 ## Legacy guided terminal story
 
 The remaining sections document the earlier guided flow used by terminal demonstrations and the `/classic` page. They are retained to explain existing recordings and records. Their required sequence and confirmation cards do not describe the default workbench.

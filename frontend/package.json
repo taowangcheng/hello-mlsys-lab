@@ -7,8 +7,8 @@
     "build": "tsc --noEmit && vite build",
     "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write src tests *.ts",
-    "format:check": "prettier --check src tests *.ts",
+    "format": "prettier --write src tests scripts *.ts",
+    "format:check": "prettier --check src tests scripts *.ts",
     "test:browser": "PLAYWRIGHT_BROWSERS_PATH=../.venv/playwright playwright test"
   },
   "dependencies": {
