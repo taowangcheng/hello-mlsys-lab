@@ -85,21 +85,21 @@ def summarize(lab, kind, args):
             claim, falsifier = hypothesis_parts(folder.joinpath("hypothesis.md").read_text(encoding="utf-8"))
             plan, candidates, digest = lab.specifications()
             if hash_mismatch(args.get("plan"), digest):
-                will_fail = "The plan hash does not match the current plan; the agent must check the plan again"
+                will_fail = "The plan has changed. Check it again before confirming."
             elif not review:
-                will_fail = "review.md has no plan comments yet"
+                will_fail = "Add your comments before confirming the plan"
             facts = [["Research question", plan["question"]], ["Hypothesis", short(claim, 120)], ["Falsification condition", short(falsifier, 120)],
                      ["Candidates", ", ".join(c["id"] for c in candidates)],
                      ["Simulation runs", f"{len(candidates) * len(plan['seeds'])} (seed {', '.join(map(str, plan['seeds']))})"],
                      ["Plan comments", short(review) or "None"]]
-            effects = ["The hypothesis, plan, candidates and comments are frozen",
-                       "The agent then submits the simulations; no hardware budget is used"]
+            effects = ["Keep this version of the hypothesis, plan, candidates and comments for comparison",
+                       "Start the simulations without using any hardware runs"]
         elif kind == "measure_approve":
             m = lab.measurement()
             record = m["id"]
             _, points, digest = lab.measure_points(m)
             if hash_mismatch(args.get("plan"), digest) or m.get("checked_hash") != digest:
-                will_fail = "The hardware points changed; run mlab measure check first"
+                will_fail = "The measurement points changed. Check them again before confirming."
             total = sum(p["runs"] for p in points)
             budget = lab.hardware_budget()
             lines = []
@@ -118,7 +118,7 @@ def summarize(lab, kind, args):
             facts = [["Hardware points", lines], ["Budget", f"Uses {total}; {budget['remaining'] - total} left after approval (of {budget['total']})"]]
             if total > budget["remaining"]:
                 will_fail = will_fail or "Not enough hardware budget"
-            effects = ["The simulator's predictions are frozen for comparison with the hardware", f"Uses {total} runs of the hardware budget"]
+            effects = ["Keep these predictions to compare with the measurements", f"Uses {total} runs of the hardware budget"]
         elif kind == "workflow_decide":
             w = lab.workflow()
             record = w["id"]
@@ -129,12 +129,12 @@ def summarize(lab, kind, args):
             if w["status"] == "decided":
                 will_fail = f"The decision of {w['id']} is already confirmed and cannot change; pick another configuration when submitting the conclusion"
             elif not text:
-                will_fail = "decision.md is empty"
+                will_fail = "Write down your decision first"
             elif w["runs"] and not cited:
                 will_fail = "The decision cites no run of this round"
             elif candidate and candidate not in {c["id"] for c in load(lab.folder(w) / "frozen_plan.json")["candidates"]}:
                 will_fail = f"{candidate} is not an approved candidate of this round"
-            effects = ["The decision and the analysis are frozen"]
+            effects = ["Keep this decision and its supporting analysis"]
         elif kind == "conclude":
             reference = args.get("candidate")
             selection = lab.selection_of(reference) if isinstance(reference, str) else lab.current()["selection"]
@@ -153,7 +153,7 @@ def summarize(lab, kind, args):
             target = lab.workflow() if kind == "workflow_unlock" else lab.measurement()
             record = target["id"]
             facts = [["Errors", ", ".join(f"{code}×{count}" for code, count in target["errors"].items()) or "None"]]
-            effects = ["The repeated-error count is reset so the agent can continue"]
+            effects = ["Allow another attempt after reviewing the errors"]
     except LabError as error:
         will_fail = will_fail or str(error)
     except (OSError, KeyError, IndexError, ValueError) as error:

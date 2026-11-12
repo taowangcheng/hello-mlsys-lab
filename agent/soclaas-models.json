@@ -1,0 +1,23 @@
+{
+  "models": [{
+    "slug": "qwen3.8:27b",
+    "display_name": "Qwen 3.8 27B",
+    "description": "SoCLaaS Qwen model, verified against the live catalog on 2026-11-12",
+    "base_instructions": "Help the user with their lab work. Follow the supplied workspace instructions and use only the provided lab tools.",
+    "default_reasoning_level": "low",
+    "supported_reasoning_levels": [{"effort": "low", "description": "Concise reasoning"}, {"effort": "medium", "description": "More reasoning"}, {"effort": "xhigh", "description": "Extended reasoning"}],
+    "shell_type": "shell_command",
+    "visibility": "list",
+    "supported_in_api": true,
+    "priority": 0,
+    "support_verbosity": false,
+    "supports_reasoning_summaries": false,
+    "supports_parallel_tool_calls": false,
+    "context_window": 262144,
+    "auto_compact_token_limit": 200000,
+    "truncation_policy": {"mode": "tokens", "limit": 16000},
+    "experimental_supported_tools": [],
+    "input_modalities": ["text"],
+    "prefer_websockets": false
+  }]
+}

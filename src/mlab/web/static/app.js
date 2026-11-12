@@ -5,15 +5,15 @@ import { barChart, format, pairedChart, ratioChart, timelineChart, unitOf } from
 import { LANGUAGES, language, load, preferred, remember, t, tm } from "./i18n.js";
 
 // Labels are written in English and shown through t(); server sentences go through tm().
-const SOURCE = { student: "Verbatim", agent: "Agent draft", mlab: "Computed by mlab" };
+const SOURCE = { student: "Your words", agent: "Draft", mlab: "Results" };
 const SESSION = /^\d\.\d-\d+$/;  // A session's id: its task and number, e.g. 9.2-1.
 const STATUS = { draft: "Draft", approved: "Approved", submitted: "Submitted", decided: "Decided", measured: "Measured", queued: "Queued",
                  running: "Running", succeeded: "Succeeded", failed: "Failed", cancelled: "Cancelled", timed_out: "Timed out", completed: "Completed" };
 const VERDICT = { constraints_met: "Constraints met", constraints_violated: "Constraints violated", not_evaluated: "Not evaluated" };
 const CARD_STATE = { pending: "Pending", approved: "Approved", denied: "Denied", cancelled: "Cancelled", answered: "Answered",
-                     expired: "Expired (mlab web restarted)" };
+                     expired: "Expired after restart" };
 const BUSY = ["running", "waiting_approval", "waiting_answer"];
-// Questions "Ask agent" puts in the message box, in the student's own voice.
+// Questions "Discuss this" puts in the message box, in the student's own voice.
 const ASK = { round: "Do this round's results support my hypothesis?", run: "What does this run's result show?",
               measurement: "Do the hardware results match the simulation? If not, what might explain the gap?",
               overview: "What evidence is still missing before I can submit a conclusion?", report: "Which conclusions in this report hold up?",
@@ -90,6 +90,12 @@ function statusText(code) {
   return t(STATUS[code] || code || "");
 }
 
+function valueLabel(value) {
+  return ({ mock_only: t("Verified with demo data"), hardware_validated: t("Validated on hardware"),
+    simulation_validated: t("Supported by simulation"), unresolved: t("More evidence needed"),
+    development: t("Development workload"), repeat: t("Repeated run"), holdout: t("Holdout workload") })[value] || value;
+}
+
 function itemLabel(item) {
   if (item.kind === "round") return t("Simulation round {n}", { n: item.iteration });
   if (item.kind === "measurement") return t("Measurement {id}", { id: item.id });
@@ -119,7 +125,7 @@ function src(source) {
 }
 
 function section(title, source, ...content) {
-  return el("section", { class: "section" }, el("header", {}, el("h3", { text: title }), source ? src(source) : null), ...content);
+  return el("section", { class: "section" }, el("header", {}, el("h3", { text: title }), source === "student" ? src(source) : null), ...content);
 }
 
 function textBlock(text, empty = "Not written yet") {
@@ -138,7 +144,7 @@ function withoutHeadings(text) {
 
 // A card or preview fact from the server: a sentence, or a list of them shown one per line.
 function factValue(value) {
-  return Array.isArray(value) ? el("div", {}, value.map((line) => el("div", { text: tm(line) }))) : tm(value);
+  return Array.isArray(value) ? el("div", {}, value.map((line) => el("div", { text: tm(line) }))) : tm(valueLabel(value));
 }
 
 function kv(pairs) {
@@ -233,7 +239,7 @@ async function api(path, body, attempt = 0) {
     try {
       response = await fetch(path, { credentials: "same-origin", signal: controller.signal, ...options });
     } catch {
-      return again({ ok: false, error: { code: "E_NETWORK", message: controller.signal.aborted ? t("The server timed out (the port forward may be slow)") : t("Cannot reach mlab web; check that it is still running") } });
+      return again({ ok: false, error: { code: "E_NETWORK", message: controller.signal.aborted ? t("The server timed out (the port forward may be slow)") : t("Could not connect to the lab. Check that the service is running.") } });
     }
     try {
       return await response.json();
@@ -295,7 +301,7 @@ async function submitForm(kind, body, status, { form, done, message } = {}) {
     if (result.ok) {
       if (form) dropDraft(form);
       const then = body.then || "notify";
-      toast(message || t(then === "save" ? "Saved" : then === "confirm" ? "Saved and confirmed" : "Saved; agent notified"));
+      toast(message || t(then === "save" ? "Saved" : then === "confirm" ? "Saved and confirmed" : "Saved; continuing"));
       status.replaceChildren();
       if (done) done(result);
       refreshAll();
@@ -303,7 +309,7 @@ async function submitForm(kind, body, status, { form, done, message } = {}) {
     }
     status.replaceChildren(el("p", { class: "form-error", text: tm(result.error?.message) || t("Failed") }));
     if (result.error?.code === "E_AGENT_BUSY") {
-      status.append(button(t("Stop the agent and submit"), "small", async () => handle(await sessionApi(`forms/${kind}`, { ...body, interrupt: true }))));
+      status.append(button(t("Stop and submit"), "small", async () => handle(await sessionApi(`forms/${kind}`, { ...body, interrupt: true }))));
     }
   };
   handle(await sessionApi(`forms/${kind}`, body));
@@ -470,13 +476,13 @@ function renderFacts() {
   const current = state();
   const budget = current.budget?.hardware;
   const theme = stored("mlab-theme", "auto");
-  const agentLabel = app.course?.agent === "fake" ? t("Example agent (offline)") : t("Model: {name}", { name: app.course?.provider || t("Claude Code account") });
+  const agentLabel = app.course?.agent === "fake" ? t("Offline preview") : t("{name}", { name: app.course?.model_label || t("Experiment assistant") });
   const other = language() === "zh" ? "en" : "zh";
   const themeLabel = t({ auto: "Theme: system", light: "Theme: light", dark: "Theme: dark" }[theme]);
   fill($("#facts"),
     budget ? el("span", { class: "fact", title: t("The hardware budget is per task and shared by its sessions; runs that fail because of the environment are not counted"),
                           text: t("Hardware runs left: {left}/{total}", { left: budget.remaining, total: budget.total }) }) : null,
-    el("span", { class: "fact placeholder-tag", title: tm(app.course?.notice) || "", text: t("Placeholder numbers") }),
+    el("span", { class: "fact placeholder-tag", title: tm(app.course?.notice) || "", text: t("Demo data") }),
     el("span", { class: "fact", text: agentLabel }),
     el("button", { type: "button", class: "btn icon", title: themeLabel, "aria-label": themeLabel, text: { auto: "◐", light: "☀", dark: "☾" }[theme], onclick: cycleTheme }),
     // The other language, named in itself. Switching reloads the page; drafts are kept in the browser.
@@ -514,7 +520,7 @@ function renderSessions() {
   const nodes = [el("div", { class: "side-head" }, el("h3", { text: t("Sessions") }),
     button(t(app.picking ? "Cancel" : "New session"), app.picking ? "ghost small" : "small primary", () => { app.picking = !app.picking; renderSessions(); }))];
   if (app.picking) {
-    nodes.push(el("div", { class: "picker" }, el("p", { class: "note", text: t("A new session starts a task from scratch, with its own records and agent. Sessions of the same task share the hardware budget.") }),
+    nodes.push(el("div", { class: "picker" }, el("p", { class: "note", text: t("Start a fresh attempt. Earlier records are kept, and attempts at the same task share the available hardware runs.") }),
       tasks.map((task) => button(`${task.task} ${t(task.title)}`, "pick", () => startSession(task.task)))));
   }
   if (!list.length) nodes.push(el("p", { class: "empty", text: t("No sessions yet. Click “New session” to pick a task.") }));
@@ -540,13 +546,13 @@ function sessionItem(item) {
     el("span", { class: "session-name" }, t("Session {n}", { n: item.number }), el("small", { class: "note", text: when(item.created_at) }),
       app.unread[item.id] ? el("span", { class: "tab-unread", text: app.unread[item.id] }) : null),
     badge.text ? el("span", { class: `tab-badge tone-${badge.tone}`, text: t(badge.text) }) : null,
-    conclusion ? el("span", { class: "note", text: t("Conclusion: {value}", { value: conclusion }) }) : null));
+    conclusion ? el("span", { class: "note", text: t("Conclusion: {value}", { value: valueLabel(conclusion) }) }) : null));
 }
 
 async function loadCourse() {
   const result = await api("/api/course");
   if (!result.ok) {
-    $("#record").replaceChildren(el("div", { class: "banner warn", text: t("{message}. Reload the page.", { message: tm(result.error?.message) || t("Not connected to mlab web") }) }));
+    $("#record").replaceChildren(el("div", { class: "banner warn", text: t("{message}. Reload the page.", { message: tm(result.error?.message) || t("Not connected to the lab") }) }));
     return result;
   }
   app.course = result;
@@ -572,11 +578,14 @@ function showWelcome() {
   renderSessions();
   renderFacts();
   $("#recnav").replaceChildren();
-  fill($("#record"), el("div", { class: "record-head" }, el("div", { class: "record-title" }, el("h2", { text: t("Choose a task") }))),
-    el("p", { class: "lead", text: t("Each session works through a task from scratch, with its own records and agent. Start a new session at any time; earlier sessions are kept. Sessions of the same task share the hardware budget.") }),
+  fill($("#record"), el("div", { class: "welcome" }, el("p", { class: "eyebrow", text: t("ML systems, one experiment at a time.") }),
+    el("h1", { text: t("Choose a task") }),
+    el("p", { class: "lead", text: t("Ask a question, compare a few ideas, then test the most promising one. Your notes and results stay together throughout the experiment.") }),
+    el("p", { class: "welcome-path", text: t("Plan, simulate, measure, reflect.") })),
     el("div", { class: "tasks" }, (app.course?.tasks || []).map((task) => el("div", { class: "section task-card" }, el("span", { class: "task-id", text: task.task }),
-      el("h3", { text: t(task.title) }), button(t("Start"), "primary", () => startSession(task.task))))));
-  $("#right").replaceChildren(el("p", { class: "empty", text: t("Start a session to chat with the agent here.") }));
+      el("h3", { text: t(task.title) }), el("p", { text: task.task === "9.1" ? t("Explore model choices under a fixed budget.") : task.task === "9.2" ? t("Balance response time and serving throughput.") : t("Test whether a good configuration holds up under change.") }),
+      button(t("Start"), "primary", () => startSession(task.task))))));
+  $("#right").replaceChildren(el("p", { class: "empty", text: t("Choose a task to begin the discussion.") }));
 }
 
 // ---------- the record directory, on top of the middle column: timeline, configurations, compare tray ----------
@@ -663,7 +672,7 @@ function directory(notebook) {
       if (open) {
         items.push(el("li", {}, el("ul", { class: "dir-runs" }, item.runs.map((run) => el("li", { onclick: () => go(run.id), title: run.id },
           el("span", { class: run.verdict === "constraints_met" ? "ok" : run.verdict === "constraints_violated" ? "bad" : null, text: run.id }),
-          el("span", { class: "note", text: `${run.candidate}${run.split !== "development" ? ` · ${run.holdout || run.split}` : ""}` }))))));
+          el("span", { class: "note", text: `${run.candidate}${run.split !== "development" ? ` · ${run.holdout || valueLabel(run.split)}` : ""}` }))))));
       }
     }
   }
@@ -707,7 +716,7 @@ function head(title, crumbs, actions = [], status) {
 
 function ask(kind, ids) {
   const refs = [].concat(ids).map((id) => `@${id}`).join(" ");
-  return button(t("Ask agent"), "ghost small", () => prefill(`${refs} ${t(ASK[kind])}`.trim()));
+  return button(t("Discuss this"), "ghost small", () => prefill(`${refs} ${t(ASK[kind])}`.trim()));
 }
 
 function crumbs() {
@@ -727,14 +736,14 @@ function viewOverview(notebook) {
   const validation = notebook.validation;
   const latest = notebook.conclusion;
   const nodes = [head(t("Overview"), [[crumbs()[0][0], null]],
-    [ask("overview", []), notebook.report ? button(t("View report"), "ghost small", () => go("report")) : null], latest ? t("Submitted: {conclusion}", { conclusion: latest.conclusion }) : null)];
+    [ask("overview", []), notebook.report ? button(t("View report"), "ghost small", () => go("report")) : null], latest ? t("Submitted: {conclusion}", { conclusion: valueLabel(latest.conclusion) }) : null)];
   if (current.step === "next_step") nodes.push(nextStepPanel());
   if (["new_round", "hypothesis", "falsifier"].includes(current.step) && !current.workflow) nodes.push(hypothesisForm(null));
   nodes.push(section(t("Research question"), "agent", textBlock(notebook.question, "No research question in round 1's plan yet")));
   nodes.push(section(t("Selection and conclusion"), "mlab", kv([
     [t("Current selection"), notebook.selection ? el("a", { href: link(notebook.selection), text: notebook.selection }) : t("None")],
-    [t("Submitted conclusion"), latest ? t("{conclusion} ({config}, {at})", { conclusion: latest.conclusion, config: latest.config, at: when(latest.at, true) }) : t("None")],
-    [t("Conclusion if submitted now"), validation?.conclusion], [t("Basis"), tm(validation?.reason || latest?.reason)],
+    [t("Submitted conclusion"), latest ? t("{conclusion} ({config}, {at})", { conclusion: valueLabel(latest.conclusion), config: latest.config, at: when(latest.at, true) }) : t("None")],
+    [t("Conclusion if submitted now"), valueLabel(validation?.conclusion)], [t("Basis"), tm(validation?.reason || latest?.reason)],
     [t("Hardware budget"), t("{used} used, {left} left of {total}", { used: notebook.budget.used, left: notebook.budget.remaining, total: notebook.budget.total })]]),
     meter(notebook.budget.used, notebook.budget.total)));
   if (validation) nodes.push(section(t("Validation matrix (current selection)"), "mlab", validationTable(validation)));
@@ -757,15 +766,15 @@ function viewConfig(config) {
   const status = el("div");
   const nodes = [head(config.id, [...crumbs(), [config.id, null]], [ask("config", config.id)], config.selected ? t("Current selection") : null),
     section(t("Summary"), "mlab", kv([[t("Appears in"), config.names.join(", ")], [t("Conclusion on current evidence"), config.preview], [t("Basis"), tm(config.reason)],
-      [t("Submitted conclusions"), config.conclusions.length ? config.conclusions.join(", ") : null]]))];
+      [t("Submitted conclusions"), config.conclusions.length ? config.conclusions.map(valueLabel).join(", ") : null]]))];
   if (config.chart.bars.length) nodes.push(config.chart.kind === "paired" ? pairedChart(config.chart, { onSelect: (run) => go(run) }) : barChart(config.chart, { onSelect: (run) => go(run) }));
   nodes.push(section(t("Validation matrix"), "mlab", validationTable({ candidate: config.id, matrix: config.validation, missing: config.missing })));
   nodes.push(section(t("Simulation"), "mlab", simulated.length ? table([{ label: t("Run") }, { label: t("From") }, { label: t("Workload") }, { label: t("Verdict") }, { label: metric, num: true }],
-    simulated.map((run) => [runLink(run.run), run.owner, run.holdout || run.split, verdictCell(run.verdict), format(run.value)])) :
+    simulated.map((run) => [runLink(run.run), run.owner, run.holdout || valueLabel(run.split), verdictCell(run.verdict), format(run.value)])) :
     el("p", { class: "empty", text: t("No simulations yet") })));
   nodes.push(section(t("Hardware"), "mlab", measured.length ? table([{ label: t("Run") }, { label: t("From") }, { label: t("Workload") }, { label: t("Verdict") }, { label: metric, num: true },
-    { label: t("Frozen prediction"), num: true }, { label: t("Gap"), num: true }, { label: t("Shift") }],
-    measured.map((run) => [runLink(run.run), run.owner, run.holdout || run.split, verdictCell(run.verdict), format(run.value),
+    { label: t("Prediction before measurement"), num: true }, { label: t("Gap"), num: true }, { label: t("Shift") }],
+    measured.map((run) => [runLink(run.run), run.owner, run.holdout || valueLabel(run.split), verdictCell(run.verdict), format(run.value),
       run.simulated === undefined ? "—" : format(run.simulated), run.gap_pct === undefined || run.gap_pct === null ? "—" : `${run.gap_pct}%`,
       run.shift === "all" ? t("All requests") : run.shift === "tail" ? t("Tail only") : "—"])) :
     el("p", { class: "empty", text: t("No hardware runs yet. It can be picked as a hardware point.") })));
@@ -821,13 +830,13 @@ function hypothesisForm(round) {
   const status = el("div");
   const previous = round?.hypothesis || {};
   return el("div", { class: "form", id: "form-hypothesis" }, el("h4", { text: t("Hypothesis") }),
-    el("p", { class: "lead", text: t("Saved verbatim to hypothesis.md; the agent does not rewrite it.") }),
+    el("p", { class: "lead", text: t("Write what you expect to happen and why. Your words are kept as written.") }),
     constraintsBox(), round?.previous_decision ? el("div", { class: "banner" }, el("b", { text: t("Previous decision ({id}): ", { id: round.previous_decision.id }) }), short(round.previous_decision.text, 200)) : null,
     textField(key, "claim", t("Hypothesis"), { help: t("Which mechanism causes the problem?"), initial: previous.claim }),
     textField(key, "alternative", t("Alternative explanation (optional)"), { help: t("What else could explain it?"), initial: previous.alternative, rows: 2 }),
     textField(key, "falsifier", t("Falsification condition"), { help: t("Which result, with what outcome, would show the hypothesis is wrong."), initial: previous.falsifier }),
     el("div", { class: "row" },
-      button(t("Save and notify agent"), "primary", () => send("notify")), button(t("Save only"), null, () => send("save"))), status);
+      button(t("Save and continue"), "primary", () => send("notify")), button(t("Save only"), null, () => send("save"))), status);
   function send(then) {
     submitForm("hypothesis", { claim: getDraft(key, "claim", previous.claim || ""), alternative: getDraft(key, "alternative", previous.alternative || ""),
                                falsifier: getDraft(key, "falsifier", previous.falsifier || ""), then }, status,
@@ -846,12 +855,12 @@ function roundPlan(round, form) {
   const check = round.check;
   return [
     round.plan.error ? el("div", { class: "banner warn", text: tm(round.plan.error) }) : null,
-    section(t("Research question and derived requirements"), "agent", textBlock(round.plan.question, "The agent has not written the research question yet"),
+    section(t("Research question and derived requirements"), "agent", textBlock(round.plan.question, "The research question is still being drafted"),
       round.plan.derived_requirements.length ? table([{ label: t("Requirement") }, { label: t("Value") }, { label: t("Derivation") }],
         round.plan.derived_requirements.map((item) => [item.name, item.value, item.derivation])) : null),
     check ? el("div", { class: `banner ${check.stale ? "warn" : ""}`, text: check.stale ? [t("The plan changed after the check and must be checked again."), tm(check.error)].filter(Boolean).join(" ")
-      : t("Plan checked ({hash}…).", { hash: check.hash.slice(0, 19) }) }) : null,
-    round.approval ? el("div", { class: "banner", text: t("Approved at {at}; candidates frozen.", { at: when(round.approval.at, true) }) }) : null,
+      : t("The plan is ready for review.") }) : null,
+    round.approval ? el("div", { class: "banner", text: t("Confirmed at {at}. Results will be compared against this plan.", { at: when(round.approval.at, true) }) }) : null,
     section(t("Candidates (differences from {base})", { base: base || t("the first candidate") }), "agent", round.candidates.length ? table([{ label: t("Candidate") }, { label: t("Rationale") }, { label: t("Differences") }],
       round.candidates.map((item, index) => [round.candidates_frozen ? el("a", { href: link(`${round.id}/${item.id}`), text: item.id }) : item.id, tm(item.rationale), index === 0 ? t("Baseline") :
         (item.diff.map((d) => `${d.field}: ${d.base ?? t("default")} → ${d.value ?? t("default")}`).join("; ") || t("Same as the baseline"))])) : el("p", { class: "empty", text: t("No candidates yet") })),
@@ -871,7 +880,7 @@ function reviewForm(round) {
   const update = () => {
     const values = Object.values(getDraft(key, "verdicts", {}));
     approve.disabled = !round.check || round.check.stale || values.some((value) => value !== "keep");
-    approve.title = approve.disabled ? t("A candidate is marked change or drop, or the plan is not checked; ask the agent to revise first") : "";
+    approve.title = approve.disabled ? t("Revise the marked candidates and check the plan before confirming") : "";
   };
   const rows = round.candidates.map((item) => el("div", { class: "field review-row" }, el("span", { text: item.id }),
     el("div", { class: "verdicts", role: "radiogroup", "aria-label": t("Verdict on {id}", { id: item.id }) }, [["keep", "Keep"], ["change", "Change"], ["drop", "Drop"]].map(([value, label]) =>
@@ -881,9 +890,9 @@ function reviewForm(round) {
       oninput: (event) => setDraft(key, "reasons", { ...getDraft(key, "reasons", {}), [item.id]: event.target.value }) })));
   update();
   return el("div", { class: "form", id: "form-review" }, el("h4", { text: t("Plan review") }),
-    el("p", { class: "lead", text: t("Mark each candidate keep, change or drop, with a reason. Comments are saved verbatim to review.md and frozen with the plan on approval.") }),
+    el("p", { class: "lead", text: t("Keep, change or drop each candidate and explain why. Confirm when the plan is ready to run.") }),
     rows, textField(key, "general", t("Overall comment (optional)"), { rows: 2 }),
-    el("div", { class: "row" }, approve, button(t("Ask the agent to revise"), null, () => send("notify")), button(t("Save only"), null, () => send("save"))), status);
+    el("div", { class: "row" }, approve, button(t("Revise from comments"), null, () => send("notify")), button(t("Save only"), null, () => send("save"))), status);
   function send(then) {
     const chosen = getDraft(key, "verdicts", {});
     const why = getDraft(key, "reasons", {});
@@ -898,16 +907,16 @@ function roundResults(round) {
   const metric = round.chart.metric;
   nodes.push(section(t("Runs"), "mlab", round.runs.length ? table(
     [{ label: t("Run") }, { label: t("Candidate") }, { label: t("Workload") }, { label: t("Verdict") }, { label: metric, num: true }, { label: t("Margin"), num: true }, { label: "" }],
-    round.runs.map((run) => [runLink(run.id), run.candidate, run.holdout || run.split, verdictCell(run.verdict), format(run.key_value),
+    round.runs.map((run) => [runLink(run.id), run.candidate, run.holdout || valueLabel(run.split), verdictCell(run.verdict), format(run.key_value),
       run.margin_pct === null || run.margin_pct === undefined ? "—" : `${run.margin_pct}%`, button(t("Add to compare"), "ghost small", (event) => { event.stopPropagation(); addToTray(run.id); })])) :
-    el("p", { class: "empty", text: t("No runs yet. The agent submits the simulations once the plan is approved.") })));
+    el("p", { class: "empty", text: t("No results yet. Confirm the plan to start simulation.") })));
   return nodes;
 }
 
 function roundDecision(round, form) {
   const claims = round.claims;
   return [
-    section(t("Analysis"), "agent", round.analysis.trim() ? markdown(round.analysis) : el("p", { class: "missing", text: t("The agent has not written the analysis yet") }),
+    section(t("Analysis"), "agent", round.analysis.trim() ? markdown(round.analysis) : el("p", { class: "missing", text: t("The analysis is not ready yet") }),
       claims ? el("p", { class: claims.valid ? "form-ok" : "form-error", text: claims.valid ? t("Number check passed: {n} claims match the run results", { n: claims.checked })
         : t("Number check failed: {errors}", { errors: claims.errors.map(tm).join("; ") }) }) : null),
     section(t("Falsification condition"), "student", textBlock(round.hypothesis.falsifier)),
@@ -937,7 +946,7 @@ function decisionForm(round) {
     el("label", { class: "field" }, el("span", { text: t("Decision and reasons") }), area),
     el("div", { class: "row" }, el("span", { class: "note", text: t("Insert run:") }), round.runs.map((run) => button(run.id, "small", () => insert(run.id)))),
     el("label", { class: "field" }, el("span", { text: t("Selected candidate") }), candidate),
-    el("div", { class: "row" }, button(t("Save and confirm"), "primary", () => send("confirm")), button(t("Save and ask the agent to confirm"), null, () => send("notify")),
+    el("div", { class: "row" }, button(t("Save and confirm"), "primary", () => send("confirm")), button(t("Save and discuss"), null, () => send("notify")),
       button(t("Save only"), null, () => send("save"))), status);
   function send(then) {
     submitForm("decision", { text: getDraft(key, "text", ""), candidate: getDraft(key, "candidate", "") || null, then }, status, { form: key });
@@ -966,7 +975,7 @@ function nextStepPanel() {
     const radio = event.target.closest("label.choice")?.querySelector("input[type=radio]");
     if (radio) radio.checked = true;
   };
-  const source = el("select", { onchange: (event) => { setDraft(key, "source", event.target.value); pick("round", event); } }, el("option", { value: "", text: t("New candidates drafted by the agent") }),
+  const source = el("select", { onchange: (event) => { setDraft(key, "source", event.target.value); pick("round", event); } }, el("option", { value: "", text: t("Explore new candidates") }),
     rounds.map((round) => el("option", { value: round.id, text: t("Candidates from {round}", { round: itemLabel(round) }), selected: getDraft(key, "source", "") === round.id })));
   const candidate = el("input", { type: "text", value: getDraft(key, "candidate", current.selected_candidate || ""), placeholder: t("Candidate ID"),
                                   oninput: (event) => { setDraft(key, "candidate", event.target.value); pick("validate", event); } });
@@ -1007,7 +1016,7 @@ function nextStepPanel() {
 function unlockPanel(target, errors) {
   const status = el("div");
   return el("div", { class: "form", id: "form-unlock" }, el("h4", { text: t("Locked after three identical errors") }),
-    el("p", { class: "lead", text: t("Check the error record and the agent's attempts. Unlocking resets the count so the agent can try another way.") }),
+    el("p", { class: "lead", text: t("Review the failed attempts before allowing another try.") }),
     kv(Object.entries(errors || {}).map(([code, count]) => [code, t("{n} times", { n: count })])),
     button(t("Unlock"), "primary", () => submitForm("unlock", { target }, status)), status);
 }
@@ -1024,7 +1033,7 @@ function viewRun(run) {
     [t("Margin"), run.margin_pct === undefined || run.margin_pct === null ? null : `${run.margin_pct}%`], [t("Failure"), run.failure],
     [t("Progress"), run.progress ? statusText(run.progress.phase) : null]])));
   if (run.paired) {
-    nodes.push(section(t("Matching prediction"), "mlab", el("p", {}, t("Prediction frozen at approval: "), runLink(run.paired.sim_run),
+    nodes.push(section(t("Matching prediction"), "mlab", el("p", {}, t("Prediction before measurement: "), runLink(run.paired.sim_run),
       ` ${t("simulated {value}", { value: format(run.paired.simulated) })}`)));
   }
   if (run.constraints?.length) {
@@ -1072,18 +1081,18 @@ function viewMeasurement(measurement) {
 
 function pointRows(points) {
   return table([{ label: t("Candidate") }, { label: t("Round") }, { label: t("Workload") }, { label: t("No. of runs"), num: true }, { label: t("Reason") }],
-    points.map((point) => [point.candidate, point.workflow || t("latest round"), point.workload, point.runs, point.rationale]));
+    points.map((point) => [point.candidate, point.workflow || t("latest round"), valueLabel(point.workload), point.runs, point.rationale]));
 }
 
 function frozenPoints(measurement) {
   return [section(t("Hardware points"), "student", pointRows(measurement.points)),
-          measurement.predictions ? section(t("Simulator predictions frozen at approval"), "mlab", predictionTable(measurement.predictions)) : null];
+          measurement.predictions ? section(t("Predictions before measurement"), "mlab", predictionTable(measurement.predictions)) : null];
 }
 
 function predictionTable(rows) {
   const metric = app.overview?.key_metrics?.[0];
   return table([{ label: t("Candidate") }, { label: t("Workload") }, { label: t("No. of runs"), num: true }, { label: t("Simulated {metric}", { metric }), num: true }, { label: t("Margin"), num: true }],
-    rows.map((row) => [row.candidate, row.workload, row.runs, row.sim_run ? format(row.simulated) : t("No prediction yet"),
+    rows.map((row) => [row.candidate, valueLabel(row.workload), row.runs, row.sim_run ? format(row.simulated) : t("No prediction yet"),
       row.sim_margin_pct === undefined || row.sim_margin_pct === null ? "—" : `${row.sim_margin_pct}%`]));
 }
 
@@ -1143,7 +1152,7 @@ function pointsForm(measurement) {
   return el("div", { class: "form", id: "form-points" }, el("h4", { text: t("Hardware points") }),
     el("p", { class: "lead", text: t("For each point: candidate, workload, runs and reason. More than one run shows the noise between runs.") }),
     el("label", { class: "field" }, el("span", { text: t("Add a candidate (simulated {metric} and margin shown)", { metric }) }), pick), list, totals,
-    el("div", { class: "row" }, button(t("Save and ask the agent to check"), "primary", () => send("notify")), button(t("Save only"), null, () => send("save"))), status);
+    el("div", { class: "row" }, button(t("Save and check"), "primary", () => send("notify")), button(t("Save only"), null, () => send("save"))), status);
   function send(then) {
     submitForm("points", { points: getDraft(key, "points", points), then }, status, { form: key });
   }
@@ -1164,7 +1173,7 @@ function measurementRuns(measurement) {
   if (!measurement.runs.length) return null;
   const hardware = measurement.runs.filter((run) => run.role === "hardware");
   return [progressList(measurement.runs), hardware.length ? section(t("Hardware runs"), "mlab", table([{ label: t("Run") }, { label: t("Candidate") }, { label: t("Workload") }, { label: t("Verdict") }, { label: t("Value"), num: true }],
-    hardware.map((run) => [runLink(run.id), run.candidate, run.holdout || run.split, verdictCell(run.verdict), format(run.key_value)]))) : null];
+    hardware.map((run) => [runLink(run.id), run.candidate, run.holdout || valueLabel(run.split), verdictCell(run.verdict), format(run.key_value)]))) : null];
 }
 
 // The hardware results next to the simulator's frozen predictions. Reading them is up to you; the agent helps when asked.
@@ -1185,7 +1194,7 @@ function comparisonSections(measurement) {
     pairedChart(measurement.chart, { onSelect: (run) => go(run) }),
     section(t("Simulation vs. hardware"), "mlab", table([{ label: t("Hardware run") }, { label: t("Simulated"), num: true }, { label: t("Hardware"), num: true }, { label: t("Gap"), num: true },
       { label: t("Hardware interval") }, { label: t("Repeats") }, { label: t("Shift") }, { label: "" }],
-      rows.map((row) => [el("span", {}, runLink(row.run_id), el("br"), el("small", { class: "help", text: `${row.candidate}·${row.workload}` })),
+      rows.map((row) => [el("span", {}, runLink(row.run_id), el("br"), el("small", { class: "help", text: `${row.candidate} · ${valueLabel(row.workload)}` })),
         format(row.simulated), format(row.hardware),
         row.gap_pct === null ? "—" : `${row.gap_pct > 0 ? "+" : ""}${row.gap_pct}%`,
         row.hardware_interval ? `${format(row.hardware_interval[0])}–${format(row.hardware_interval[1])}` : "—", row.repeat_values.map((value) => format(value)).join(", ") || "—",
@@ -1199,15 +1208,15 @@ function comparisonSections(measurement) {
       el("p", { class: alignment.rank_flip ? "flag" : "note", text: t(alignment.rank_flip ? "Order (ascending): simulated {sim}; hardware {hw}; the order flipped" : "Order (ascending): simulated {sim}; hardware {hw}",
         { sim: alignment.ranking.simulated.join(" < ") || "—", hw: alignment.ranking.hardware.join(" < ") || "—" }) }),
       alignment.pending.length ? el("p", { class: "note", text: t("Not finished: {runs}", { runs: alignment.pending.join(", ") }) }) : null),
-    el("div", { class: "row" }, button(t("Ask the agent to analyze"), "small", () => prefill(`@${measurement.id} ${t(ASK.measurement)}`))),
+    el("div", { class: "row" }, button(t("Analyze the differences"), "small", () => prefill(`@${measurement.id} ${t(ASK.measurement)}`))),
     el("details", { class: "section" }, el("summary", { text: t("How to read this") }), el("ul", {}, alignment.notes.map((note) => el("li", { text: tm(note) }))))];
 }
 
 function viewReport(report) {
   const status = el("div");
   return [head(t("Report"), [...crumbs(), [t("Report"), null]], [ask("report", []),
-    button(t("Regenerate"), "ghost small", () => submitForm("report", { then: "save" }, status))], report.conclusion ? t("Conclusion: {value}", { value: report.conclusion }) : t("No conclusion yet")),
-  status, report.written ? null : el("div", { class: "banner", text: t("Preview from the current records. Written to report.md when a conclusion is submitted or on “Regenerate”.") }),
+    button(t("Regenerate"), "ghost small", () => submitForm("report", { then: "save" }, status))], report.conclusion ? t("Conclusion: {value}", { value: valueLabel(report.conclusion) }) : t("No conclusion yet")),
+  status, report.written ? null : el("div", { class: "banner", text: t("A summary of the current evidence. Submit a conclusion or regenerate to update it.") }),
   el("div", { class: "section" }, markdown(report.markdown))];
 }
 
@@ -1227,9 +1236,9 @@ function viewCompare(found) {
   nodes.push(barChart(found.chart, { onSelect: (run) => go(run) }));
   nodes.push(section(t("Runs and strategy differences"), "mlab", table([{ label: t("Run") }, { label: t("From") }, { label: t("Source") }, { label: t("Workload") }, { label: t("Verdict") },
     { label: found.key_metric, num: true }, { label: t("Differences from {run}", { run: found.rows[0].run_id }) }],
-    found.rows.map((row) => [runLink(row.run_id), row.owner, t(row.role === "hardware" ? "Hardware" : "Simulation"), row.holdout || row.split, verdictCell(row.verdict),
+    found.rows.map((row) => [runLink(row.run_id), row.owner, t(row.role === "hardware" ? "Hardware" : "Simulation"), row.holdout || valueLabel(row.split), verdictCell(row.verdict),
       format(row.key_metric_value), row.diff.map((d) => `${d.field}: ${d.base ?? t("default")}→${d.value ?? t("default")}`).join("; ") || "—"]))));
-  nodes.push(button(t("Ask the agent to analyze"), "primary", () => prefill(`${runs.map((run) => `@${run}`).join(" ")} ${t(ASK.compare)}`)));
+  nodes.push(button(t("Analyze the differences"), "primary", () => prefill(`${runs.map((run) => `@${run}`).join(" ")} ${t(ASK.compare)}`)));
   return nodes;
 }
 
@@ -1251,13 +1260,14 @@ function renderAgentHead() {
   const busy = ["running", "waiting_approval", "waiting_answer", "connecting"].includes(agent.status);
   const tone = agent.status === "error" ? "error" : ["waiting_approval", "waiting_answer"].includes(agent.status) ? "attention" : busy ? "busy" : "info";
   const tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0);
-  fill(box, el("div", { class: "agent-line" },
-    el("span", { class: `agent-status tone-${tone}`, text: t(agent.label || "Agent offline") }),
+  fill(box, el("h3", { class: "discussion-title", text: t("Experiment discussion") }), el("div", { class: "agent-line" },
+    el("span", { class: `agent-status tone-${tone}`, text: t(agent.label || "Not connected") }),
     agent.queued ? el("span", { class: "chip", text: t("{n} queued", { n: agent.queued }) }) : null,
     el("div", { class: "row" }, busy ? button(t("Stop"), "small", () => sessionApi("agent/interrupt", {})) : null,
       button(t("Reconnect"), "ghost small", () => sessionApi("agent/restart", {}), { title: t("Disconnect and reconnect, keeping the conversation") }))),
-    el("div", { class: "agent-usage", text: t(usage.cost_available === false ? "{turns} turns · {tokens} tokens · cost unavailable" : usage.cost_estimated ? "{turns} turns · {tokens} tokens · ${cost} (estimated)" : "{turns} turns · {tokens} tokens · ${cost}",
-      { turns: usage.turns || 0, tokens: tokens.toLocaleString("en-US"), cost: (usage.cost_usd || 0).toFixed(3) }) }),
+    el("details", { class: "usage-details", open: app.expanded.usage, ontoggle: (event) => { app.expanded.usage = event.target.open; } },
+      el("summary", { text: t("Model usage") }), el("div", { class: "agent-usage", text: t(usage.cost_available === false ? "{turns} turns · {tokens} tokens · cost unavailable" : usage.cost_estimated ? "{turns} turns · {tokens} tokens · ${cost} (estimated)" : "{turns} turns · {tokens} tokens · ${cost}",
+        { turns: usage.turns || 0, tokens: tokens.toLocaleString("en-US"), cost: (usage.cost_usd || 0).toFixed(3) }) })),
     agent.detail ? el("div", { class: "agent-detail", text: tm(agent.detail) }) : null);
 }
 
@@ -1265,7 +1275,17 @@ function renderMessages() {
   const box = $("#messages");
   if (!box) return;
   const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-  fill(box, app.chat.map(message), app.streaming ? el("div", { class: "msg agent streaming", text: app.streaming }) : null, turnCard());
+  const entries = [];
+  for (let i = 0; i < app.chat.length; i++) {
+    const entry = app.chat[i];
+    if (entry.role !== "tool") { entries.push(message(entry)); continue; }
+    const group = [entry];
+    while (app.chat[i + 1]?.role === "tool") group.push(app.chat[++i]);
+    const key = `activity-${entry.id}`;
+    entries.push(el("details", { class: "activity", open: app.expanded[key], ontoggle: (event) => { app.expanded[key] = event.target.open; } },
+      el("summary", { text: t(group.some((item) => !item.result) ? "Working on the experiment…" : "View activity · {n} steps", { n: group.length }) }), group.map(message)));
+  }
+  fill(box, entries, app.streaming ? el("div", { class: "msg agent streaming", text: app.streaming }) : null, turnCard());
   if (nearBottom) box.scrollTop = box.scrollHeight;
 }
 
@@ -1296,8 +1316,9 @@ function message(entry) {
       entry.result ? el("pre", { text: entry.result }) : el("p", { class: "note", text: t("Running…") }));
   }
   if (entry.role === "notice") {
+    if (entry.to === "agent") return null;
     return el("div", { class: `notice ${entry.to === "student" ? "to-student" : ""}` },
-      entry.to === "agent" ? el("span", { class: "notice-tag", text: t("Sent to agent") }) : null, tm(entry.text),
+      tm(entry.text),
       entry.reason ? el("div", { class: "note", text: tm(entry.reason) }) : null,
       entry.action ? el("div", {}, button(t(entry.action.label), "small", () => sessionApi("agent/continue", { owner: entry.action.owner }))) : null);
   }
@@ -1308,16 +1329,16 @@ function message(entry) {
 function approvalCard(entry) {
   const summary = entry.summary || {};
   const pending = entry.state === "pending";
-  const reason = el("textarea", { rows: 2, hidden: true, placeholder: t("Reason for denying (sent to the agent and recorded verbatim)") });
+  const reason = el("textarea", { rows: 2, hidden: true, placeholder: t("What needs to change?") });
   const deny = button(t("Deny"), null, async () => {
     if (reason.hidden) { reason.hidden = false; deny.textContent = t("Confirm denial"); reason.focus(); return; }
     await sessionApi(`approvals/${entry.card_id}`, { decision: "deny", reason: reason.value });
   });
   return el("div", { class: `card ${pending ? "" : "resolved"}` }, cardHead(entry, t(summary.title || "Command")),
-    el("div", { class: "command", text: `$ ${entry.text}` }),
+    el("details", { class: "operation-details" }, el("summary", { text: t("Operation details") }), el("div", { class: "command", text: `$ ${entry.text}` })),
     summary.facts?.length ? kv(summary.facts.map(([name, value]) => [t(name), factValue(value) || "—"])) : null,
     summary.effects?.length ? [el("div", { class: "note", text: t("On approval:") }), el("ul", {}, summary.effects.map((item) => el("li", { text: tm(item) })))] : null,
-    summary.will_fail ? el("div", { class: "banner warn", text: t("mlab will refuse this: {reason}", { reason: tm(summary.will_fail) }) }) : null,
+    summary.will_fail ? el("div", { class: "banner warn", text: t("This step is not ready: {reason}", { reason: tm(summary.will_fail) }) }) : null,
     (summary.warnings || []).map((item) => el("p", { class: "note", text: tm(item) })),
     pending ? [reason, el("div", { class: "row" }, button(t(summary.will_fail ? "Run anyway" : "Approve"), "primary", () => sessionApi(`approvals/${entry.card_id}`, { decision: "allow" })), deny)] : null);
 }
@@ -1333,7 +1354,7 @@ function questionCard(entry) {
   const questions = entry.questions || [];
   const picked = questions.map(() => new Set());
   const others = questions.map(() => el("input", { type: "text", placeholder: t("Other") }));
-  return el("div", { class: `card ${pending ? "" : "resolved"}` }, cardHead(entry, t("Question from the agent"), t("Answer needed")),
+  return el("div", { class: `card ${pending ? "" : "resolved"}` }, cardHead(entry, t("Your input"), t("Answer needed")),
     questions.map((question, index) => el("div", {}, el("p", {}, el("b", { text: question.question })),
       el("div", { class: "options" }, (question.options || []).map((option) => el("label", { class: "choice" },
         el("input", { type: question.multiSelect ? "checkbox" : "radio", name: `${entry.card_id}-${index}`, disabled: !pending,
@@ -1386,7 +1407,7 @@ function mentionables() {
 function renderComposer() {
   const box = $("#composer");
   if (!box) return;
-  const area = el("textarea", { id: "composer-input", rows: 3, placeholder: t("Message the agent. Use @ to cite a record, e.g. @r002 or @r002/c16. Enter sends; Shift+Enter adds a line."),
+  const area = el("textarea", { id: "composer-input", rows: 3, placeholder: t("Share an idea or ask a question. Use @ to refer to a result."),
                                 value: stored(`mlab-compose-${app.session}`, "") });
   const menu = el("ul", { class: "mention", hidden: true, role: "listbox" });
   const stop = el("input", { type: "checkbox", id: "interrupt-first" });
@@ -1446,8 +1467,8 @@ function renderComposerStatus() {
   if (!slot) return;
   const busy = BUSY.includes(app.agent?.status);
   if (!busy && app.stopFirst) app.stopFirst.checked = false;
-  fill(slot, busy ? el("span", { text: t("The agent is working; the message is sent when it finishes") }) : null,
-    busy ? el("label", {}, app.stopFirst, t("Stop the agent first")) : null);
+  fill(slot, busy ? el("span", { text: t("Your message will follow the current reply") }) : el("span", { text: t("Enter to send · Shift+Enter for a new line") }),
+    busy ? el("label", {}, app.stopFirst, t("Stop the current reply first")) : null);
 }
 
 function prefill(text) {
@@ -1510,7 +1531,7 @@ const EVENTS = {
   },
   "chat.delta": (data, dirty) => { if (data.session === app.session) { app.streaming += data.text; dirty.add("messages"); } },
   "approval.request": (data) => { if (data.session !== app.session) toast(t("{session}: approval needed", { session: nameOf(data.session) }), data.session); },
-  "question.request": (data) => { if (data.session !== app.session) toast(t("{session}: question from the agent", { session: nameOf(data.session) }), data.session); },
+  "question.request": (data) => { if (data.session !== app.session) toast(t("{session}: your input is needed", { session: nameOf(data.session) }), data.session); },
   notify: (data) => toast(t("{session}: {message}", { session: nameOf(data.session), message: tm(data.text) }), data.session),
   "course.changed": (data, dirty) => dirty.add("course"),
 };

@@ -460,7 +460,7 @@ class Lab:
         fingerprint = {"backend": backend, "version": BACKEND_VERSIONS[backend]}
         if backend == "llm":
             from ..backends.llm import configuration
-            config = configuration()
+            config = configuration(self.config.get("provider"))
             fingerprint.update(model=config["model"], protocol=config["protocol"],
                                endpoint=os.environ.get("MLAB_BACKEND_IDENTITY") or config["base"])
         return fingerprint
@@ -1123,7 +1123,13 @@ class Lab:
                  "previous_decision": previous, "conclusion": latest["conclusion"] if latest else None,
                  "next_actions": [{"actor": actor, "do": "continue", "say": say, "step": step}]}
         if w:
-            state["context"] = {"question": load(self.folder(w) / "plan.yaml").get("question", ""),
+            # Drafts can be temporarily invalid while the student or assistant edits them.
+            # Validation still rejects them; reading progress must remain available.
+            try:
+                plan = load(self.folder(w) / "plan.yaml")
+            except (OSError, ValueError, LabError):
+                plan = {}
+            state["context"] = {"question": plan.get("question", "") if isinstance(plan, dict) else "",
                                 "iteration": w["iteration"], "selected_candidate": w.get("selected_candidate"),
                                 "hypothesis_path": rel(self.folder(w) / "hypothesis.md"), "review_path": rel(self.folder(w) / "review.md")}
         if m and mstage not in {None, "measured"}:

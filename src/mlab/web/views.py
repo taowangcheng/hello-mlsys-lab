@@ -25,7 +25,7 @@ def readable(path, default=None):
         return load(path), None
     except FileNotFoundError:
         return default, None
-    except (OSError, ValueError, LabError) as error:  # yaml errors are ValueErrors
+    except (OSError, ValueError, LabError) as error:
         return default, f"{path.name} cannot be parsed right now: {str(error).splitlines()[0][:160]}"
 
 
@@ -179,7 +179,7 @@ def round_view(lab, wid):
         try:
             _, _, digest = lab.specifications()
             check = {"hash": w["checked_hash"], "stale": digest != w["checked_hash"]}
-        except LabError as error:
+        except (LabError, ValueError) as error:
             check = {"hash": w["checked_hash"], "stale": True, "error": str(error)}
     runs = [run_summary(lab, lab.store.get("run", r)) for r in w["runs"]]
     development = [r for r in runs if r["split"] == "development" and "key_value" in r]

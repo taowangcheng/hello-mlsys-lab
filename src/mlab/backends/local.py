@@ -321,7 +321,7 @@ def coverage(run, spec, requests):
             "Hardware stand-in: the numbers are made up, not measured on real hardware.",
             "The stand-in adds run noise, parameter error, a missing mechanism and configuration differences by fixed rules."]}
     return {"in_domain": True, "extrapolated": [], "assumptions": [
-        "Placeholder numbers: not real system performance.", "Mock seed/repeat differences are synthetic, not independent hardware measurements."]}
+        "Demo data, not real system performance.", "Mock seed/repeat differences are synthetic, not independent hardware measurements."]}
 
 
 def finalize(root, run_id, status, failure, rows, extra, logs, provenance):

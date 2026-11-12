@@ -12,6 +12,26 @@ from test_history_cli import snapshot, story
 from test_workflow import approve, decided, ready
 
 
+@pytest.mark.parametrize("draft", ["question: missing: quotes\n", "- not a plan mapping\n", ""])
+def test_progress_remains_readable_during_invalid_plan_edit(workspace_path, draft):
+    lab = ready(workspace_path)
+    try:
+        path = lab.folder() / "plan.yaml"
+        original = path.read_text()
+        lab.check()
+        path.write_text(draft)
+        assert views.task_state(lab)["workflow"] == "r001"
+        round_view = views.round_view(lab, "r001")
+        assert round_view["plan"]["question"] == ""
+        assert round_view["candidates"] == []
+        with pytest.raises((LabError, ValueError)):
+            lab.check()
+        path.write_text(original)
+        assert lab.check()["planned_runs"] >= 1
+    finally:
+        lab.close()
+
+
 def concluded_and_continued(path):
     """9.2: a measurement where c20 breaks the SLA, a final measurement of c16 and a conclusion on it; then a new round from the second one."""
     lab = story(path)
@@ -119,10 +139,10 @@ def test_cards_and_views_follow_the_9_2_flow(workspace_path):
     try:
         checked = lab.check()
         card = approvals.summarize(view, "workflow_approve", {"plan": checked["plan_hash"]})
-        assert card["will_fail"] == "review.md has no plan comments yet" and card["record"] == "r001"
+        assert card["will_fail"] == "Add your comments before confirming the plan" and card["record"] == "r001"
         student.write_review(lab, [{"candidate": "baseline", "verdict": "keep", "reason": "the control"}])
         assert approvals.summarize(view, "workflow_approve", {"plan": checked["plan_hash"]})["will_fail"] is None
-        assert approvals.summarize(view, "workflow_approve", {"plan": "sha256:00000000"})["will_fail"].startswith("The plan hash")
+        assert approvals.summarize(view, "workflow_approve", {"plan": "sha256:00000000"})["will_fail"].startswith("The plan has changed")
         shown = views.round_view(view, "r001")
         assert shown["check"] == {"hash": checked["plan_hash"], "stale": False} and shown["editable"]
         diffs = {c["id"]: [d["field"] for d in c["diff"]] for c in shown["candidates"]}
@@ -164,7 +184,7 @@ def test_cards_and_views_follow_the_9_2_flow(workspace_path):
         assert views.measurement_view(view, "m001")["draft"]["checked"]
         card = approvals.summarize(view, "measure_approve", {"plan": checked["plan_hash"]})
         assert card["will_fail"] is None and ["Budget", "Uses 2; 6 left after approval (of 8)"] in card["facts"]
-        assert approvals.summarize(view, "measure_approve", {"plan": "deadbeef00"})["will_fail"].startswith("The hardware points changed")
+        assert approvals.summarize(view, "measure_approve", {"plan": "deadbeef00"})["will_fail"].startswith("The measurement points changed")
         lab.measure_approve(checked["plan_hash"])
         lab.measure_submit()
         assert lab.measure_wait(20)["status"] == "completed"

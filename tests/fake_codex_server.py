@@ -47,7 +47,7 @@ for line in sys.stdin:
         assert params.get("accessToken") or params.get("apiKey")
         send({"id": message["id"], "result": {"type": params["type"]}})
     elif method in {"thread/start", "thread/resume"}:
-        assert params["model"] == "gpt-6-luna" and params["sandbox"] == "read-only"
+        assert params["model"] in {"gpt-6-luna", "qwen3.8:27b"} and params["sandbox"] == "read-only"
         if method == "thread/start":
             assert {x["name"] for x in params["dynamicTools"]} == {"Bash", "Read", "Write", "Edit", "AskUserQuestion"}
             assert all(x["type"] == "function" for x in params["dynamicTools"])

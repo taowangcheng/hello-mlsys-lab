@@ -153,7 +153,7 @@ function frame({ title, note, legend = [], columns, rows, draw }) {
   const head = htmlEl("div", "chart-head");
   const toggle = htmlEl("button", "btn small", t("Table"));
   toggle.type = "button";
-  head.append(htmlEl("h4", "chart-title", title), htmlEl("span", "fact placeholder-tag", t("Placeholder numbers")), toggle);
+  head.append(htmlEl("h4", "chart-title", title), htmlEl("span", "fact placeholder-tag", t("Demo data")), toggle);
   figure.append(head);
   if (note) figure.append(htmlEl("p", "chart-note", note));
   if (legend.length) {
@@ -258,7 +258,7 @@ export function pairedChart({ metric, threshold, bars }, { onSelect } = {}) {
   const flags = (bar) => [bar.flip ? t("Verdict flipped") : "", bar.beyond_noise ? t("Beyond noise") : ""].filter(Boolean);
   return frame({
     title: t(unit ? "Simulation vs. hardware: {metric} ({unit})" : "Simulation vs. hardware: {metric}", { metric, unit }),
-    note: t("Upper bar: the simulator prediction frozen at approval. Lower bar: the hardware result, with its per-request resampling interval (noise between runs not included). ⚑ marks a flipped verdict or a gap beyond noise."),
+    note: t("Upper bar: prediction before measurement. Lower bar: measured result and its per-request resampling interval, excluding variation between runs. ⚑ marks a changed verdict or a gap beyond this interval."),
     legend: [{ label: t("Simulator prediction"), swatch: "sw-s1" }, { label: t("Hardware"), swatch: "sw-s2" }, { label: t("Hardware interval"), line: true }],
     columns: [{ label: t("Hardware point") }, { label: t("Run") }, { label: t("Simulated"), num: true }, { label: t("Hardware"), num: true }, { label: t("Interval") },
               { label: t("Gap"), num: true }, { label: t("Flags") }],
@@ -317,10 +317,10 @@ export function pairedChart({ metric, threshold, bars }, { onSelect } = {}) {
 export function ratioChart({ pairs, shift, run, sim_run: simRun }) {
   const slowest = pairs.filter((pair) => pair.slowest).length;
   const deviations = pairs.map((pair) => (pair.ratio - 1) * 100);
-  const reading = t(shift === "all" ? "most requests shifted the same way (shift=all)" : shift === "tail" ? "only the slowest requests shifted (shift=tail)" : "within noise");
+  const reading = t(shift === "all" ? "most requests shifted the same way" : shift === "tail" ? "only the slowest requests shifted" : "within noise");
   return frame({
     title: t("Per-request TTFT, hardware/simulated: {run} vs. {sim}", { run, sim: simRun }),
-    note: t("Each bar: how much slower (up) or faster (down) a request ran on hardware than in the simulation, in percent, slowest request first. mlab align reads this as: {reading}.", { reading }),
+    note: t("Each bar compares one request with its prediction: slower above zero, faster below zero. The slowest requests come first. Pattern: {reading}.", { reading }),
     legend: [{ label: t("Slowest {n} requests", { n: slowest }), swatch: "sw-s1" }, { label: t("Other requests"), swatch: "sw-gray" }],
     columns: [{ label: t("Request") }, { label: t("Hardware TTFT"), num: true }, { label: t("Simulated TTFT"), num: true }, { label: t("Hardware/simulated"), num: true },
               { label: t("Slowest group") }],

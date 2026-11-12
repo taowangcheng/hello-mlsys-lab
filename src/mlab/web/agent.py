@@ -193,7 +193,7 @@ class TaskRuntime:
         except asyncio.CancelledError:
             raise
         except Exception as error:  # noqa: BLE001 - the page shows it; the next message reconnects and resumes
-            self.add("error", f"Agent error: {str(error)[:300]}")
+            self.add("error", f"Could not complete the reply: {str(error)[:300]}")
             self.told = None
             self.turning = False
             self.set_status("error", str(error)[:300])
@@ -329,7 +329,7 @@ class TaskRuntime:
         self.bus.publish("notify", self.key, text=text, owner=owner)
         if self.busy():
             return  # The agent is working and will see it.
-        self.add("notice", text, to="student", action={"label": "Notify agent", "owner": owner})
+        self.add("notice", text, to="student", action={"label": "Continue", "owner": owner})
         now = time.monotonic()
         self.auto_sent = [t for t in self.auto_sent if now - t < 3600]
         if self.auto_continue and len(self.auto_sent) < AUTO_CONTINUE_PER_HOUR:

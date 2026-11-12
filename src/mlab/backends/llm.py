@@ -8,7 +8,11 @@ import urllib.request
 from ..core.io import LabError, hashed, load, atomic, require, require_pinned_claude
 
 
-def configuration():
+def configuration(provider=None):
+    if provider == "codex-soc-qwen":
+        from ..soclaas import BASE_URL, MODEL
+        return {"base": os.environ.get("SOCLAAS_BASE_URL", BASE_URL).rstrip("/"), "model": MODEL,
+                "key": "", "protocol": "codex", "provider": "soclaas"}
     separate = bool(os.environ.get("MLAB_LLM_BASE_URL"))
     legacy = os.environ.get("MLAB_LLM_PROTOCOL") in {"anthropic", "claude"}
     base = os.environ.get("MLAB_LLM_BASE_URL") or (os.environ.get("ANTHROPIC_BASE_URL", "") if legacy else "")
@@ -59,7 +63,7 @@ def ask_codex(config, instruction, timeout, directory):
     from ..codex import AppServer
     async def query():
         directory.mkdir(parents=True, exist_ok=True)
-        server = AppServer(directory / "codex", directory)
+        server = AppServer(directory / "codex", directory, provider=config.get("provider"))
         try:
             await server.start()
             result = await server.request("thread/start", {"model": config["model"], "cwd": str(directory),
@@ -89,9 +93,9 @@ def ask_codex(config, instruction, timeout, directory):
     return asyncio.run(bounded())
 
 
-def estimate(spec, requests, cache):
+def estimate(spec, requests, cache, provider=None):
     from .local import DEFAULT_PARAMS
-    config = configuration()
+    config = configuration(provider)
     # The shared scale uses the simulators' built-in numbers.
     p = DEFAULT_PARAMS
     def n(value):

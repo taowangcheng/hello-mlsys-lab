@@ -153,7 +153,10 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
                              "step_label": state.get("step_label"), "selection": state.get("selection"), "conclusion": state.get("conclusion"),
                              "budget": (state.get("budget") or {}).get("hardware"), "agent": runtime.snapshot()["status"]})
         settings = course.settings()
+        from ..agent_env import load_profile
+        profile = load_profile(settings["provider"]) if settings.get("provider") else {}
         return {"ok": True, "tasks": tasks, "sessions": sessions, "notice": NOTICE, "agent": agent, "provider": settings.get("provider"),
+                "model_label": profile.get("display_name") or profile.get("model"),
                 "simulator": settings.get("simulator"), "hardware": settings.get("hardware"), "last_event": bus.last}
 
     async def create_session(request):
@@ -232,9 +235,9 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         body = {**await body_of(request), **(extra or {}), "lang": runtime.lang}
         if runtime.busy():
             if not body.get("interrupt"):
-                return failure("E_AGENT_BUSY", "The agent is working. Wait for it to finish, or stop the agent and submit.")
+                return failure("E_AGENT_BUSY", "A reply is in progress. Wait for it to finish, or stop and submit.")
             if not await runtime.interrupt_and_wait():
-                return failure("E_AGENT_BUSY", "The agent did not stop in time; try again later or restart it.")
+                return failure("E_AGENT_BUSY", "The reply could not be stopped. Try again or reconnect.")
         async with runtime.form_lock:
             result, notice = await asyncio.to_thread(forms.submit, runtime.root, kind, body)
         if result["ok"]:

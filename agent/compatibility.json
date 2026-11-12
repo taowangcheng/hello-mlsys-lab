@@ -32,6 +32,25 @@
       "two-round Chinese web classroom recording with real GPT-6 Luna, page forms and confirmation cards: mock_only, r002/c16, hardware stand-in budget 6/8"
     ],
     "verified_on": "2026-11-12",
-    "limitations": "Recorded classroom evidence uses the fixture and hardware stand-in, not real GPU measurements. App Server dynamic tools remain experimental; these observations do not guarantee other versions or all teaching scenarios. USD cost is not reported."
+    "limitations": "Recorded classroom evidence uses the fixture and hardware stand-in, not real GPU measurements. App Server dynamic tools remain experimental; these observations do not guarantee other versions or all teaching scenarios. USD cost is not reported.",
+    "providers": {
+      "soclaas": {
+        "profile": "codex-soc-qwen",
+        "model": "qwen3.8:27b",
+        "cli_version": "0.167.2",
+        "wire_api": "responses",
+        "context_window": 262144,
+        "reasoning_effort": "low",
+        "verified_on": "2026-11-12",
+        "evidence": [
+          "live model catalog, Responses function call and replayed function result",
+          "real pinned Codex App Server streaming, Read tool and same-thread follow-up with SoC Qwen",
+          "157 offline regression tests passed; 6 optional tests skipped",
+          "invalid draft YAML no longer breaks progress or record views",
+          "real Chinese two-round web recording: qwen3.8:27b, 15 main-session turns, mock_only r002/c16, 6/8 hardware stand-in runs, no browser errors or API submission fallbacks; full MP4 decode passed"
+        ],
+        "limits": "The guide lists 90 requests/minute; the actual key budget endpoint timed out. Shared local inference admission is set to one, excluding unrelated applications using the key."
+      }
+    }
   }
 }

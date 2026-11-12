@@ -70,7 +70,7 @@ def work(root, run_id):
             data, observed = standin(spec, requests, peak, hardware["name"])
             provenance = {"source": "hardware stand-in with designed discrepancies", **observed}
         else:
-            data, provenance = estimate(spec, requests, root / ".mlab/cache")
+            data, provenance = estimate(spec, requests, root / ".mlab/cache", provider=config.get("provider"))
         logs = ["Hardware stand-in: invented numbers, not a real GPU." if backend == "standin" else
                 "Mock observations only. Shared metrics computed from requests.jsonl.", "Model secrets are never recorded."]
         if backend == "fixture" and config.get("fixture_log_bytes"):

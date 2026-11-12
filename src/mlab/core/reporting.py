@@ -158,8 +158,8 @@ def render_report(lab, data, tr=english, translate=same):
         values = [number(get_metric(item.get("metrics", {}), column)) for column in columns]
         lines.append(row(item["run_id"], source, item.get("candidate", ""), split, status, item.get("verdict", ""), *values))
     if messages:
-        lines += ["", "## " + tr("Verbatim words"), "",
-                  tr("Words written in forms, the chat and the terminal, recorded verbatim, to compare with the records the agent wrote."), ""]
+        lines += ["", "## " + tr("Your original words"), "",
+                  tr("Your original notes and comments, kept alongside the experiment records."), ""]
         lines += [tr("- {at} ({source}): {text}", at=local(m["at"], seconds=True), source=tr(SOURCES.get(m.get("source"), "terminal")),
                      text=m["text"].strip()) for m in messages]
     lines += ["", tr("Full metrics, the simulation-vs-hardware data and the evidence paths are in report.json."), ""]

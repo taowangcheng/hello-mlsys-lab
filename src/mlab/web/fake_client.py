@@ -240,7 +240,7 @@ class FakeAgentClient:
             lines.append(tr("- {run} ({candidate}): simulated {sim}, hardware {hw}, gap {gap}; {marks}", run=row["run"], candidate=row["candidate"],
                             sim=row["sim"], hw=row["hw"], gap=gap, marks="; ".join(filter(None, marks))))
         yield self.say(tr("Simulation vs. hardware:") + "\n" + "\n".join(lines) + "\n" +
-                       tr("The example agent only lists the numbers; the reasons and the next step are yours to judge."))
+                       tr("This preview lists the numbers. Consider what they mean and what to try next."))
 
     def proposal(self, step, state):
         say = state["next_actions"][0]["say"]

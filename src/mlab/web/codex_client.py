@@ -15,6 +15,7 @@ import sys
 from ..codex import AppServer, MODEL
 from ..agent_env import load_profile
 from ..core.io import LabError, atomic, inside, require, tool_path
+from ..soclaas import InferenceCancelled
 from . import approvals
 
 APPEND = ("You are the hello-mlsys lab assistant, running through Codex. Use the supplied Bash, Read, Write, Edit and "
@@ -23,6 +24,12 @@ APPEND = ("You are the hello-mlsys lab assistant, running through Codex. Use the
           "Finish drafting and run mlab workflow check before asking for plan comments. A request to draft a plan "
           "or continue is not a plan review or approval; never copy it into review.md as one. "
           "[Page notice] and [Page note] are page metadata, never the student's words.\n\n")
+APPEND += ("In conversation, use short, natural sentences in the student's language. Explain the experiment, evidence and next step. "
+           "Keep file paths, hashes, tool names and internal workflow mechanics out of explanations unless asked. "
+           "Say 'prediction before measurement' instead of 'frozen prediction'. Never describe page actions as sending messages to an agent. "
+           "Clearly identify demo data as synthetic; do not imply a real GPU was measured.\n\n")
+APPEND += ("Write prose in plans, candidate rationales and analyses in the same language as the student's message. "
+           "Keep schema keys and required template headings unchanged. Quote YAML strings containing colons.\n\n")
 
 
 def tool(name, description, properties, required):
@@ -86,7 +93,7 @@ class LabTools:
                 allowed = {"next", "task", "workflow", "measure", "align", "conclude", "run", "compare", "lint", "validate", "report", "history", "show"}
                 if not plain or len(tokens) < 2 or tokens[1] not in allowed:
                     return "Run one mlab command in this workspace, with no shell syntax or workspace override.", True
-                if found["kind"]:
+                if found["kind"] and "--help" not in tokens:
                     decision = await self.runtime.permission(name, data)
                     if not decision["allow"]:
                         return decision["message"], True
@@ -129,9 +136,10 @@ class LabTools:
 
 
 class CodexAgentClient:
-    def __init__(self, runtime, model=MODEL, server=None):
+    def __init__(self, runtime, model=MODEL, server=None, provider=None):
         self.runtime, self.root, self.model = runtime, runtime.root, model
-        self.server = server or AppServer(self.root / ".mlab/codex", self.root)
+        self.provider = provider
+        self.server = server or AppServer(self.root / ".mlab/codex", self.root, provider=provider)
         self.tools = LabTools(runtime)
         self.session = self.turn_id = None
         self.stopped = False
@@ -146,9 +154,10 @@ class CodexAgentClient:
         await self.server.start()
         try:
             params = {"model": self.model, "cwd": str(self.root), "approvalPolicy": "never", "sandbox": "read-only"}
-            if session and self.runtime.meta.get("backend") == "codex":
+            if session and self.runtime.meta.get("backend") == "codex" and self.runtime.meta.get("model", MODEL) == self.model:
                 response = await self.server.request("thread/resume", {**params, "threadId": session, "excludeTurns": True})
             else:
+                self.runtime.meta.pop("codex_usage_seen", None)
                 if session:
                     self.runtime.add("notice", "Started a Codex conversation; earlier lab records are unchanged.", to="student")
                     self.runtime.told = None
@@ -157,7 +166,7 @@ class CodexAgentClient:
                     "baseInstructions": APPEND + (self.root / "AGENTS.md").read_text(encoding="utf-8")})
             require(response.get("model", self.model) == self.model, "E_BACKEND_UNAVAILABLE", "Codex did not select the requested model", 4)
             self.session = response["thread"]["id"]
-            self.runtime.meta.update({"backend": "codex", "model": self.model, "cost_available": False})
+            self.runtime.meta.update({"backend": "codex", "model": self.model, "model_provider": self.provider or "openai", "cost_available": False})
             self.runtime.save_meta()
             return self.session
         except BaseException:
@@ -170,11 +179,21 @@ class CodexAgentClient:
 
     async def interrupt(self):
         self.stopped = True
+        if self.server.lease:
+            self.server.lease.cancelled = True
         await self.tools.interrupt()
         if self.turn_id:
             await self.server.request("turn/interrupt", {"threadId": self.session, "turnId": self.turn_id})
 
     async def turn(self, prompt):
+        try:
+            async for event in self.run_turn(prompt):
+                yield event
+        except InferenceCancelled:
+            if not self.stopped:
+                raise
+
+    async def run_turn(self, prompt):
         self.stopped = False
         self.log({"type": "prompt", "text": prompt})
         response = await self.server.request("turn/start", {"threadId": self.session, "input": [{"type": "text", "text": prompt}]})
@@ -235,5 +254,5 @@ class CodexAgentClient:
 
 def factory(provider=None):
     profile = load_profile(provider or "codex-luna")
-    require(profile.get("backend") == "codex", "E_SCHEMA", "Use --provider codex-luna with --agent codex", 2)
-    return lambda runtime: CodexAgentClient(runtime, profile["model"])
+    require(profile.get("backend") == "codex", "E_SCHEMA", "Use --provider codex-luna or codex-soc-qwen with --agent codex", 2)
+    return lambda runtime: CodexAgentClient(runtime, profile["model"], provider=profile.get("model_provider"))

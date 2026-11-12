@@ -9,8 +9,8 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
-BIN_DIR = Path(sys.executable).parent  # Holds the mlab script and, after scripts/setup.sh, the pinned Claude Code.
-NOTICE = "Placeholder numbers: the simulator and the hardware stand-in report made-up numbers, only for walking through the workflow."
+BIN_DIR = Path(sys.executable).parent  # Holds mlab and, when installed locally, the pinned Codex.
+NOTICE = "Demo data: all performance numbers in this exercise are synthetic, not measurements from a real GPU."
 TERMINAL = {"succeeded", "failed", "cancelled", "timed_out"}
 
 
@@ -59,7 +59,10 @@ UniqueLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, uni
 def load(path):
     path = Path(path)
     text = path.read_text(encoding="utf-8-sig")
-    return yaml.load(text, Loader=UniqueLoader) if path.suffix in {".yaml", ".yml"} else json.loads(text)
+    try:
+        return yaml.load(text, Loader=UniqueLoader) if path.suffix in {".yaml", ".yml"} else json.loads(text)
+    except yaml.YAMLError as error:
+        raise LabError("E_SCHEMA", f"Invalid YAML in {path.name}: {error}", 2) from None
 
 
 def pinned_claude_version():

@@ -2,7 +2,7 @@
   "candidate_name": "Qwen3.8-27B",
   "protocol": "openai",
   "base_url": "https://soclaas-api.comp.nus.edu.sg/v1",
-  "model": "default",
+  "model": "qwen3.8:27b",
   "base_url_env": "SOCLAAS_BASE_URL",
   "model_env": "SOCLAAS_MODEL",
   "api_key_env": "SOCLAAS_API_KEY",

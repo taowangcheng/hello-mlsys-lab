@@ -63,8 +63,8 @@ def review(lab, body):
         w = lab.workflow()
         def approve():
             require(not any(entry.get("verdict") in {"change", "drop"} for entry in entries), "E_NEEDS_APPROVAL",
-                    "Some candidates are marked change or drop; ask the agent to revise them first, then approve")
-            require(w.get("checked_hash"), "E_NEEDS_APPROVAL", "The agent has not checked the plan yet (mlab workflow check)")
+                    "Revise the candidates marked change or drop before confirming")
+            require(w.get("checked_hash"), "E_NEEDS_APPROVAL", "Check the plan before confirming")
             return lab.approve(w["checked_hash"])
         out.update(after_saving("Comments", approve))
         return out, f"Plan comments saved and the plan of {w['id']} approved on the page.\nDo not run mlab workflow approve again."
@@ -113,7 +113,7 @@ def points(lab, body):
 
 def approve_points(lab, body):
     m = lab.measurement()
-    require(m.get("checked_hash"), "E_NEEDS_APPROVAL", "The agent has not checked the hardware points yet (mlab measure check)")
+    require(m.get("checked_hash"), "E_NEEDS_APPROVAL", "Check the measurement points before confirming")
     out = lab.measure_approve(m["checked_hash"])
     return out, f"Hardware points of {m['id']} approved on the page ({out['hardware_runs']} runs).\nDo not run mlab measure approve again."
 

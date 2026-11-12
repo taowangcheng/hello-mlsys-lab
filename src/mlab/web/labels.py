@@ -36,13 +36,13 @@ HINTS = {
     "decision": "The analysis is ready. Write the decision and reasons, cite run IDs, and select a candidate.",
     "next_step": "Choose the next step: another simulation round, hardware points, validation on the simulator, or a conclusion.",
     "points": "Choose hardware points: candidate, workload, number of runs and reason.",
-    "points_approve": "The simulator predictions and the budget used are in the middle column; after approval the agent submits the measurement.",
+    "points_approve": "Review the predictions and measurement count, then confirm to start.",
     "locked": "The same error occurred three times. Check the error record, then unlock.",
     "measure_locked": "The same measurement error occurred three times. Check the error record, then unlock.",
 }
 
-AGENT_STATUS = {"offline": "Agent offline", "connecting": "Agent connecting", "idle": "Agent idle", "running": "Agent working",
-                "waiting_approval": "Approval needed", "waiting_answer": "Answer needed", "error": "Agent error"}
+AGENT_STATUS = {"offline": "Not connected", "connecting": "Connecting…", "idle": "Ready to discuss", "running": "Working…",
+                "waiting_approval": "Approval needed", "waiting_answer": "Answer needed", "error": "Connection problem"}
 
 
 def badge(state, agent_status="idle"):

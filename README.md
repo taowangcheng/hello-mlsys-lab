@@ -1,6 +1,6 @@
 # hello-mlsys-lab
 
-The teaching agent for weeks 6–8 of hello-mlsys, with two entry points: a local course page and the terminal. The student states hypotheses and falsification conditions, comments on plans, chooses hardware points and makes the research decisions; Codex calls GPT-6 Luna and mlab to carry out planning, experiments, analysis and validation, and when the student wants to know why simulation and measurement disagree, it helps analyze the data.
+The teaching assistant for weeks 6–8 of hello-mlsys, available as a local course page and in the terminal. Students propose hypotheses, review plans, choose measurement points and make the research decisions. Codex uses GPT-6 Luna or SoC Qwen 27B to help plan experiments, run them and compare the evidence.
 
 Experiments run on two flywheels: the fast flywheel uses the simulator (the LLM simulator or a fixture), with no limit on runs; the slow flywheel uses hardware measurement (the hardware stand-in until the AMD sandbox is connected), with a budget. All numbers are placeholder numbers.
 
@@ -27,6 +27,8 @@ mlab doctor
 `scripts/setup.sh` installs the Python dependencies and checks Codex 0.167.2. If that version is missing, it installs a project-local copy under `.venv/lib/mlab-codex` using npm. It does not replace a global Codex installation. The supported version is recorded in `agent/compatibility.json`.
 
 The default agent is **Codex / GPT-6 Luna** (`gpt-6-luna`). Each workspace uses its own `.mlab/codex` directory for configuration, conversations, logs and caches. The parent process reads the existing Codex login without changing it and supplies credentials in memory; alternatively set `OPENAI_API_KEY`. No credentials are copied into the workspace. See [Codex integration](docs/codex.md) for isolation, authentication and verification details.
+
+To use **SoC / Qwen 3.8 27B** with the same pinned Codex, run `scripts/start-soc.sh workspaces/soc-course`. It asks for the key privately if `SOCLAAS_API_KEY` is not set. The `codex-soc-qwen` profile uses SoC's native Responses API, keeps its state inside the workspace, and serializes inference across local lab processes. It does not use the personal Codex login. The SoC limits and setup are described in [Codex integration](docs/codex.md#soclaas--qwen).
 
 ## Course page
 

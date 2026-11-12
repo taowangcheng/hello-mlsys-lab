@@ -3,6 +3,7 @@
   "tier": "Current default",
   "backend": "codex",
   "model": "gpt-6-luna",
+  "display_name": "GPT-6 Luna",
   "auth": "Read-only Codex account login or OPENAI_API_KEY in memory",
   "env": {},
   "source": "https://learn.chatgpt.com/docs/models",

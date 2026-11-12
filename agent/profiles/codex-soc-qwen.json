@@ -1,0 +1,13 @@
+{
+  "id": "codex-soc-qwen",
+  "tier": "SoC",
+  "backend": "codex",
+  "model": "qwen3.8:27b",
+  "display_name": "Qwen 3.8 27B · SoC",
+  "model_provider": "soclaas",
+  "api_key_env": "SOCLAAS_API_KEY",
+  "auth": "SOCLAAS_API_KEY in the child environment only",
+  "env": {},
+  "source": "https://dochub.comp.nus.edu.sg/cf/guides/soclaas/",
+  "cli_version": "0.167.2"
+}
