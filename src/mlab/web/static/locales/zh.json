@@ -402,6 +402,7 @@
  "Stop": "停止",
  "Disconnect and reconnect, keeping the conversation": "断开后重新连接，保留对话",
  "{turns} turns · {tokens} tokens · ${cost} (estimated)": "{turns} 轮 · {tokens} token · ${cost}（估算）",
+ "{turns} turns · {tokens} tokens · cost unavailable": "{turns} 轮 · {tokens} token · 暂无费用数据",
  "{turns} turns · {tokens} tokens · ${cost}": "{turns} 轮 · {tokens} token · ${cost}",
  "Running…": "运行中…",
  "Reason for denying (sent to the agent and recorded verbatim)": "不批准的理由（会发给 agent，并记为原话）",

@@ -1,5 +1,7 @@
 # Conformance check of the initial CLI version against the Plan and contract-v0.1
 
+Current runtime update (2026-11-12): the default agent is now isolated Codex / GPT-6 Luna. See [Codex integration](codex.md) for the active configuration and entry points. Claude-specific descriptions below document the earlier implementation.
+
 ## 1. Scope and conclusion
 
 Basis of the check: `docs/plan.md` and `docs/contract-v0.1.md` in this repository, with the source documents at baseline commit f3e900d.

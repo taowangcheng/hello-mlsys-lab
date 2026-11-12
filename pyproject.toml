@@ -11,8 +11,9 @@ dependencies = ["pydantic>=2.10,<3", "PyYAML>=6,<7"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "httpx>=0.27,<1"]  # httpx: Starlette's test client for the web API tests.
-# Local web page: one Claude Code agent per task. 0.2.177 bundles CLI 2.1.317, the pinned version.
-web = ["claude-agent-sdk==0.2.177", "starlette>=0.37,<1", "uvicorn>=0.30,<1"]
+# The default agent uses the Codex App Server JSONL protocol, without a Python SDK.
+web = ["starlette>=0.37,<1", "uvicorn>=0.30,<1"]
+legacy-claude = ["claude-agent-sdk==0.2.177"]
 
 [project.scripts]
 mlab = "mlab.cli:main"

@@ -1,0 +1,10 @@
+{
+  "id": "codex-luna",
+  "tier": "Current default",
+  "backend": "codex",
+  "model": "gpt-6-luna",
+  "auth": "Read-only Codex account login or OPENAI_API_KEY in memory",
+  "env": {},
+  "source": "https://learn.chatgpt.com/docs/models",
+  "cli_version": "0.167.2"
+}

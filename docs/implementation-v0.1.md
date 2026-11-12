@@ -1,5 +1,7 @@
 # hello-mlsys: implementation notes for the initial Coding Agent CLI version
 
+Current runtime update (2026-11-12): the default agent is now isolated Codex / GPT-6 Luna. See [Codex integration](codex.md) for the active configuration and entry points. Claude-specific descriptions below document the earlier implementation.
+
 ## 1. Goals and scope
 
 This version implements the CLI teaching loop in `docs/plan.md`: the student states a hypothesis and design intent; the agent writes a declarative plan,

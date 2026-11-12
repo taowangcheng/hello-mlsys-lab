@@ -2,6 +2,8 @@
 
 [English](plan.md) | 中文
 
+当前运行时更新（2026-11-12）：默认 agent 已改为隔离运行的 Codex / GPT-6 Luna。状态和会话存放在各工作区的 `.mlab/codex`；本机 Codex 登录只读复用，不复制凭据、不修改本机配置。当前入口和限制见 [Codex 接入说明](codex.md)。下文涉及 Claude 的内容保留为此前实现的记录。
+
 ## 1. 目标与范围
 
 hello-mlsys 第 6–8 周，学生要和 coding agent 一起完成三个固定设计任务：Ch 9.1 端侧助手、Ch 9.2 单机 SLA、Ch 9.3 deep-research DAG 集群。本方案负责 `实施方案_1.md` 第 2 部分：学生提出假设和设计方案，agent 负责执行并反馈结果。

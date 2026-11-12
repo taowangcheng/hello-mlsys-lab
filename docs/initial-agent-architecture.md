@@ -1,5 +1,7 @@
 # Initial agent architecture
 
+Current runtime update (2026-11-12): the default agent is now isolated Codex / GPT-6 Luna. See [Codex integration](codex.md) for the active configuration and entry points. Claude-specific descriptions below document the earlier implementation.
+
 The formal implementation scope and decisions of this version are in the [implementation notes](implementation-v0.1.md);
 the item-by-item check against the Plan and the backend contract is in the [conformance check](conformance-v0.1.md). This document keeps the structural explanation and the student walkthrough examples.
 

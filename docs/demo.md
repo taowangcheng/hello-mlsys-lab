@@ -1,22 +1,22 @@
 # Demo steps: Ch 9.2, two flywheels
 
-The student writes the hypothesis and falsification condition, comments on the plan, chooses hardware points and makes the decisions; to find out why simulation and measurement disagree, the student asks the agent to help analyze the data. The agent plans, runs and drafts the records. The fast flywheel is the simulator, with no limit on runs; the slow flywheel is the hardware stand-in, with a budget of 8 runs. The flow is two simulation rounds and two measurements, about 10 minutes with Claude Haiku and about 7 confirmation prompts. The model is accessed by logging in with a Claude Code account. All numbers are placeholder numbers, and the hardware stand-in is not real hardware.
+The student writes the hypothesis and falsification condition, comments on the plan, chooses hardware points and makes the decisions; to find out why simulation and measurement disagree, the student asks the agent to help analyze the data. The agent plans, runs and drafts the records. The fast flywheel is the simulator, with no limit on runs; the slow flywheel is the hardware stand-in, with a budget of 8 runs. The flow is two simulation rounds and two measurements, about 7 confirmation prompts. The current agent is Codex / GPT-6 Luna; duration depends on model response times. All numbers are placeholder numbers, and the hardware stand-in is not real hardware.
 
 ## Setup
 
 ```bash
-scripts/setup.sh                # first time only: installs the Python environment and the pinned Claude Code version
+scripts/setup.sh                # first time only: installs Python dependencies and checks the supported Codex version
 source .venv/bin/activate
-mlab doctor                     # claude_version_matches_pin and claude_logged_in should both be true
-mlab init --task 9.2 --simulator fixture --provider claude-haiku workspaces/demo2
-cd workspaces/demo2 && ./claude
+mlab doctor                     # codex_version_matches_pin should be true and auth should be present
+mlab init --task 9.2 --simulator fixture --provider codex-luna workspaces/demo2
+cd workspaces/demo2 && ./codex
 ```
 
-On first launch, Claude Code asks whether to trust the workspace; No is selected by default, so choose Yes. If not logged in, run `./claude` once first to log in.
+Log in once with the installed `codex login`, or set `OPENAI_API_KEY`. The lab uses a separate state directory and reads the existing login without modifying it; see [Codex integration](codex.md).
 
 ## Steps
 
-Type the lines below in order. In steps with an entry under "Confirmation", Claude Code asks for confirmation in the same window; read the command, then choose Yes.
+Type the lines below in order. In steps with an entry under "Confirmation", the lab asks for confirmation in the same window; read the command, then choose Yes.
 
 | Step | Student types | Confirmation |
 | --- | --- | --- |
@@ -81,7 +81,7 @@ All four hardware runs are about 12% slower than the simulation, but all meet th
 The same story, shown on the local course page. The unit of work on the page is a session: a session does one task from the start and has its own records and agent. The student's words can go into the forms in the middle column or into the chat in the right column.
 
 ```bash
-mlab web workspaces/web-demo --simulator fixture --provider claude-haiku
+mlab web workspaces/web-demo --simulator fixture --provider codex-luna
 ```
 
 The terminal prints the page address, and the browser opens it automatically; when connected to a remote server, open the address given by the editor's port forwarding (in VS Code, the "Ports" panel). If port 8765 is taken, add `--port` with a free port. In the left column, click "New session" and choose "9.2 Single-node serving under an SLA". The steps below use forms, chat, quick replies and confirmation cards at least once each; any step can instead be done by typing the student's line from the table in the previous section into the chat, and the agent writes the words into the files and brings up a confirmation card when confirmation is needed.
@@ -126,22 +126,21 @@ The hardware stand-in returns immediately by default. To demonstrate queueing on
 ## Switching to the LLM simulator
 
 ```bash
-mlab init --task 9.2 --simulator llm --provider claude-haiku workspaces/demo2-llm
-cd workspaces/demo2-llm && ./claude
+mlab init --task 9.2 --simulator llm --provider codex-luna workspaces/demo2-llm
+cd workspaces/demo2-llm && ./codex
 ```
 
-Haiku estimates the simulation results, taking 10–20 seconds per batch; the steps and inputs stay the same. The simulated numbers vary slightly from run to run, and an occasional verdict may differ; the hardware stand-in's numbers do not change. When the model API fails, `mlab next` enters `retry_backend`, and resubmitting reruns only the failed runs.
+GPT-6 Luna estimates the simulation results; the steps and inputs stay the same. The simulated numbers vary slightly from run to run, and an occasional verdict may differ; the hardware stand-in's numbers do not change. When the model API fails, `mlab next` enters `retry_backend`, and resubmitting reruns only the failed runs.
 
 ## Interrupting and starting over
 
-- **Resume:** after exiting, run `./claude` again in the same workspace; the SessionStart hook injects the current stage, and completed runs are not rerun.
+- **Resume:** after exiting, run `./codex` again in the same workspace; the conversation resumes and the agent reads `mlab next`, and completed runs are not rerun.
 - **Start over:** run `mlab init` again with a new workspace name.
 
 ## Fallbacks
 
 | Situation | Command | Notes |
 | --- | --- | --- |
-| Stage-by-stage questions are preferred | `scripts/start-agent.sh --workspace workspaces/classroom` | Real model; the student answers the prompts; fast flywheel only for now |
+| Terminal chat is preferred | `scripts/start-agent.sh --workspace workspaces/classroom` | Codex / GPT-6 Luna with explicit confirmations |
 | No model available for the course page | `mlab web workspaces/web-offline --agent fake --simulator fixture` | Offline fake agent; the student writes through the forms; steps that need confirmation still get confirmation cards |
-| No network, or the model is unavailable | `python evals/local_classroom.py --protocol anthropic --backend fixture` | Real Claude Code with a pre-scripted fake model; runs two simulation rounds in about 30 seconds; tell the audience this |
 | Only the experiment tools | `mlab demo --task 9.2 --out workspaces/offline` | No agent; a script goes through one simulation round, validation on the simulator and one measurement, and compares simulation with measurement |

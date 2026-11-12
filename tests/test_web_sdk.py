@@ -95,7 +95,7 @@ def test_sdk_runtime_cards_questions_resume_and_stop(workspace_path):
     model = FakeModel(script)
     try:
         workspace = workspace_path / "9.2-sla"
-        initialize(workspace, "9.2", "fixture")
+        initialize(workspace, "9.2", "fixture", "claude-haiku")
         env = {**model.environment(trusted_home(workspace_path / "home", workspace)), "PATH": tool_path(), "MLAB_PROMPT_SOURCE": "web",
                "PYTHONUTF8": "1"}
         asyncio.run(scenario(workspace, env))

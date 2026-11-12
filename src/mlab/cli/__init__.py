@@ -39,6 +39,7 @@ def parser():
     hook.add_argument("event", choices=["user-prompt"])
     doctor_parser = commands.add_parser("doctor")
     doctor_parser.add_argument("--web", action="store_true", help="Also check the web page's dependencies")
+    doctor_parser.add_argument("--agent", choices=["codex", "sdk"], default="codex")
     task = commands.add_parser("task")
     task.add_argument("action", choices=["show"])
     workflow = commands.add_parser("workflow")
@@ -85,8 +86,8 @@ def parser():
     web = commands.add_parser("web", help="Serve the course page: one agent per task, on 127.0.0.1")
     web.add_argument("directory", nargs="?", default="mlsys-course", help="Course directory; created if missing. Each session started on the page is a workspace in it")
     web.add_argument("--simulator", choices=["llm", "fixture"], default="llm")
-    web.add_argument("--provider", help="Model profile under agent/profiles, e.g. claude-haiku or deepseek-flash")
-    web.add_argument("--agent", choices=["sdk", "fake"], default="sdk", help="fake: a rule-following stand-in, no model")
+    web.add_argument("--provider", help="Model profile under agent/profiles (default: codex-luna)")
+    web.add_argument("--agent", choices=["codex", "sdk", "fake"], default="codex", help="codex: isolated Codex; fake: offline; sdk: legacy Claude")
     web.add_argument("--port", type=int, default=8765)
     web.add_argument("--no-browser", action="store_true")
     web.add_argument("--no-opening", action="store_true", help="Do not let the agent speak first when a task page opens")
@@ -98,21 +99,47 @@ def parser():
     return root
 
 
-def web_doctor():
-    """Whether `mlab web` can start: dependencies, the pinned CLI behind the SDK, and the default port."""
+def web_doctor(agent="codex"):
+    """Check web dependencies and the default port without starting a model."""
     import importlib.util
     import socket
-    report = {name: bool(importlib.util.find_spec(module)) for name, module in
-              (("sdk", "claude_agent_sdk"), ("starlette", "starlette"), ("uvicorn", "uvicorn"))}
-    if report["sdk"]:
-        import claude_agent_sdk
-        report["sdk_version"] = claude_agent_sdk.__version__
-    with socket.socket() as probe:
-        report["port_8765_free"] = probe.connect_ex(("127.0.0.1", 8765)) != 0
+    modules = [("starlette", "starlette"), ("uvicorn", "uvicorn")]
+    if agent == "sdk":
+        modules.append(("sdk", "claude_agent_sdk"))
+    report = {name: bool(importlib.util.find_spec(module)) for name, module in modules}
+    try:
+        with socket.socket() as probe:
+            report["port_8765_free"] = probe.connect_ex(("127.0.0.1", 8765)) != 0
+        report["local_tcp_available"] = True
+    except OSError:
+        report.update(port_8765_free=None, local_tcp_available=False)
     return report
 
 
-def doctor(web=False):
+def doctor(web=False, agent="codex"):
+    if agent == "codex":
+        from ..codex import MODEL, VERSION, credentials, installation
+        path, version = installation()
+        try:
+            auth = credentials()["type"]
+        except LabError:
+            auth = None
+        report = {"python": sys.version.split()[0], "mlab": __version__, "agent": "codex", "model": MODEL,
+                  "codex_path": path, "codex": version, "codex_pinned": VERSION, "codex_version_matches_pin": version == VERSION,
+                  "auth": auth, "state_directory": "<workspace>/.mlab/codex", "credentials_on_disk": False,
+                  "llm_route": "api" if os.environ.get("MLAB_LLM_BASE_URL") else "codex_login",
+                  "fixture_ready": True, "warning": "No live model call performed."}
+        if web:
+            report["web"] = web_doctor()
+        if version != VERSION:
+            report["next_actions"] = [{"actor": "student", "do": "fix", "say": "Run scripts/setup.sh to install the supported Codex CLI."}]
+        elif web and not all(report["web"].get(k) for k in ("starlette", "uvicorn")):
+            report["next_actions"] = [{"actor": "student", "do": "fix", "say": "Run scripts/setup.sh to install the web extra."}]
+        elif not auth:
+            report["next_actions"] = [{"actor": "student", "do": "fix", "say": "Run codex login or set OPENAI_API_KEY; mlab does not modify that login."}]
+        elif web and not report["web"]["local_tcp_available"]:
+            report["next_actions"] = [{"actor": "student", "do": "fix", "say": "Run the page in an environment that permits local TCP sockets."}]
+        return report
     claude, version = claude_install()
     pinned = pinned_claude_version()
     ready = all(os.environ.get(v) for v in ["MLAB_LLM_BASE_URL", "MLAB_LLM_API_KEY", "MLAB_LLM_MODEL"]) or (
@@ -125,7 +152,7 @@ def doctor(web=False):
               "llm_route": "api" if ready else "claude_login", "fixture_ready": True,
               "warning": "No live model call performed."}
     if web:
-        report["web"] = web_doctor()
+        report["web"] = web_doctor("sdk")
     if version != pinned:
         report["next_actions"] = [{"actor": "student", "do": "fix", "say": f"Run scripts/setup.sh to install Claude Code {pinned} into this project."}]
     elif web and not all(report["web"].get(k) for k in ("sdk", "starlette", "uvicorn")):
@@ -353,7 +380,7 @@ def main(argv=None):
         if args.command == "init":
             output = initialize(args.directory, args.task, args.simulator, args.provider, args.hardware, args.mode)
         elif args.command == "doctor":
-            output = doctor(args.web)
+            output = doctor(args.web, args.agent)
         elif args.command == "hook":
             return record_prompt(argv)
         elif args.command == "schema":

@@ -16,6 +16,7 @@ def child_environment(model, url, token, key_env, config_dir, auth_mode="bearer"
         if name.startswith(FOREIGN_PREFIXES) or name == key_env or name in PROVIDER_SWITCHES:
             env.pop(name, None)
     env.update({"ANTHROPIC_BASE_URL": url, "ANTHROPIC_AUTH_TOKEN": token, "ANTHROPIC_MODEL": model,
+        "MLAB_LLM_PROTOCOL": "claude" if auth_mode == "login" else "anthropic",
         "ANTHROPIC_DEFAULT_OPUS_MODEL": model, "ANTHROPIC_DEFAULT_SONNET_MODEL": model,
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": model, "CLAUDE_CODE_SUBAGENT_MODEL": model,
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1", "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
@@ -66,7 +67,8 @@ def web_environment(key=None, config_dir=None):
     The model and endpoint come from the workspace's settings.local.json, written from the profile by `mlab init`.
     With a key, Claude Code also gets its own config directory, so the student's own Claude settings stay out.
     """
-    env = {"DISABLE_UPDATES": "1", "PATH": tool_path(), "PYTHONUTF8": "1", "MLAB_PROMPT_SOURCE": "web"}
+    env = {"DISABLE_UPDATES": "1", "PATH": tool_path(), "PYTHONUTF8": "1", "MLAB_PROMPT_SOURCE": "web",
+           "MLAB_LLM_PROTOCOL": "anthropic" if key else "claude"}
     if key:
         env["ANTHROPIC_AUTH_TOKEN"] = key
         if config_dir:

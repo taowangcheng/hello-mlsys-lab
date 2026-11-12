@@ -1256,7 +1256,7 @@ function renderAgentHead() {
     agent.queued ? el("span", { class: "chip", text: t("{n} queued", { n: agent.queued }) }) : null,
     el("div", { class: "row" }, busy ? button(t("Stop"), "small", () => sessionApi("agent/interrupt", {})) : null,
       button(t("Reconnect"), "ghost small", () => sessionApi("agent/restart", {}), { title: t("Disconnect and reconnect, keeping the conversation") }))),
-    el("div", { class: "agent-usage", text: t(usage.cost_estimated ? "{turns} turns · {tokens} tokens · ${cost} (estimated)" : "{turns} turns · {tokens} tokens · ${cost}",
+    el("div", { class: "agent-usage", text: t(usage.cost_available === false ? "{turns} turns · {tokens} tokens · cost unavailable" : usage.cost_estimated ? "{turns} turns · {tokens} tokens · ${cost} (estimated)" : "{turns} turns · {tokens} tokens · ${cost}",
       { turns: usage.turns || 0, tokens: tokens.toLocaleString("en-US"), cost: (usage.cost_usd || 0).toFixed(3) }) }),
     agent.detail ? el("div", { class: "agent-detail", text: tm(agent.detail) }) : null);
 }

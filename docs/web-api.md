@@ -7,7 +7,7 @@ The unit of work on the page is a session: a session does one task from the star
 ## Starting and access
 
 ```bash
-mlab web [<course-dir>] [--provider <profile>] [--simulator llm|fixture] [--agent sdk|fake] [--port 8765] [--no-browser] [--no-opening] [--auto-continue]
+mlab web [<course-dir>] [--provider <profile>] [--simulator llm|fixture] [--agent codex|sdk|fake] [--port 8765] [--no-browser] [--no-opening] [--auto-continue]
 ```
 
 - The course directory defaults to `mlsys-course`. The first run creates the directory and `course.json`, and the student opens sessions on the page; later runs keep the simulator, hardware backend and model profile chosen at creation.
@@ -96,7 +96,7 @@ What the student writes goes into the record verbatim, changing only the student
 
 ## Confirmation cards
 
-When the agent runs one of the commands below, Claude Code asks for permission through `can_use_tool`, and the page shows a confirmation card. The card's summary is computed by the read-only `Lab`: `title`, `facts` (what is to be approved), `effects` (the effects of approving), `will_fail` (why `mlab` would refuse, empty if it would not) and `record`.
+When the Codex agent calls a command below through its dynamic Bash tool, the host waits for the page confirmation card before executing it. The optional legacy SDK uses `can_use_tool` for the same flow. The card's summary is computed by the read-only `Lab`: `title`, `facts` (what is to be approved), `effects` (the effects of approving), `will_fail` (why `mlab` would refuse, empty if it would not) and `record`.
 
 | Kind | Command | The card lists |
 | --- | --- | --- |
@@ -134,6 +134,8 @@ The page fetches new events with a short request every one to a few seconds: onc
 | `<course-dir>/9.2-1/` | One session's workspace, the same as one created by `mlab init` |
 | `<workspace>/.mlab/student.jsonl` | The student's own words; each line has `at`, `source` (`web-form`, `web-chat`, `web-question`, `web-card`, `cli`), `kind`, `workflow`, `measurement` (the current round and measurement when it was said), `refs`, `text` |
 | `<workspace>/.mlab/web/chat.jsonl` | The chat on the page. `role` is `student`, `agent`, `tool`, `card`, `notice` or `error`; later changes (a card's outcome, a tool's output) are appended as `{"update": <id>, …}` |
-| `<workspace>/.mlab/web/sdk.jsonl` | Raw messages the SDK received, with long fields truncated, for auditing |
-| `<workspace>/.mlab/web/agent.json` | The Claude Code session ID, number of turns, tokens and estimated cost |
-| `<workspace>/.mlab/web/claude-config/` | This session's own Claude Code configuration directory, used with an API key |
+| `<workspace>/.mlab/codex/` | Isolated Codex state, sessions and caches; credentials remain in memory |
+| `<workspace>/.mlab/web/codex.jsonl` | Prompts, visible replies, lab tool calls/results and usage; excludes authentication and reasoning |
+| `<workspace>/.mlab/web/sdk.jsonl` | Legacy only: raw messages the SDK received, with long fields truncated, for auditing |
+| `<workspace>/.mlab/web/agent.json` | Backend, model, conversation ID, turns and token counts; Codex sets `cost_available:false` because the protocol does not report a USD cost |
+| `<workspace>/.mlab/web/claude-config/` | Legacy only: this session's Claude Code configuration directory, used with an API key |

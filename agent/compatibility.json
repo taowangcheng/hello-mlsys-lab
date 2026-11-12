@@ -1,9 +1,34 @@
 {
   "pinned_claude_version": "2.1.317",
   "verified": {
-    "2.1.74": ["smoke tool loop with local fake API"],
-    "2.1.317": ["two-round classroom with local fake API", "LLM backend via local fake API", "OpenAI adapter classroom via local fake API", "interactive claude in an mlab init workspace with ask dialogs via local fake API", "two rounds with revision on the interactive path with a real model", "classroom and LLM backend through account login with a real model"],
-    "2.1.318": ["third-party API smoke tool loop", "two-round classroom with local fake API", "LLM backend via local fake API", "native Messages classroom via local fake API"]
+    "2.1.74": [
+      "smoke tool loop with local fake API"
+    ],
+    "2.1.317": [
+      "two-round classroom with local fake API",
+      "LLM backend via local fake API",
+      "OpenAI adapter classroom via local fake API",
+      "interactive claude in an mlab init workspace with ask dialogs via local fake API",
+      "two rounds with revision on the interactive path with a real model",
+      "classroom and LLM backend through account login with a real model"
+    ],
+    "2.1.318": [
+      "third-party API smoke tool loop",
+      "two-round classroom with local fake API",
+      "LLM backend via local fake API",
+      "native Messages classroom via local fake API"
+    ]
   },
-  "note": "Observed integration evidence, not a guarantee for other models or versions. No automatic upgrade is performed."
+  "note": "Observed integration evidence, not a guarantee for other models or versions. No automatic upgrade is performed.",
+  "codex": {
+    "pinned_version": "0.167.2",
+    "model": "gpt-6-luna",
+    "protocol": "App Server JSONL v2 with dynamic tools",
+    "evidence": [
+      "real CLI App Server initialization and thread creation with five dynamic tools, isolated state and ephemeral authentication",
+      "offline JSONL protocol tests for approval, question answers, resume, usage, interruption, process failure and tool boundaries",
+      "default workspace, terminal launcher and mock-estimator cache checks"
+    ],
+    "limitations": "A live GPT-6 Luna completion and a new browser recording are still unverified: the execution environment blocks local TCP and outgoing model access. Offline protocol tests do not establish real-model teaching quality."
+  }
 }

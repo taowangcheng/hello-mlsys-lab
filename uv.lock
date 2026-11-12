@@ -254,15 +254,17 @@ dev = [
     { name = "httpx" },
     { name = "pytest" },
 ]
-web = [
+legacy-claude = [
     { name = "claude-agent-sdk" },
+]
+web = [
     { name = "starlette" },
     { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "claude-agent-sdk", marker = "extra == 'web'", specifier = "==0.2.177" },
+    { name = "claude-agent-sdk", marker = "extra == 'legacy-claude'", specifier = "==0.2.177" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27,<1" },
     { name = "pydantic", specifier = ">=2.10,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8,<10" },
@@ -270,7 +272,7 @@ requires-dist = [
     { name = "starlette", marker = "extra == 'web'", specifier = ">=0.37,<1" },
     { name = "uvicorn", marker = "extra == 'web'", specifier = ">=0.30,<1" },
 ]
-provides-extras = ["dev", "web"]
+provides-extras = ["dev", "legacy-claude", "web"]
 
 [[package]]
 name = "httpcore"

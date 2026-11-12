@@ -50,6 +50,7 @@ def account_login(tmp_path, monkeypatch):
     for name in ("MLAB_LLM_BASE_URL", "MLAB_LLM_API_KEY", "MLAB_LLM_MODEL", "MLAB_LLM_PROTOCOL", "ANTHROPIC_BASE_URL",
                  "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL"):
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("MLAB_LLM_PROTOCOL", "claude")
     monkeypatch.setenv("CLAUDECODE", "1")
     monkeypatch.setenv("CLAUDE_CODE_ENTRYPOINT", "cli")
     monkeypatch.setattr("mlab.core.io.BIN_DIR", tmp_path)
@@ -95,6 +96,7 @@ def test_account_login_failures_keep_their_error_codes(account_login, workspace_
 
 
 def test_account_login_needs_the_pinned_version(tmp_path, monkeypatch, workspace_path):
+    monkeypatch.setenv("MLAB_LLM_PROTOCOL", "claude")
     for name in ("MLAB_LLM_BASE_URL", "MLAB_LLM_API_KEY", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY"):
         monkeypatch.delenv(name, raising=False)
     path = tmp_path / "claude"

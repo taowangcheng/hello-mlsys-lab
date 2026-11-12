@@ -1,11 +1,12 @@
 """One agent per session, a session being one attempt at a task in its own workspace. A single owner coroutine holds
 the model client for its whole life; the page reaches it through a queue, so the client is never touched from two tasks.
 
-The client is replaceable: `fake_client.FakeAgentClient` for tests and offline walkthroughs, `sdk_client` for Claude
-Code through the Agent SDK. A client implements connect(session) -> session, turn(prompt) -> async events,
+The client is replaceable: `fake_client.FakeAgentClient` for offline walkthroughs, `codex_client` for Codex,
+and the opt-in legacy `sdk_client`. A client implements connect(session) -> session, turn(prompt) -> async events,
 interrupt() and disconnect(), and asks for permissions through TaskRuntime.permission().
 """
 import asyncio
+import contextlib
 import time
 from pathlib import Path
 from ..core.history import brief
@@ -37,10 +38,11 @@ def tool_summary(name, data):
 
 
 class TaskRuntime:
-    def __init__(self, key, root, bus, factory, opening=True, auto_continue=False):
+    def __init__(self, key, root, bus, factory, opening=True, auto_continue=False, source="web"):
         # key: the session's id on the page, e.g. 9.2-1.
         self.key, self.root, self.bus, self.factory = key, Path(root), bus, factory
         self.opening, self.auto_continue = opening, auto_continue
+        self.source = source
         self.lang = None  # The page's language, from its requests; the agent replies in it.
         self.told = None  # The language the agent was last told.
         self.chat = ChatLog(self.root)
@@ -61,7 +63,8 @@ class TaskRuntime:
         self.auto_sent = []
         self.state = None  # The watcher keeps the latest task state here.
         self.meta_path = self.root / ".mlab/web/agent.json"
-        self.meta = {"session": None, "turns": 0, "cost_usd": 0.0, "input_tokens": 0, "output_tokens": 0, "cost_estimated": False}
+        self.meta = {"session": None, "turns": 0, "cost_usd": 0.0, "input_tokens": 0, "output_tokens": 0,
+                     "cost_estimated": False, "cost_available": True}
         if self.meta_path.exists():
             self.meta.update(load(self.meta_path))
         self.form_lock = asyncio.Lock()
@@ -72,10 +75,10 @@ class TaskRuntime:
         return {"status": self.status, "label": labels.AGENT_STATUS.get(self.status, self.status), "detail": self.detail,
                 "cards": [self.public(card) for card in self.cards.values()], "queued": len(self.inbox), "connected": bool(self.client),
                 "session": self.meta.get("session"), "usage": {k: self.meta[k] for k in ("turns", "cost_usd", "input_tokens", "output_tokens",
-                                                                                         "cost_estimated")}}
+                                                                                         "cost_estimated", "cost_available")}}
 
     def busy(self):
-        return self.turning or bool(self.inbox) or bool(self.cards)
+        return self.status == "connecting" or self.turning or bool(self.inbox) or bool(self.cards)
 
     def set_status(self, status, detail=None):
         self.status, self.detail = status, detail
@@ -108,7 +111,10 @@ class TaskRuntime:
                 await asyncio.wait_for(self.owner, 5)
             except (asyncio.TimeoutError, asyncio.CancelledError):
                 self.owner.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self.owner
             self.owner = None
+        await self.disconnect()
 
     async def own(self):
         while True:
@@ -217,6 +223,8 @@ class TaskRuntime:
             self.meta["input_tokens"] += int(usage.get("input_tokens") or 0)
             self.meta["output_tokens"] += int(usage.get("output_tokens") or 0)
             self.meta["cost_estimated"] = bool(self.meta["cost_estimated"] or event.get("cost_estimated"))
+            if "cost_available" in event:
+                self.meta["cost_available"] = event["cost_available"]
             if "cost_seen" in event:
                 self.meta["session_cost_seen"] = event["cost_seen"]
             if event.get("session"):
@@ -260,7 +268,7 @@ class TaskRuntime:
         text = (text or "").strip()
         refs = list(dict.fromkeys(refs))
         where = await asyncio.to_thread(position, self.root)
-        await asyncio.to_thread(log_student, self.root, text, source="web-chat", kind="chat", refs=refs,
+        await asyncio.to_thread(log_student, self.root, text, source="cli" if self.source == "cli" else "web-chat", kind="chat", refs=refs,
                                 session=self.meta.get("session"), **where)
         self.add("student", text, refs=refs)
         pending = next(iter(self.cards.values()), None)
@@ -402,7 +410,7 @@ class TaskRuntime:
         if decision.get("system"):
             return {"allow": False, "message": f"Not run: {reason}."}
         if reason and not decision.get("logged"):
-            await asyncio.to_thread(log_student, self.root, reason, source="web-card", kind="denial",
+            await asyncio.to_thread(log_student, self.root, reason, source="cli" if self.source == "cli" else "web-card", kind="denial",
                                     **await asyncio.to_thread(position, self.root))
         said = f"Reason: {reason}" if reason else "No reason given; ask what to change."
         return {"allow": False, "message": f"The student did not approve \"{summary['title']}\". {said}"}
@@ -422,6 +430,6 @@ class TaskRuntime:
         if self.turning:
             self.set_status("running")
         if not answer.get("logged"):
-            await asyncio.to_thread(log_student, self.root, "\n".join(f"{q}: {a}" for q, a in answers.items()), source="web-question",
+            await asyncio.to_thread(log_student, self.root, "\n".join(f"{q}: {a}" for q, a in answers.items()), source="cli" if self.source == "cli" else "web-question",
                                     kind="question", **await asyncio.to_thread(position, self.root))
         return {"allow": True, "updated_input": {**data, "answers": answers}}

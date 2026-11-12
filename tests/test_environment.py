@@ -25,7 +25,7 @@ def test_classroom_agent_finds_mlab_without_an_activated_environment(monkeypatch
 
 def test_workspace_settings_find_mlab_from_any_terminal(workspace_path, monkeypatch):
     monkeypatch.setenv("PATH", "/usr/bin:/bin")
-    initialize(workspace_path, "9.2", "fixture")
+    initialize(workspace_path, "9.2", "fixture", "claude-haiku")
     env = load(workspace_path / ".claude/settings.local.json")["env"]
     assert shutil.which("mlab", path=env["PATH"]) == str(BIN / "mlab")
     assert env["PATH"].split(":")[0] == str(BIN) and "/bin" in env["PATH"].split(":")
@@ -72,7 +72,7 @@ def test_project_copy_of_claude_wins_over_other_installs(tmp_path, monkeypatch):
     monkeypatch.setattr("mlab.core.io.BIN_DIR", project)
     assert claude_install() == (str(copy), pinned_claude_version())
     assert require_pinned_claude() == str(copy)
-    assert doctor()["claude_version_matches_pin"] is True
+    assert doctor(agent="sdk")["claude_version_matches_pin"] is True
 
 
 def test_any_other_claude_version_is_refused(tmp_path, monkeypatch):
@@ -82,7 +82,7 @@ def test_any_other_claude_version_is_refused(tmp_path, monkeypatch):
     with pytest.raises(LabError) as error:
         require_pinned_claude()
     assert error.value.code == "E_BACKEND_UNAVAILABLE" and pinned_claude_version() in str(error.value) and "scripts/setup.sh" in str(error.value)
-    report = doctor()
+    report = doctor(agent="sdk")
     assert report["claude_version_matches_pin"] is False and "scripts/setup.sh" in report["next_actions"][0]["say"]
 
 
@@ -91,7 +91,7 @@ def test_missing_claude_is_refused(tmp_path, monkeypatch):
     monkeypatch.setattr("mlab.core.io.BIN_DIR", tmp_path / "no-project-copy")
     with pytest.raises(LabError):
         require_pinned_claude()
-    assert doctor()["claude"] is None
+    assert doctor(agent="sdk")["claude"] is None
 
 
 def test_workspace_launcher_runs_the_project_copy_with_project_settings_only(tmp_path, workspace_path, monkeypatch):
@@ -100,7 +100,7 @@ def test_workspace_launcher_runs_the_project_copy_with_project_settings_only(tmp
     copy.chmod(0o755)
     monkeypatch.setattr("mlab.core.io.BIN_DIR", tmp_path)
     assert project_claude() == copy
-    output = initialize(workspace_path, "9.2", "fixture")
+    output = initialize(workspace_path, "9.2", "fixture", "claude-haiku")
     assert "./claude" in output["next_actions"][0]["say"]
     printed = subprocess.run([workspace_path / "claude", "--version"], capture_output=True, text=True, check=True).stdout.strip()
     assert printed == f"{copy} --setting-sources project,local --tools Bash,Read,Edit,Write --version"

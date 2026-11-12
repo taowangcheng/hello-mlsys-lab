@@ -1,5 +1,7 @@
 # hello-mlsys: implementation design and plan for the Coding Agent interaction MVP
 
+Current runtime update (2026-11-12): the default agent is now isolated Codex / GPT-6 Luna. See [Codex integration](codex.md) for the active configuration and entry points. Claude-specific descriptions below document the earlier implementation.
+
 English | [中文](plan.zh-CN.md)
 
 ## 1. Goals and scope

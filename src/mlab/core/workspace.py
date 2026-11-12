@@ -6,6 +6,7 @@ import random
 import re
 import shlex
 import shutil
+import sys
 import time
 from pathlib import Path
 from ..contracts import ENVIRONMENT_FAILURES, Candidate, MeasurementPlan, Plan, RunSpec, TaskDefinition
@@ -82,6 +83,10 @@ def find_workspace(path=None):
 
 def initialize(destination, task_id, simulator="llm", provider=None, hardware="standin", mode="guided"):
     from ..backends.local import ROLES
+    provider = provider or "codex-luna"
+    profile = load(inside(ROOT / "agent/profiles", provider + ".json")) if (ROOT / "agent/profiles" / (provider + ".json")).is_file() else None
+    require(profile is not None, "E_SCHEMA", "unknown provider profile", 2)
+    use_codex = profile.get("backend") == "codex"
     require(task_id in TASKS, "E_SCHEMA", "task must be 9.1, 9.2 or 9.3", 2)
     require(mode in MODES, "E_SCHEMA", "mode must be guided or open", 2)
     require(ROLES.get(simulator) == "simulator" and ROLES.get(hardware) == "hardware", "E_SCHEMA", "unknown simulator or hardware backend", 2)
@@ -93,7 +98,8 @@ def initialize(destination, task_id, simulator="llm", provider=None, hardware="s
         require(hashed(inside(source, reference["path"])) == reference["sha256"], "E_FROZEN_CHANGED", "source task file hash mismatch")
     destination.mkdir(parents=True)
     shutil.copytree(source, destination / "task")
-    shutil.copytree(ROOT / "template", destination, dirs_exist_ok=True)
+    shutil.copytree(ROOT / "template", destination, dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns(".claude", "CLAUDE.md") if use_codex else None)
     catalog = {"models": {m["id"]: m["params_b"] for m in load(ROOT / "catalog/models/sizes.yaml")},
                "hardware": {p.stem: load(p) for p in (ROOT / "catalog/hardware").glob("*.yaml")},
                "infra": {p.stem: load(p) for p in (ROOT / "catalog/infra").glob("*.yaml")}}
@@ -113,8 +119,11 @@ def initialize(destination, task_id, simulator="llm", provider=None, hardware="s
     atomic(destination / ".mlab/config.json", {"schema": "mlab.v1", "task": task_id, "simulator": simulator, "hardware": hardware,
                                               "provider": provider, "mode": mode, "run_timeout_s": 1800, "created_at": now(),
                                               "fixture_delay_s": 0, "hardware_delay_s": 0})
-    write_local_settings(destination, provider)
-    launcher = write_launcher(destination)
+    if use_codex:
+        launcher = write_codex_launcher(destination)
+    else:
+        write_local_settings(destination, provider)
+        launcher = write_launcher(destination)
     store = Store(destination)
     store.event("workspace_initialized", {"task": task_id, "simulator": simulator, "hardware": hardware, "mode": mode})
     store.put("settings", "task", dict(BLANK))
@@ -140,6 +149,16 @@ def write_local_settings(destination, provider=None):
     # Skills, plugins and connectors from a personal claude.ai account stay out of lab sessions.
     atomic(destination / ".claude/settings.local.json", {"env": env, "syncClaudeAiSkills": False, "syncClaudeAiPlugins": False,
                                                         "disableClaudeAiConnectors": True})
+
+
+def write_codex_launcher(destination):
+    """Use the same isolated App Server and confirmation flow in the terminal."""
+    launcher = destination / "codex"
+    python = sys.executable
+    atomic(launcher, '#!/bin/sh\nexec ' + shlex.quote(python) + ' -m mlab.terminal --workspace ' +
+           shlex.quote(str(destination)) + ' "$@"\n', text=True)
+    launcher.chmod(0o755)
+    return "./codex"
 
 
 def write_launcher(destination):
@@ -440,8 +459,10 @@ class Lab:
         from ..backends.local import BACKEND_VERSIONS
         fingerprint = {"backend": backend, "version": BACKEND_VERSIONS[backend]}
         if backend == "llm":
-            fingerprint.update(model=os.environ.get("MLAB_LLM_MODEL") or os.environ.get("ANTHROPIC_MODEL"),
-                endpoint=os.environ.get("MLAB_BACKEND_IDENTITY") or os.environ.get("MLAB_LLM_BASE_URL") or os.environ.get("ANTHROPIC_BASE_URL"))
+            from ..backends.llm import configuration
+            config = configuration()
+            fingerprint.update(model=config["model"], protocol=config["protocol"],
+                               endpoint=os.environ.get("MLAB_BACKEND_IDENTITY") or config["base"])
         return fingerprint
 
     def run_key(self, spec, backend):

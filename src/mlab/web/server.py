@@ -85,6 +85,11 @@ def agent_factory(kind, provider=None):
     if kind == "fake":
         from .fake_client import FakeAgentClient
         return FakeAgentClient
+    if kind == "codex":
+        from .codex_client import factory
+        return factory(provider)
+    if kind != "sdk":
+        raise LabError("E_SCHEMA", f"unknown agent {kind}", 2)
     from .sdk_client import factory
     return factory(provider)
 
@@ -341,13 +346,14 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
     return app
 
 
-def serve(root, simulator="llm", provider=None, agent="sdk", port=8765, browser=True, opening=True, auto_continue=False):
+def serve(root, simulator="llm", provider=None, agent="codex", port=8765, browser=True, opening=True, auto_continue=False):
     import socket
     import uvicorn
     with socket.socket() as probe:
         if probe.connect_ex(("127.0.0.1", port)) == 0:
             print(f"Port {port} is in use. Pick another one: mlab web {root} --port {port + 1}")
             return 2
+    provider = provider or ("codex-luna" if agent == "codex" else None)
     course = Course(root)
     settings = course.ensure(simulator, "standin", provider)
     application = create_app(course.root, agent, settings.get("provider"), opening, auto_continue)
