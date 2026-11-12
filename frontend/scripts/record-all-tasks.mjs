@@ -1,7 +1,7 @@
 // Capture real model conversations and student-controlled executions in all tasks.
 // Start scripts/start-soc.sh on port 8878 first; credentials never enter this script.
 import { chromium, expect } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
+import { addReferenceExperiment, verifyCandidates } from './reference-experiment.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -73,26 +73,7 @@ function verifyConfigurations(task, templates, candidates) {
     expected[1].id = 'int4_control';
     expected[1].strategy.deployments[0].weight_precision = 'INT4';
   }
-  // Compare effective settings so omitted schema defaults do not mask extra changes.
-  execFileSync(
-    path.join(project, '.venv/bin/python'),
-    [
-      '-c',
-      [
-        'import json, sys',
-        'from mlab.contracts import Candidate',
-        'def normalize(items):',
-        '    result = {}',
-        '    for item in items:',
-        '        value = Candidate.model_validate(item).model_dump(mode="json")',
-        '        result[value["id"]] = {key: value[key] for key in ("infra", "strategy")}',
-        '    return result',
-        'expected, actual = json.load(sys.stdin)',
-        'assert normalize(expected) == normalize(actual), "The proposed settings differ from the requested comparison"',
-      ].join('\n'),
-    ],
-    { input: JSON.stringify([expected, candidates]), cwd: project },
-  );
+  verifyCandidates(expected, candidates);
 }
 const summaries = [];
 const course = await api('/api/course');
@@ -285,6 +266,17 @@ try {
         });
       }
       state = await view();
+      if (task === '9.3') {
+        state = await addReferenceExperiment({
+          page,
+          base,
+          session,
+          view,
+          speak,
+          screenshot,
+          until,
+        });
+      }
       await screenshot('09-complete-history');
       await page.goto(`${base}/#/${task}/compare`);
       await page.getByRole('button', { name: 'Clear selection', exact: true }).click();

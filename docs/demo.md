@@ -43,6 +43,8 @@ The automated browser checks use a fresh disposable course and no live model. Th
 
 The recorder runs a complete example in each task: a real assistant proposes a draft, the student edits and confirms execution, simulations cover the available workloads, measurements include repetitions and holdouts, and the student submits a conclusion. It saves the assistant's actual replies without rewriting them and refreshes the partial transcript after every completed turn, so earlier replies remain available if a later step fails. The performance backends are still the fixture and hardware stand-in.
 
+Task 9.3 also compares the unchanged `tp2_bf16` reference with the initial controlled pair. Its six simulations run as a separate experiment so that both seeds and all workloads fit within the twelve-run batch limit. The task therefore covers three configurations without requiring one fixed sequence or one large batch.
+
 Start a separate local server from the repository root using a fresh course directory. The launcher reads the SoC credential privately; do not put it in a command or recording:
 
 ```bash
