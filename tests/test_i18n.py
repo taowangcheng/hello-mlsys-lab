@@ -57,7 +57,7 @@ def page_texts():
         code = (STATIC / name).read_text(encoding="utf-8")
         for match in re.finditer(r"\bt\(", code):
             texts.update(literals(first_argument(code, match.end() - 1)))
-        for table in ("SOURCE", "STATUS", "VERDICT", "CARD_STATE", "ASK"):
+        for table in ("SOURCE", "STATUS", "VERDICT", "CARD_STATE", "ASK", "TOOLS"):
             found = re.search(rf"const {table} = \{{(.*?)\}};", code, re.S)
             if found:
                 texts.update(re.findall(r':\s*"((?:[^"\\]|\\.)*)"', found.group(1)))

@@ -462,12 +462,13 @@ function renderFacts() {
   const theme = stored("mlab-theme", "auto");
   const agentLabel = app.course?.agent === "fake" ? t("Example agent (offline)") : t("Model: {name}", { name: app.course?.provider || t("Claude Code account") });
   const other = language() === "zh" ? "en" : "zh";
+  const themeLabel = t({ auto: "Theme: system", light: "Theme: light", dark: "Theme: dark" }[theme]);
   fill($("#facts"),
     budget ? el("span", { class: "fact", title: t("The hardware budget is per task and shared by its sessions; runs that fail because of the environment are not counted"),
-                          text: t("Hardware budget {left}/{total}", { left: budget.remaining, total: budget.total }) }) : null,
+                          text: t("Hardware runs left: {left}/{total}", { left: budget.remaining, total: budget.total }) }) : null,
     el("span", { class: "fact placeholder-tag", title: tm(app.course?.notice) || "", text: t("Placeholder numbers") }),
     el("span", { class: "fact", text: agentLabel }),
-    el("button", { type: "button", class: "btn small", text: t({ auto: "Theme: system", light: "Theme: light", dark: "Theme: dark" }[theme]), onclick: cycleTheme }),
+    el("button", { type: "button", class: "btn icon", title: themeLabel, "aria-label": themeLabel, text: { auto: "◐", light: "☀", dark: "☾" }[theme], onclick: cycleTheme }),
     // The other language, named in itself. Switching reloads the page; drafts are kept in the browser.
     el("button", { type: "button", class: "btn small", lang: other === "zh" ? "zh-CN" : "en", title: t("Page language"), text: LANGUAGES[other],
                    onclick: () => { remember(other); location.reload(); } }));
@@ -512,7 +513,7 @@ function renderSessions() {
     if (!items.length) continue;
     const budget = app.states[items[0].id]?.budget?.hardware || items[0].budget;
     nodes.push(el("div", { class: "group" }, el("div", { class: "group-head" }, el("b", { text: `${task.task} ${t(task.title)}` }),
-      budget ? el("span", { class: "note", title: t("Shared by the sessions of this task"), text: t("Hardware {left}/{total}", { left: budget.remaining, total: budget.total }) }) : null),
+      budget ? el("span", { class: "note", title: t("Shared by the sessions of this task"), text: t("Hardware runs left: {left}/{total}", { left: budget.remaining, total: budget.total }) }) : null),
       el("ul", { class: "sessions" }, items.map(sessionItem))));
   }
   fill($("#left"), nodes);
@@ -563,8 +564,8 @@ function showWelcome() {
   $("#recnav").replaceChildren();
   fill($("#record"), el("div", { class: "record-head" }, el("div", { class: "record-title" }, el("h2", { text: t("Choose a task") }))),
     el("p", { class: "lead", text: t("Each session works through a task from scratch, with its own records and agent. Start a new session at any time; earlier sessions are kept. Sessions of the same task share the hardware budget.") }),
-    (app.course?.tasks || []).map((task) => el("div", { class: "section" }, el("header", {}, el("h3", { text: `${task.task} ${t(task.title)}` })),
-      button(t("Start"), "primary", () => startSession(task.task)))));
+    el("div", { class: "tasks" }, (app.course?.tasks || []).map((task) => el("div", { class: "section task-card" }, el("span", { class: "task-id", text: task.task }),
+      el("h3", { text: t(task.title) }), button(t("Start"), "primary", () => startSession(task.task))))));
   $("#right").replaceChildren(el("p", { class: "empty", text: t("Start a session to chat with the agent here.") }));
 }
 
@@ -729,10 +730,10 @@ function viewOverview(notebook) {
   if (validation) nodes.push(section(t("Validation matrix (current selection)"), "mlab", validationTable(validation)));
   nodes.push(section(t("Records"), null, notebook.items.length ? table([{ label: t("Record") }, { label: t("Status") }, { label: t("Content") }],
     notebook.items.map((item) => [el("a", { href: link(itemTarget(item)), text: itemLabel(item) }), statusText(item.status),
-      item.kind === "round" ? short(item.hypothesis, 60) || "—" : itemMeta(item).filter(Boolean).join(" · ") || "—"]),
+      item.kind === "round" ? short(item.hypothesis, 60) || "—" : itemMeta(item).slice(item.kind === "measurement" ? 1 : 0).filter(Boolean).join(" · ") || "—"]),
     (index) => go(itemTarget(notebook.items[index]))) : el("p", { class: "empty", text: t("No records yet") })));
-  nodes.push(section(t("Timeline"), "mlab", notebook.timeline.length ? el("ul", {}, notebook.timeline.map((event) =>
-    el("li", {}, `${when(event.at, true)} ${t(event.label)} `, event.id ? el("a", { href: link(event.type === "concluded" ? "report" : event.id), text: event.id }) : null))) :
+  nodes.push(section(t("Timeline"), "mlab", notebook.timeline.length ? el("ul", { class: "timeline" }, notebook.timeline.map((event) =>
+    el("li", {}, el("time", { text: when(event.at, true) }), `${t(event.label)} `, event.id ? el("a", { href: link(event.type === "concluded" ? "report" : event.id), text: event.id }) : null))) :
     el("p", { class: "empty", text: t("No events yet") })));
   return nodes;
 }
@@ -844,7 +845,8 @@ function roundPlan(round, form) {
     section(t("Candidates (differences from {base})", { base: base || t("the first candidate") }), "agent", round.candidates.length ? table([{ label: t("Candidate") }, { label: t("Rationale") }, { label: t("Differences") }],
       round.candidates.map((item, index) => [round.candidates_frozen ? el("a", { href: link(`${round.id}/${item.id}`), text: item.id }) : item.id, tm(item.rationale), index === 0 ? t("Baseline") :
         (item.diff.map((d) => `${d.field}: ${d.base ?? t("default")} → ${d.value ?? t("default")}`).join("; ") || t("Same as the baseline"))])) : el("p", { class: "empty", text: t("No candidates yet") })),
-    section(t("Plan comments"), "student", textBlock(round.review.student, "No comments yet")),
+    // While the review form is open and nothing is written yet, the form alone stands for the comments.
+    form === "review" && !(round.review.student || "").trim() ? null : section(t("Plan comments"), "student", textBlock(round.review.student, "No comments yet")),
     round.review.agent ? section(t("Changes and responses"), "agent", textBlock(round.review.agent)) : null,
     form === "review" ? reviewForm(round) : null,
     reuseButtons(round)];
@@ -861,7 +863,7 @@ function reviewForm(round) {
     approve.disabled = !round.check || round.check.stale || values.some((value) => value !== "keep");
     approve.title = approve.disabled ? t("A candidate is marked change or drop, or the plan is not checked; ask the agent to revise first") : "";
   };
-  const rows = round.candidates.map((item) => el("div", { class: "field" }, el("span", { text: item.id }),
+  const rows = round.candidates.map((item) => el("div", { class: "field review-row" }, el("span", { text: item.id }),
     el("div", { class: "verdicts", role: "radiogroup", "aria-label": t("Verdict on {id}", { id: item.id }) }, [["keep", "Keep"], ["change", "Change"], ["drop", "Drop"]].map(([value, label]) =>
       el("label", {}, el("input", { type: "radio", name: `review-${round.id}-${item.id}`, value, checked: verdicts[item.id] === value,
         onchange: () => { setDraft(key, "verdicts", { ...getDraft(key, "verdicts", {}), [item.id]: value }); update(); } }), t(label)))),
@@ -900,7 +902,8 @@ function roundDecision(round, form) {
         : t("Number check failed: {errors}", { errors: claims.errors.map(tm).join("; ") }) }) : null),
     section(t("Falsification condition"), "student", textBlock(round.hypothesis.falsifier)),
     round.previous_decision ? section(t("Previous decision ({id})", { id: round.previous_decision.id }), "student", textBlock(round.previous_decision.text)) : null,
-    section(t(round.decision.confirmed ? "Decision (confirmed)" : "Decision"), "student", textBlock(round.decision.text, "No decision yet"),
+    form === "decision" && !(round.decision.text || "").trim() ? null : section(t(round.decision.confirmed ? "Decision (confirmed)" : "Decision"), "student",
+      textBlock(round.decision.text, "No decision yet"),
       round.decision.selected ? el("p", { class: "note", text: t("Selected candidate: {candidate}", { candidate: round.decision.selected }) }) : null),
     form === "decision" ? decisionForm(round) : null,
     reuseButtons(round)];
@@ -1236,12 +1239,13 @@ function renderAgentHead() {
   const agent = app.agent || {};
   const usage = agent.usage || {};
   const busy = ["running", "waiting_approval", "waiting_answer", "connecting"].includes(agent.status);
+  const tone = agent.status === "error" ? "error" : ["waiting_approval", "waiting_answer"].includes(agent.status) ? "attention" : busy ? "busy" : "info";
   const tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0);
   fill(box, el("div", { class: "agent-line" },
-    el("span", { class: `agent-status tone-${agent.status === "error" ? "error" : busy ? "busy" : "info"}`, text: t(agent.label || "Agent offline") }),
+    el("span", { class: `agent-status tone-${tone}`, text: t(agent.label || "Agent offline") }),
     agent.queued ? el("span", { class: "chip", text: t("{n} queued", { n: agent.queued }) }) : null,
     el("div", { class: "row" }, busy ? button(t("Stop"), "small", () => sessionApi("agent/interrupt", {})) : null,
-      button(t("Restart"), "ghost small", () => sessionApi("agent/restart", {}), { title: t("Disconnect and reconnect, keeping the conversation") }))),
+      button(t("Reconnect"), "ghost small", () => sessionApi("agent/restart", {}), { title: t("Disconnect and reconnect, keeping the conversation") }))),
     el("div", { class: "agent-usage", text: t(usage.cost_estimated ? "{turns} turns · {tokens} tokens · ${cost} (estimated)" : "{turns} turns · {tokens} tokens · ${cost}",
       { turns: usage.turns || 0, tokens: tokens.toLocaleString("en-US"), cost: (usage.cost_usd || 0).toFixed(3) }) }),
     agent.detail ? el("div", { class: "agent-detail", text: tm(agent.detail) }) : null);
@@ -1255,18 +1259,35 @@ function renderMessages() {
   if (nearBottom) box.scrollTop = box.scrollHeight;
 }
 
+// A file the agent read or wrote, shown from the session's folder: rounds/r001/plan.yaml.
+function inSession(path) {
+  const marker = `/${app.session}/`;
+  const at = String(path).lastIndexOf(marker);
+  return at >= 0 ? String(path).slice(at + marker.length) : String(path);
+}
+
+const TOOLS = { Read: "Read {path}", Edit: "Edit {path}", Write: "Write {path}" };
+
+function toolLine(entry) {
+  if (entry.tool === "Bash") return `$ ${entry.text}`;
+  if (TOOLS[entry.tool]) return t(TOOLS[entry.tool], { path: inSession(entry.text) });
+  if (entry.tool === "AskUserQuestion") return t("Question: {text}", { text: entry.text });
+  return `${entry.tool}: ${entry.text}`;
+}
+
 function message(entry) {
   if (entry.role === "student") {
-    return el("div", { class: "msg student" }, el("span", { class: "msg-who", text: t("You") }), entry.text,
+    return el("div", { class: "msg student" }, entry.text,
       entry.refs?.length ? el("div", { class: "refs" }, entry.refs.map((ref) => el("a", { href: link(ref), text: `@${ref}` }))) : null);
   }
-  if (entry.role === "agent") return el("div", { class: "msg agent" }, el("span", { class: "msg-who", text: "agent" }), inline(entry.text));
+  if (entry.role === "agent") return el("div", { class: "msg agent" }, inline(entry.text));
   if (entry.role === "tool") {
-    return el("details", { class: `tool ${entry.is_error ? "error" : ""}` }, el("summary", { text: `${entry.tool}: ${entry.text}` }),
+    return el("details", { class: `tool ${entry.is_error ? "error" : ""}` }, el("summary", { text: toolLine(entry) }),
       entry.result ? el("pre", { text: entry.result }) : el("p", { class: "note", text: t("Running…") }));
   }
   if (entry.role === "notice") {
-    return el("div", { class: `notice ${entry.to === "student" ? "to-student" : ""}` }, entry.to === "agent" ? t("Sent to agent: {text}", { text: tm(entry.text) }) : tm(entry.text),
+    return el("div", { class: `notice ${entry.to === "student" ? "to-student" : ""}` },
+      entry.to === "agent" ? el("span", { class: "notice-tag", text: t("Sent to agent") }) : null, tm(entry.text),
       entry.reason ? el("div", { class: "note", text: tm(entry.reason) }) : null,
       entry.action ? el("div", {}, button(t(entry.action.label), "small", () => sessionApi("agent/continue", { owner: entry.action.owner }))) : null);
   }
@@ -1282,14 +1303,19 @@ function approvalCard(entry) {
     if (reason.hidden) { reason.hidden = false; deny.textContent = t("Confirm denial"); reason.focus(); return; }
     await sessionApi(`approvals/${entry.card_id}`, { decision: "deny", reason: reason.value });
   });
-  return el("div", { class: `card ${pending ? "" : "resolved"}` }, el("h4", { text: t("Approval needed: {title}", { title: t(summary.title || "Command") }) }),
-    el("div", { class: "command", text: entry.text }),
+  return el("div", { class: `card ${pending ? "" : "resolved"}` }, cardHead(entry, t(summary.title || "Command")),
+    el("div", { class: "command", text: `$ ${entry.text}` }),
     summary.facts?.length ? kv(summary.facts.map(([name, value]) => [t(name), factValue(value) || "—"])) : null,
     summary.effects?.length ? [el("div", { class: "note", text: t("On approval:") }), el("ul", {}, summary.effects.map((item) => el("li", { text: tm(item) })))] : null,
     summary.will_fail ? el("div", { class: "banner warn", text: t("mlab will refuse this: {reason}", { reason: tm(summary.will_fail) }) }) : null,
     (summary.warnings || []).map((item) => el("p", { class: "note", text: tm(item) })),
-    pending ? [reason, el("div", { class: "row" }, button(t(summary.will_fail ? "Run anyway" : "Approve"), "primary", () => sessionApi(`approvals/${entry.card_id}`, { decision: "allow" })), deny)]
-      : el("div", { class: "state", text: t(CARD_STATE[entry.state] || entry.state) }));
+    pending ? [reason, el("div", { class: "row" }, button(t(summary.will_fail ? "Run anyway" : "Approve"), "primary", () => sessionApi(`approvals/${entry.card_id}`, { decision: "allow" })), deny)] : null);
+}
+
+// A card's title, with its state next to it: pending, approved, denied…
+function cardHead(entry, title, waiting = t(CARD_STATE.pending)) {
+  const state = entry.state === "pending" ? waiting : t(CARD_STATE[entry.state] || entry.state);
+  return el("div", { class: "card-head" }, el("span", { class: `card-state state-${entry.state}`, text: state }), el("h4", { text: title }));
 }
 
 function questionCard(entry) {
@@ -1297,7 +1323,7 @@ function questionCard(entry) {
   const questions = entry.questions || [];
   const picked = questions.map(() => new Set());
   const others = questions.map(() => el("input", { type: "text", placeholder: t("Other") }));
-  return el("div", { class: `card ${pending ? "" : "resolved"}` }, el("h4", { text: t("Question from the agent") }),
+  return el("div", { class: `card ${pending ? "" : "resolved"}` }, cardHead(entry, t("Question from the agent"), t("Answer needed")),
     questions.map((question, index) => el("div", {}, el("p", {}, el("b", { text: question.question })),
       el("div", { class: "options" }, (question.options || []).map((option) => el("label", { class: "choice" },
         el("input", { type: question.multiSelect ? "checkbox" : "radio", name: `${entry.card_id}-${index}`, disabled: !pending,
@@ -1308,7 +1334,7 @@ function questionCard(entry) {
       const answers = {};
       questions.forEach((question, index) => { const text = others[index].value.trim() || [...picked[index]].join(", "); if (text) answers[question.question] = text; });
       if (Object.keys(answers).length) sessionApi(`questions/${entry.card_id}`, { answers });
-    }), button(t("Skip"), null, () => sessionApi(`questions/${entry.card_id}`, { cancel: true }))) : el("div", { class: "state", text: t(CARD_STATE[entry.state] || entry.state) }));
+    }), button(t("Skip"), null, () => sessionApi(`questions/${entry.card_id}`, { cancel: true }))) : null);
 }
 
 function formTarget(current) {
@@ -1399,7 +1425,7 @@ function renderComposer() {
   };
   app.stopFirst = stop;
   box.replaceChildren(el("div", { class: "quick", id: "quick" }), menu, area,
-    el("div", { class: "row" }, button(t("Send"), "primary", send), el("span", { class: "row", id: "composer-status" })));
+    el("div", { class: "composer-foot" }, el("div", { class: "composer-status", id: "composer-status" }), button(t("Send"), "primary", send)));
   renderQuick();
   renderComposerStatus();
 }
@@ -1410,8 +1436,8 @@ function renderComposerStatus() {
   if (!slot) return;
   const busy = BUSY.includes(app.agent?.status);
   if (!busy && app.stopFirst) app.stopFirst.checked = false;
-  fill(slot, busy ? el("label", { class: "note" }, app.stopFirst, ` ${t("Stop the agent first")}`) : null,
-    busy ? el("span", { class: "queued", text: t("The agent is working; the message is sent when it finishes") }) : null);
+  fill(slot, busy ? el("span", { text: t("The agent is working; the message is sent when it finishes") }) : null,
+    busy ? el("label", {}, app.stopFirst, t("Stop the agent first")) : null);
 }
 
 function prefill(text) {
