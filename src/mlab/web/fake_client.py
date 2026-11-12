@@ -58,6 +58,10 @@ class FakeAgentClient:
     async def turn(self, prompt):
         self.stopped = False
         self.lang = getattr(self.runtime, "lang", None) or "en"
+        if getattr(self.runtime, "exploration", False):
+            yield {"type": "text", "text": self.tr("This is the offline preview. You can edit experiments and run them directly from the workbench; connect a model for evidence-based discussion.")}
+            yield {"type": "result", "session": self.session, "usage": {"input_tokens": 0, "output_tokens": 0}}
+            return
         notice = prompt.startswith(NOTICE)
         if notice and "opened this session's page" in prompt:
             state = await self.state()

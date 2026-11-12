@@ -1,3 +1,6 @@
 * text=auto eol=lf
 *.jsonl text eol=lf
 *.yaml text eol=lf
+
+# Generated bundles preserve vendor CSS template literals.
+src/mlab/web/static/workbench/assets/* -whitespace linguist-generated=true

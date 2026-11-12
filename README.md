@@ -1,12 +1,13 @@
 # hello-mlsys-lab
 
-The teaching assistant for weeks 6–8 of hello-mlsys, available as a local course page and in the terminal. Students propose hypotheses, review plans, choose measurement points and make the research decisions. Codex uses GPT-6 Luna or SoC Qwen 27B to help plan experiments, run them and compare the evidence.
+The experiment workbench for weeks 6–8 of hello-mlsys, available as a local course page and in the terminal. Students design configurations, arrange simulations and measurements, compare earlier results and record their conclusions. An optional Codex assistant, using GPT-6 Luna or SoC Qwen 27B, helps interpret evidence and proposes editable experiment drafts.
 
-Experiments run on two flywheels: the fast flywheel uses the simulator (the LLM simulator or a fixture), with no limit on runs; the slow flywheel uses hardware measurement (the hardware stand-in until the AMD sandbox is connected), with a budget. All numbers are placeholder numbers.
+Experiments can use simulation or hardware measurement. Simulation has no total run budget, but each batch has a size limit. Measurements share a task budget and currently use a stand-in until the AMD sandbox is connected. The fixture, LLM simulator and stand-in all produce demonstration numbers.
 
 | To read about | Go to |
 | --- | --- |
 | Implementation design and plan | [docs/plan.md](docs/plan.md) (Chinese copy: [docs/plan.zh-CN.md](docs/plan.zh-CN.md)) |
+| Workbench design, build and browser checks | [Frontend guide](docs/web-frontend.md) |
 | Course page API | [docs/web-api.md](docs/web-api.md) |
 | Backend interface and artifact formats | [docs/contract-v0.1.md](docs/contract-v0.1.md) |
 | Scope of the v0.1 implementation (fast flywheel only, the student reports numeric predictions) | [Initial implementation notes](docs/implementation-v0.1.md) |
@@ -36,15 +37,17 @@ To use **SoC / Qwen 3.8 27B** with the same pinned Codex, run `scripts/start-soc
 mlab web workspaces/my-course --simulator fixture --provider codex-luna
 ```
 
-The first run creates the course directory, prints the page address and opens the browser; the server listens only on 127.0.0.1. When connected to a remote server (ssh, VS Code Remote or a tunnel), open the address given by port forwarding. The left column is the session list: a session does one task from the start and has its own records and agent, and the task is chosen when clicking "New session"; sessions of the same task share the hardware budget. At the top of the middle column is the session's directory of records, and below it are the records, charts and, when it is the student's turn, the forms; the right column is the session's agent. The student's words can go into the forms or into the chat; steps the student must confirm appear as confirmation cards. The top bar switches the page between Chinese and English, and the agent replies in the page's language. If the port is taken, add `--port`.
+The first run creates the course directory and opens a page served on 127.0.0.1. For a remote machine, use an SSH or editor port forward. The page organizes work by task, with experiments, execution history, comparisons and notes. Students can keep several drafts and independently arrange simulations or measurements; no conversation or previous-round decision is required. Select earlier results to inspect their configurations, compare them, discuss them, or start a new experiment from them. The measurement budget is shared across each task. Chinese/English and light/dark settings are retained in the browser. Add `--port` if the default port is busy.
 
-`mlab doctor --web` checks the CLI version, authentication availability, web dependencies and local TCP access, without calling a model. `--agent fake` switches to the offline example agent for walking through the page. Demo steps and the TA checklist are in [Demo steps](docs/demo.md#course-page-demo); the API is in [docs/web-api.md](docs/web-api.md).
+The React workbench is included as built static assets. Developers rebuild it with `scripts/build-web.sh`; the toolchain and npm cache stay inside the project. See [Frontend design and verification](docs/web-frontend.md). Existing guided records and reports remain available at `/classic`.
+
+`mlab doctor --web` checks the CLI version, authentication availability, web dependencies and local TCP access, without calling a model. `--agent fake` provides an offline preview. Experiment controls still work; discussion explains that no model is connected. Demo steps and the TA checklist are in [Demo steps](docs/demo.md#course-page-demo); the API is in [docs/web-api.md](docs/web-api.md).
 
 Do not use the same workspace from the course page and the terminal at the same time.
 
 ## Talking to the agent directly
 
-The terminal uses the same isolated Codex App Server and confirmation flow as the page:
+The terminal uses the same isolated Codex App Server, with the earlier guided approval flow:
 
 ```bash
 mlab init --task 9.2 --simulator fixture --provider codex-luna workspaces/my-sla
@@ -86,6 +89,7 @@ Codex lifecycle tests use a scripted JSONL protocol peer and run without a model
 ```text
 docs/            design, plan, contract and demo steps
 src/mlab/        the mlab CLI, state machine, contracts, backends and course page (src/mlab/web)
+frontend/        React workbench source, pinned dependencies and browser tests
 scripts/         setup, launch and regression scripts
 template/        student workspace template
 tasks/           draft configurations of the three tasks; thresholds, workloads and quality tables are all draft

@@ -1,4 +1,47 @@
-# Demo steps: Ch 9.2, two flywheels
+# Demo: student-led experiments
+
+The default page is an experiment workbench. Students choose what to try, when to simulate, what to measure, and which earlier results to investigate. The example below is one possible investigation, not a required sequence. It uses task 9.2 and synthetic fixture/stand-in results.
+
+## Course page demo
+
+From the repository root, after `scripts/setup.sh`:
+
+```bash
+source .venv/bin/activate
+mlab web workspaces/exploration-demo --agent fake --simulator fixture --no-opening
+```
+
+Open the printed address, or its SSH/editor port forward, and select task 9.2. No model is required for the controls below. `--agent fake` gives an offline discussion response; it does not generate an analysis or experiment proposal. For a live assistant, use a fresh course with `--agent codex --provider codex-luna`, or start a SoC course with `scripts/start-soc.sh workspaces/soc-exploration-demo`. See [Codex integration](codex.md) for credentials, isolation and provider limits.
+
+| Investigation | Page actions | What to inspect |
+| --- | --- | --- |
+| Compare two concurrency settings | Click **New experiment**, name it "Concurrency near the SLA", and write the question you want to investigate. Rename the first configuration `c16` and set **Maximum concurrency** to 16. Use **Add a variant** to create `c20` with concurrency 20, keeping other settings unchanged. | Both configurations are editable. Writing an expectation is optional. **Save draft** keeps the draft on the server; unsaved edits are retained in this browser. |
+| Run the simulation | Keep the development workload and one repetition, click **Run simulations**, review the two configurations and click **Start simulations**. | **Runs** lists both executions, their latency, goodput and constraint verdicts. Finishing successfully does not necessarily mean meeting the SLA. |
+| Examine an individual result | Open the `c20` run. Inspect **Configuration** and **Requests**, then write an observation under **Observations**. Return with **All runs**. | The saved configuration and request timings stay attached to this run. Search and filter settings survive returning to the list. |
+| Compare the evidence | Select both completed runs and click **Compare results**. Change the baseline if useful. | The table shows the changed concurrency setting alongside the performance metrics; the plot includes the SLA threshold. |
+| Choose a measurement | Return to **Runs**, click **Arrange measurement**, choose the experiment and select only `c20`. Write why this result needs checking, then click **Review measurement**. | The preview shows one hardware run and the remaining task budget. It reuses a matching simulation or prepares one without spending hardware budget. |
+| Measure and investigate the gap | Click **Confirm and measure**, open the new measurement result and follow **Matching simulation** or **Compare this pair**. | With the fixture and stand-in, `c20` is around 1940 ms in simulation and 2370 ms in measurement: the execution completes, but the measurement violates the 2000 ms SLA. These are demonstration numbers, not GPU measurements. |
+| Continue from earlier work | In a run detail, click **Use this configuration**, or use **Duplicate** in the experiment list. Adjust one parameter and give the new experiment a name. | The earlier configuration and its results remain unchanged. Other drafts can remain open while this experiment runs. |
+| Discuss or record a conclusion | Select evidence and click **Discuss these results** for a live assistant, or record your own observations in **Notes & conclusions**. **Submit conclusion** lets you review a configuration's evidence. | The assistant can propose an editable draft; the student starts execution. A conclusion without the required validation is marked as needing more evidence. Submitting does not end exploration. |
+
+Students may also click **Arrange measurement** while editing a draft, without first running a simulation round. The measurement preview records the selected configuration and prepares any missing matching simulation. Hardware work still requires the separate confirmation. There is no need to submit a decision about a previous experiment before creating another one.
+
+### Workbench checklist
+
+- [ ] Create two drafts without running or concluding the first one; switch between them and recover unsaved edits after a refresh.
+- [ ] Complete simulation and measurement using only page controls, without sending a chat message.
+- [ ] Select runs from different experiments, change the comparison baseline, and inspect the listed comparison conditions.
+- [ ] Reopen an earlier run and duplicate its configuration; confirm its original result is unchanged.
+- [ ] Write an observation linked to a result and find it again in the task's notes.
+- [ ] Keep a measurement pending while exploring another experiment, then reopen its review before spending hardware runs.
+- [ ] Switch Chinese/English and light/dark themes; inspect the page at a narrow width.
+- [ ] Keep all displayed fixture and stand-in numbers clearly identified as demonstration data.
+
+The automated browser checks use a fresh disposable course and no live model. Their setup and artifact locations are in [Frontend verification](web-frontend.md#build-and-verify).
+
+## Legacy guided terminal story
+
+The remaining sections document the earlier guided flow used by terminal demonstrations and the `/classic` page. They are retained to explain existing recordings and records. Their required sequence and confirmation cards do not describe the default workbench.
 
 The student writes the hypothesis and falsification condition, comments on the plan, chooses hardware points and makes the decisions; to find out why simulation and measurement disagree, the student asks the agent to help analyze the data. The agent plans, runs and drafts the records. The fast flywheel is the simulator, with no limit on runs; the slow flywheel is the hardware stand-in, with a budget of 8 runs. The flow is two simulation rounds and two measurements, about 7 confirmation prompts. The current agent is Codex / GPT-6 Luna; duration depends on model response times. All numbers are placeholder numbers, and the hardware stand-in is not real hardware.
 
@@ -76,15 +119,15 @@ All four hardware runs are about 12% slower than the simulation, but all meet th
 - Calibrating the simulator is the simulator side's responsibility and is not part of this flow.
 - The hardware stand-in creates four kinds of gap by fixed rules: measurement noise, inaccurate parameters, a missing mechanism, and differences in how a strategy is implemented (for example, `chunked_256` chunks at 512 on the stand-in). All numbers are made up.
 
-## Course page demo
+## Legacy guided page demo
 
-The same story, shown on the local course page. The unit of work on the page is a session: a session does one task from the start and has its own records and agent. The student's words can go into the forms in the middle column or into the chat in the right column.
+The same terminal story, shown on the earlier `/classic` page. The unit of work on the page is a session: a session does one task from the start and has its own records and agent. The student's words can go into the forms in the middle column or into the chat in the right column.
 
 ```bash
 mlab web workspaces/web-demo --simulator fixture --provider codex-luna
 ```
 
-The terminal prints the page address, and the browser opens it automatically; when connected to a remote server, open the address given by the editor's port forwarding (in VS Code, the "Ports" panel). If port 8765 is taken, add `--port` with a free port. In the left column, click "New session" and choose "9.2 Single-node serving under an SLA". The steps below use forms, chat, quick replies and confirmation cards at least once each; any step can instead be done by typing the student's line from the table in the previous section into the chat, and the agent writes the words into the files and brings up a confirmation card when confirmation is needed.
+The terminal prints the page address. Open that address with `/classic` appended for this legacy demonstration; when connected to a remote server, open the address given by the editor's port forwarding (in VS Code, the "Ports" panel). If port 8765 is taken, add `--port` with a free port. In the left column, click "New session" and choose "9.2 Single-node serving under an SLA". The steps below use forms, chat, quick replies and confirmation cards at least once each; any step can instead be done by typing the student's line from the table in the previous section into the chat, and the agent writes the words into the files and brings up a confirmation card when confirmation is needed.
 
 | Step | What to do on the page | Confirmation card |
 | --- | --- | --- |
@@ -142,5 +185,5 @@ GPT-6 Luna estimates the simulation results; the steps and inputs stay the same.
 | Situation | Command | Notes |
 | --- | --- | --- |
 | Terminal chat is preferred | `scripts/start-agent.sh --workspace workspaces/classroom` | Codex / GPT-6 Luna with explicit confirmations |
-| No model available for the course page | `mlab web workspaces/web-offline --agent fake --simulator fixture` | Offline fake agent; the student writes through the forms; steps that need confirmation still get confirmation cards |
+| No model available for the course page | `mlab web workspaces/web-offline --agent fake --simulator fixture` | Current workbench controls work offline; discussion identifies itself as an offline preview |
 | Only the experiment tools | `mlab demo --task 9.2 --out workspaces/offline` | No agent; a script goes through one simulation round, validation on the simulator and one measurement, and compares simulation with measurement |

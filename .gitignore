@@ -19,4 +19,5 @@ config/qwen.local.json
 config/agent.local.json
 config/*.local.json
 .env.*
+node_modules/
 !.env.example

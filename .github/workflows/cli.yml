@@ -21,3 +21,32 @@ jobs:
       - run: python -m pip install -e ".[dev,web]"
       - run: python -m pytest -q
       - run: python -m mlab demo --task 9.2 --out workspaces/ci-fixture
+
+  workbench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: python -m venv .venv
+      - run: .venv/bin/pip install -e ".[dev,web]"
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run format:check && npm run build
+        working-directory: frontend
+      - run: git diff --exit-code -- src/mlab/web/static/workbench
+      - run: npx playwright install --with-deps chromium --only-shell
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ../.venv/playwright
+      - run: npm run test:browser
+        working-directory: frontend

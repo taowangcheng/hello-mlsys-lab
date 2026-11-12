@@ -12,6 +12,7 @@ from pathlib import Path
 from ..contracts import ENVIRONMENT_FAILURES, Candidate, MeasurementPlan, Plan, RunSpec, TaskDefinition
 from .io import ROOT, TERMINAL, LabError, atomic, dump, hashed, inside, load, project_claude, require, tool_path
 from .metrics import get_metric, percentile
+from .locking import budget_locked
 from .store import Store, now
 
 TASKS = {"9.1": "9.1-edge", "9.2": "9.2-sla", "9.3": "9.3-dag"}
@@ -211,9 +212,10 @@ def rounded(value):
 
 
 class Lab:
-    def __init__(self, root=None, readonly=False):
+    def __init__(self, root=None, readonly=False, *, workflow=None, measurement=None):
         self.root = find_workspace(root)
         self.readonly = readonly
+        self.target_workflow, self.target_measurement = workflow, measurement
         self.store = Store(self.root, readonly)
         self.config = load(self.root / ".mlab/config.json")
         self.task = dump(TaskDefinition.model_validate(load(self.root / "task/task.yaml")))
@@ -240,7 +242,12 @@ class Lab:
 
     def current(self):
         """The task's current round, current measurement and selected configuration."""
-        return {**BLANK, **(self.store.get("settings", "task") or {})}
+        current = {**BLANK, **(self.store.get("settings", "task") or {})}
+        if self.target_workflow is not None:
+            current["workflow"] = self.target_workflow
+        if self.target_measurement is not None:
+            current["measurement"] = self.target_measurement
+        return current
 
     def workflow(self):
         current = self.current()
@@ -262,9 +269,9 @@ class Lab:
     def records(self, ids):
         return [self.store.get("run", identifier) for identifier in ids]
 
-    def new_workflow(self, example=False, source=None):
+    def new_workflow(self, example=False, source=None, exploratory=False):
         current = self.current()
-        if current["workflow"]:
+        if current["workflow"] and not exploratory:
             require(self.workflow()["status"] == "decided", "E_NEEDS_APPROVAL", "record and confirm the previous workflow decision first")
         index = len(self.store.all("workflow")) + 1
         identifier = f"r{index:03}"
@@ -296,7 +303,8 @@ class Lab:
         for name in ("analysis.md", "decision.md"):
             atomic(folder / name, "", text=True)
         data = {"id": identifier, "iteration": index, "folder": str(folder.relative_to(self.root)),
-                "status": "draft", "errors": {}, "locked": False, "runs": [], "created_at": now(), "source": source}
+                "status": "draft", "errors": {}, "locked": False, "runs": [], "created_at": now(), "source": source,
+                "exploratory": exploratory}
         self.store.begin()
         self.store.put("workflow", identifier, data)
         current["workflow"] = identifier
@@ -335,11 +343,11 @@ class Lab:
                 "E_SCHEMA", "question and derived_requirements(name,value,derivation) are mandatory", 2)
         hypothesis = inside(folder, plan["hypothesis_ref"])
         claim, falsifier = hypothesis_parts(hypothesis.read_text(encoding="utf-8") if hypothesis.is_file() else "")
-        if not claim or not falsifier:
+        if not w.get("exploratory") and (not claim or not falsifier):
             raise LabError("E_SCHEMA", "hypothesis.md needs the student's hypothesis and, under '## What result would prove me wrong', what result would show it wrong", 2, actions=[
                 {"actor": "agent", "do": "ask", "say": "Ask the student and record their own words in hypothesis.md. Never write the hypothesis or the falsification condition yourself."},
                 {"actor": "student", "do": "hypothesis", "say": "State the hypothesis and what result would show it wrong."}])
-        require(len(plan["candidates"]) >= self.task["min_candidates"], "E_SCHEMA", "too few candidates", 2)
+        require(len(plan["candidates"]) >= (1 if w.get("exploratory") else self.task["min_candidates"]), "E_SCHEMA", "too few candidates", 2)
         catalog = load(self.root / "task/catalog.json")
         candidates = []
         seen = set()
@@ -405,7 +413,7 @@ class Lab:
         require(w["status"] == "draft", "E_NEEDS_APPROVAL", "workflow already approved; create a new workflow for changed candidates")
         folder = self.folder(w)
         review = (folder / "review.md").read_text(encoding="utf-8") if (folder / "review.md").exists() else ""
-        if not comments(review):
+        if not comments(review) and not w.get("exploratory"):
             raise LabError("E_NEEDS_APPROVAL", "review.md has no student comments on the plan", 3, actions=[
                 {"actor": "agent", "do": "ask", "say": "Show the plan and ask the student to comment on each candidate: keep, change or drop it, and why. Record their words in review.md, then approve."},
                 {"actor": "student", "do": "review", "say": "Comment on the plan, or say that you agree with it as it is."}])
@@ -494,6 +502,7 @@ class Lab:
         total = self.task["budget"]["hardware"]["runs_total"]
         return {"used": used, "remaining": total - used, "total": total}
 
+    @budget_locked
     def launch(self, jobs, kind, owner, folder):
         """Create runs for jobs that have no usable result yet, save the owner, then start the workers."""
         from ..backends.local import LocalBackend, ROLES, allocate, config_hash
@@ -550,7 +559,7 @@ class Lab:
     def submit(self, split="development", candidate_id=None):
         plan, candidates, w = self.approved()
         if split != "development":
-            require(w["status"] == "decided", "E_NEEDS_APPROVAL", "validation requires a confirmed decision")
+            require(w["status"] == "decided" or w.get("exploratory"), "E_NEEDS_APPROVAL", "validation requires a confirmed decision")
             candidates = [c for c in candidates if c["id"] == candidate_id]
             require(candidates, "E_SCHEMA", "unknown candidate for validation", 2)
         else:
@@ -834,12 +843,12 @@ class Lab:
             return "agent", "mlab measure submit, then mlab measure wait --max 60. If still queued, end the turn; the student may continue a simulator round meanwhile.", "measure_submit"
         return "agent", "Some hardware runs failed for environment reasons and used no budget. mlab measure submit reruns only those.", "measure_retry"
 
-    def measure_new(self):
+    def measure_new(self, exploratory=False):
         position = self.current()
         current = self.measurement(required=False)
-        require(self.measure_stage(current) in {None, "measured"}, "E_NEEDS_APPROVAL",
+        require(exploratory or self.measure_stage(current) in {None, "measured"}, "E_NEEDS_APPROVAL",
                 f"{current['id'] if current else ''} is not finished; one measurement at a time (mlab measure status)")
-        decided = [w for w in self.store.all("workflow") if w["status"] == "decided"]
+        decided = [w for w in self.store.all("workflow") if w["status"] == "decided" or (exploratory and w.get("approved_hash"))]
         require(decided, "E_NEEDS_APPROVAL", "decide at least one simulator round before choosing hardware points")
         index = len(self.store.all("measurement")) + 1
         identifier = f"m{index:03}"
@@ -847,7 +856,7 @@ class Lab:
         folder.mkdir(parents=True)
         atomic(folder / "points.yaml", POINTS_TEMPLATE.format(name=identifier, holdouts=", ".join(self.task["holdouts"])), text=True)
         record = {"id": identifier, "index": index, "folder": str(folder.relative_to(self.root)),
-                  "status": "draft", "errors": {}, "locked": False, "runs": [], "created_at": now()}
+                  "status": "draft", "errors": {}, "locked": False, "runs": [], "created_at": now(), "exploratory": exploratory}
         rounds = [{"workflow": w["id"], "candidates": [c["id"] for c in load(self.folder(w) / "frozen_plan.json")["candidates"]]} for w in decided]
         self.store.begin()
         self.store.put("measurement", identifier, record)
@@ -858,12 +867,13 @@ class Lab:
         return {"measurement": identifier, "points_path": str(folder / "points.yaml"), "decided_rounds": rounds,
                 "hardware_budget": self.hardware_budget()}
 
-    def measure_points(self, m):
+    def measure_points(self, m, sources=None):
         self.frozen()
         require(not m["locked"], "E_REPEAT_LIMIT", "same error occurred three times; student must inspect attempts and run mlab measure unlock")
         plan = dump(MeasurementPlan.model_validate(load(self.mfolder(m) / "points.yaml")))
         require(plan["measurement"] == m["id"], "E_SCHEMA", f"points.yaml must say measurement: {m['id']}", 2)
-        decided = [w for w in self.store.all("workflow") if w["status"] == "decided"]
+        decided = [w for w in (self.store.all("workflow") if sources is None else sources)
+                   if w["status"] == "decided" or (m.get("exploratory") and w.get("approved_hash"))]
         resolved, seen = [], set()
         for index, point in enumerate(plan["points"]):
             if point["workflow"]:
@@ -1179,7 +1189,8 @@ class Lab:
         """The configuration named r002/c16, which must be a candidate of a decided round."""
         rid, _, cid = (reference or "").strip().lstrip("@").partition("/")
         w = self.store.get("workflow", rid)
-        require(w and w["status"] == "decided" and cid, "E_SCHEMA", f"{reference} is not a candidate of a decided round, e.g. r002/c16", 2)
+        require(w and (w["status"] == "decided" or (w.get("exploratory") and w.get("approved_hash"))) and cid,
+                "E_SCHEMA", f"{reference} is not a candidate of an approved exploration or decided round", 2)
         candidate = next((c for c in load(self.folder(w) / "frozen_plan.json")["candidates"] if c["id"] == cid), None)
         require(candidate, "E_SCHEMA", f"{rid} has no candidate {cid}", 2)
         return self.selection_for(w, candidate)

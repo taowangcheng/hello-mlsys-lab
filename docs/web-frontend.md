@@ -1,54 +1,73 @@
-# Later plan for the web front end
+# Student-led experiment workbench
 
-The current front end is handwritten plain JS with no build step (`app.js`, `charts.js` and `app.css` under `src/mlab/web/static/`); the server is Starlette. This document records the plan and the trade-offs for rewriting the front end with open-source components. The API is in `docs/web-api.md`.
+The default page at `/` is a task workspace. Students can keep several experiment drafts, edit configurations, schedule simulations or measurements, inspect any earlier run, and compare evidence across experiments. The assistant is an optional discussion panel. There is no required hypothesis/review/decision sequence in this interface.
 
-## Existing open-source products
+## Interaction model
 
-No open-source product can serve as this lab bench as it is. The most laborious parts are all in `mlab` and the server: the student and the agent going through the two flywheels by the rules, the summaries on confirmation cards computed by `mlab`, the student's own words that forms write into records, and the records of earlier experiments. Whichever product is used, these parts have to be connected by hand.
+- **Task overview** explains the objective, constraints and available methods.
+- **Experiments** holds editable drafts and executed configurations. A draft can contain one or several configurations, workloads and repetition seeds. Expectations are optional. Local edits survive navigation and refresh. A revision conflict preserves those edits and offers a new experiment instead of overwriting someone else's saved version.
+- **Runs** collects simulations and measurements across all sessions of the task. Search, filters, sort order and comparison selections survive navigation. Execution status and constraint verdict are separate. A successful process can still violate the SLA.
+- **Run details** expose the saved configuration, task constraints, matching simulation, request timings and observations. Duplicate an earlier configuration to continue exploring; executed inputs never change.
+- **Compare** accepts 2–12 runs, including runs from earlier sessions. Students choose the baseline. The page shows metrics and changed settings, and calls out different workloads, evaluation rules, evidence types or execution backends.
+- **Notes and conclusions** keeps the student's observations linked to evidence. Submitting a conclusion does not end exploration. An incomplete validation remains an incomplete conclusion.
+- **Discussion** carries explicitly selected evidence. The assistant can answer questions and propose a new editable draft. It cannot execute work, spend measurement budget, cancel runs, or submit the student's conclusion.
 
-| Category | Examples | What comes ready-made | What does not fit |
-| --- | --- | --- | --- |
-| Web UIs for Claude Code | claudecodeui, claude-code-webui, cui | Chat, streaming output, session management | Built for developers, with a terminal, file tree and git; claudecodeui reads and writes the user's own `~/.claude` configuration, which conflicts with configuring each task separately, and is licensed under AGPL-3.0; cui was archived in March 2026 |
-| Chat component libraries | assistant-ui, CopilotKit (React), Chainlit (Python) | Chat panel, tool-call display, approval buttons | Only components, which have to be wired to the existing API; Chainlit has been maintained by volunteers since May 2025 |
-| Experiment tracking | MLflow | Run lists, cross-run comparison, metric charts; can record Claude Code sessions through hooks | Knows only runs and metrics, not hypotheses, comments, approvals or comparisons of simulation and measurement; adds a second interface beside the course page |
-| Notebooks with an agent panel | marimo, JupyterLab (jupyterlab-acp) | Chat with Claude Code next to the notebook | marimo's agent panel is still experimental; no forms or confirmation cards |
-| General chat platforms | Open WebUI, LibreChat | A complete chat interface | Call the model API directly rather than through Claude Code, so permission rules, hooks and `AGENTS.md` have no effect |
+Simulation and measurement are separate student actions. A student can arrange a measurement directly from a draft. The preview prepares a matching simulation if one is missing, then shows the hardware count and remaining budget for explicit confirmation. Closing the dialog leaves the pending measurement available for later review. Preparatory simulations do not spend hardware budget.
 
-## Plan: React with open-source components
+The current fixture/LLM simulator and hardware stand-in produce demonstration data. The UI labels this limitation. A different model provider does not make those numbers real GPU measurements.
 
-The front end is rewritten as a whole. The server, all `/api` endpoints, `mlab`, the agent for each task and their tests stay unchanged, and so do the three-column layout and the eight interaction patterns (`docs/plan.md` section 9).
+## Design and implementation
 
-| Part | What to use |
+The visual system uses warm neutral surfaces, a forest-green accent, restrained borders, consistent spacing and clear type hierarchy. Simulation and measurement have distinct marks. Light and dark themes and narrow layouts share the same information architecture. Charts respect reduced-motion preferences and offer keyboard-operable points.
+
+The task navigation and hierarchy draw on [Linear's design refresh](https://linear.app/now/behind-the-latest-design-refresh). The run table and comparison workflow draw on [Aim's run explorer](https://aimstack.readthedocs.io/en/latest/ui/pages/run_management.html). The optional evidence discussion is informed by [Hex Threads](https://learn.hex.tech/docs/explore-data/threads). These are interaction references; this application does not embed those services or copy a full product template.
+
+| Layer | Implementation |
 | --- | --- |
-| UI components | shadcn/ui: buttons, inputs, cards, tabs, tables, resizable panes, light and dark themes |
-| Chat panel | assistant-ui's ExternalStoreRuntime: the server keeps the messages, and the component only displays them; tool calls, confirmation cards and question cards go into its message stream |
-| Data loading | TanStack Query: caching, retries and polling, replacing the handwritten loading and caching logic |
-| Charts | Recharts (the shadcn/ui chart components); the request timeline is drawn by hand |
-| Icons | Lucide |
-| Build | Vite; the build output goes into `src/mlab/web/static/` and ships with `mlab` |
+| Application | React and TypeScript in `frontend/src` |
+| Dialogs and focus management | Radix Dialog |
+| Run table | TanStack Table v8 |
+| Icons and Markdown | Lucide and react-markdown |
+| Charts | Local SVG trade-off plots and request timing bars |
+| Build | Vite; exact dependencies in `package-lock.json` |
+| Server | Existing Starlette server and shared `Lab` validation |
+| Storage | Existing experiment files and SQLite ledger; no second database |
 
-All of these components use MIT or an equally permissive license.
+The interface itself needs no CDN, external fonts, analytics, remote UI service or account. A live assistant requires the selected model provider's credentials. Markdown is rendered without raw HTML. The production output ships in `src/mlab/web/static/workbench/`, so students do not need Node. The earlier page remains at `/classic` for older guided records and reports. Switching a conversation to the workbench selects its exploration policy; use a separate session for a legacy guided demonstration.
 
-Constraints:
+## Build and verify
 
-- Development needs Node 24 LTS or later; students do not need Node.
-- As before, the page loads no external resources and has no inline scripts; data is inserted as plain text, without `dangerouslySetInnerHTML`. Styles that the component libraries insert at run time must pass the CSP.
-- `tests/test_web_static.py` changes to check the front-end source and the build output.
+```bash
+scripts/build-web.sh
+```
 
-Verification:
+This installs Node 24.22.3 under `.venv/web-toolchain`, uses a project-local npm cache, installs the lockfile and builds the assets. It does not replace the machine's Node or Codex installation. Codex remains pinned independently to 0.167.2.
 
-- With the fake agent, go through the 12 steps of `docs/demo.md` offline in a headless browser; look at every kind of record in all three tasks, in both light and dark themes.
-- `tests/test_web_api.py` and `evals/web_story.py` use only the API and still pass.
-- The new front end replaces the current one only after it passes these checks.
+For frontend development after the build:
 
-## A lighter option
+```bash
+cd frontend
+npm run dev
+```
 
-Add no dependencies and only tidy up the current styles: bring the shadcn/ui colors, corner radii and spacing into `app.css`, and render the agent's replies as full Markdown. Basecoat provides shadcn-style components without React, but it depends on a Tailwind build, so it saves little work.
+The Vite proxy expects the Python server on port 8765. Open the Vite address under `/static/workbench/`. The generated production assets, not the development server, are used by `mlab web`.
 
-## Sources
+Run the API/regression suite and browser checks:
 
-- Web UIs for Claude Code: [claudecodeui](https://github.com/siteboon/claudecodeui), [claude-code-webui](https://github.com/sugyan/claude-code-webui), [cui](https://github.com/wbopan/cui)
-- Chat component libraries: [assistant-ui's ExternalStoreRuntime](https://www.assistant-ui.com/docs/runtimes/custom/external-store), [CopilotKit's useHumanInTheLoop](https://docs.copilotkit.ai/reference/hooks/useHumanInTheLoop), [Chainlit](https://pypi.org/project/chainlit/)
-- Experiment tracking: [MLflow tracing for Claude Code](https://mlflow.org/docs/latest/genai/tracing/integrations/listing/claude_code)
-- Notebooks: [marimo's agent panel](https://docs.marimo.io/guides/editor_features/agents/), [jupyterlab-acp](https://pypi.org/project/jupyterlab-acp/)
-- Components and tools: [shadcn/ui](https://ui.shadcn.com), [TanStack Query](https://tanstack.com/query), [Recharts](https://recharts.org), [Lucide](https://lucide.dev), [Vite](https://vite.dev), [Basecoat](https://basecoatui.com/introduction/)
+```bash
+.venv/bin/python -m pytest -q
+cd frontend
+PATH="$PWD/node_modules/.bin:$PATH" PLAYWRIGHT_BROWSERS_PATH=../.venv/playwright playwright install chromium --only-shell
+npm run test:browser
+npm run format:check
+```
+
+Browser checks create a disposable course under `.test-runs/`, serve it on loopback port 8877, and use an isolated browser profile. They exercise student editing, draft recovery, simulation, measurement confirmation, evidence navigation, notes, comparisons, contextual discussion, Chinese, dark mode and mobile width. Screenshots and failure traces go to `workspaces/ui-refactor-check/`. No model is called by those checks.
+
+## Consistency and compatibility
+
+Workbench mutations name the experiment or measurement explicitly. A workspace lock serializes edits; revision checks reject stale writes; request IDs replay the original result. Shared task admission locks prevent simultaneous submissions from overspending hardware budget across sessions. Execution keeps the existing immutable specification and result checks.
+
+Historical guided experiments remain readable. Cloning one produces a new exploratory draft. The terminal and earlier guided API retain their existing approval rules. Opening the workbench switches its conversation to the exploration tool policy, and automatic guided continuation is disabled there.
+
+The workbench currently polls complete task summaries. This is suitable for classroom-sized histories; a long-running deployment with thousands of runs should add pagination and incremental result loading. Live model availability and real GPU backend validation remain separate from browser and protocol tests.

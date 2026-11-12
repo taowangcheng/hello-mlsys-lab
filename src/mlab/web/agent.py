@@ -332,7 +332,7 @@ class TaskRuntime:
         self.add("notice", text, to="student", action={"label": "Continue", "owner": owner})
         now = time.monotonic()
         self.auto_sent = [t for t in self.auto_sent if now - t < 3600]
-        if self.auto_continue and len(self.auto_sent) < AUTO_CONTINUE_PER_HOUR:
+        if self.auto_continue and not getattr(self, "exploration", False) and len(self.auto_sent) < AUTO_CONTINUE_PER_HOUR:
             self.auto_sent.append(now)
             await self.continue_after(owner, label)
 

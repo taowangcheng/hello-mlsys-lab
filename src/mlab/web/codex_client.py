@@ -31,6 +31,19 @@ APPEND += ("In conversation, use short, natural sentences in the student's langu
 APPEND += ("Write prose in plans, candidate rationales and analyses in the same language as the student's message. "
            "Keep schema keys and required template headings unchanged. Quote YAML strings containing colons.\n\n")
 
+EXPLORATION = ("You are the hello-mlsys experiment assistant. The student controls their experiments in a task workbench. "
+    "There is no mandatory sequence of hypothesis, review, decision and next step. Help with the question the student asked. "
+    "Use Explore to list evidence, inspect an experiment, or create an editable draft. A draft is a proposal; it never runs automatically. "
+    "Use Read and read-only mlab commands for deeper evidence. Never approve, execute, cancel or conclude an experiment yourself. "
+    "The student uses the workbench buttons to run simulations, confirm measurements and submit conclusions. "
+    "Never rewrite a student's observation or claim that your proposed expectation is their own. "
+    "When proposing a draft, use task templates or a previous configuration, change only the requested variables, "
+    "and provide title, question, candidates, seeds and workloads in draft_json. Candidates use the mlab Candidate schema. "
+    "Discuss the current selection explicitly. Cite run IDs for numerical claims and distinguish observations from possible explanations. "
+    "Speak naturally in the student's language, keep replies focused, and hide command names and paths unless asked. "
+    "Synthetic simulator and stand-in data are demonstration evidence, never real GPU measurements. "
+    "Ask clarifying questions in ordinary chat. Do not demand a hypothesis or formal decision before helping.\n")
+
 
 def tool(name, description, properties, required):
     return {"type": "function", "name": name, "description": description,
@@ -39,6 +52,8 @@ def tool(name, description, properties, required):
 
 STRING = {"type": "string"}
 TOOLS = [
+    tool("Explore", "Read the task's experiments and runs, inspect a record, or create an editable experiment draft. Does not execute runs.",
+         {"action": {"type": "string", "enum": ["list", "show", "draft"]}, "reference": STRING, "draft_json": STRING}, ["action"]),
     tool("Bash", "Run a single mlab command in this workspace. Commands that need a decision open a confirmation card.",
          {"command": STRING}, ["command"]),
     tool("Read", "Read a workspace text file. Paths are relative to the workspace; no shell commands are needed.",
@@ -80,6 +95,33 @@ class LabTools:
 
     async def execute(self, name, data):
         try:
+            exploratory = getattr(self.runtime, "exploration", False)
+            if name == "Explore":
+                require(exploratory, "E_SCHEMA", "Open the exploration workbench to propose experiment drafts")
+                from . import exploration, views
+                from .course import Course
+                from .server import read
+                if data["action"] == "draft":
+                    result = await asyncio.to_thread(exploration.action, self.root, "create", json.loads(data["draft_json"]), "assistant")
+                    self.runtime.bus.publish("records.changed", self.runtime.key, action="create")
+                elif data["action"] == "show":
+                    reference = str(data["reference"])
+                    session, _, identifier = reference.partition("/")
+                    target = self.root
+                    sessions = {item["id"]: item for item in Course(self.root.parent).sessions()}
+                    if session in sessions:
+                        require(sessions[session]["task"] == self.root.name.split("-")[0], "E_SCHEMA", "Choose evidence from this task")
+                        target, reference = sessions[session]["root"], identifier
+                    result = await asyncio.to_thread(read, target, views.record, reference)
+                else:
+                    from ..core.io import load
+                    task = load(self.root / ".mlab/config.json")["task"]
+                    result = await asyncio.to_thread(exploration.task_view, Course(self.root.parent), task)
+                    result["runs"] = result["runs"][-30:]
+                    result["experiments"] = result["experiments"][-20:]
+                return json.dumps(result, ensure_ascii=False)[:60000], False
+            if exploratory and name in {"Write", "Edit", "AskUserQuestion"}:
+                return "Use Explore to propose an editable experiment draft, and ask questions in ordinary chat. The student controls execution and their own notes.", True
             if name == "AskUserQuestion":
                 result = await self.runtime.permission(name, data)
                 return (json.dumps(result.get("updated_input", {}).get("answers", {}), ensure_ascii=False), False) if result["allow"] else (result["message"], True)
@@ -93,6 +135,10 @@ class LabTools:
                 allowed = {"next", "task", "workflow", "measure", "align", "conclude", "run", "compare", "lint", "validate", "report", "history", "show"}
                 if not plain or len(tokens) < 2 or tokens[1] not in allowed:
                     return "Run one mlab command in this workspace, with no shell syntax or workspace override.", True
+                if exploratory:
+                    read_only = tokens[1] in {"task", "history", "show", "compare", "align"} or (tokens[1] in {"run", "workflow", "measure"} and tokens[2:3] in [["show"], ["status"]])
+                    if not read_only:
+                        return "This workbench action belongs to the student. Use Explore to read evidence or propose a draft; the student runs it from the page.", True
                 if found["kind"] and "--help" not in tokens:
                     decision = await self.runtime.permission(name, data)
                     if not decision["allow"]:
@@ -154,19 +200,21 @@ class CodexAgentClient:
         await self.server.start()
         try:
             params = {"model": self.model, "cwd": str(self.root), "approvalPolicy": "never", "sandbox": "read-only"}
-            if session and self.runtime.meta.get("backend") == "codex" and self.runtime.meta.get("model", MODEL) == self.model:
+            interaction = "exploration" if getattr(self.runtime, "exploration", False) else "guided"
+            if session and self.runtime.meta.get("backend") == "codex" and self.runtime.meta.get("model", MODEL) == self.model and self.runtime.meta.get("interaction", "guided") == interaction:
                 response = await self.server.request("thread/resume", {**params, "threadId": session, "excludeTurns": True})
             else:
                 self.runtime.meta.pop("codex_usage_seen", None)
                 if session:
                     self.runtime.add("notice", "Started a Codex conversation; earlier lab records are unchanged.", to="student")
                     self.runtime.told = None
-                response = await self.server.request("thread/start", {**params, "dynamicTools": TOOLS,
+                allowed = {"Explore", "Bash", "Read"} if interaction == "exploration" else {"Bash", "Read", "Write", "Edit", "AskUserQuestion"}
+                response = await self.server.request("thread/start", {**params, "dynamicTools": [tool for tool in TOOLS if tool["name"] in allowed],
                     "allowProviderModelFallback": False,
-                    "baseInstructions": APPEND + (self.root / "AGENTS.md").read_text(encoding="utf-8")})
+                    "baseInstructions": EXPLORATION if interaction == "exploration" else APPEND + (self.root / "AGENTS.md").read_text(encoding="utf-8")})
             require(response.get("model", self.model) == self.model, "E_BACKEND_UNAVAILABLE", "Codex did not select the requested model", 4)
             self.session = response["thread"]["id"]
-            self.runtime.meta.update({"backend": "codex", "model": self.model, "model_provider": self.provider or "openai", "cost_available": False})
+            self.runtime.meta.update({"backend": "codex", "model": self.model, "model_provider": self.provider or "openai", "cost_available": False, "interaction": interaction})
             self.runtime.save_meta()
             return self.session
         except BaseException:

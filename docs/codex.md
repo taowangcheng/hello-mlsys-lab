@@ -1,6 +1,6 @@
 # Codex integration
 
-The default agent is Codex App Server 0.167.2 with `gpt-6-luna`, selected by the `codex-luna` profile. The web page and terminal share the same tool implementation. The simulator still defaults to mock evidence; changing the agent does not turn fixture or stand-in results into GPU measurements.
+The default agent is Codex App Server 0.167.2 with `gpt-6-luna`, selected by the `codex-luna` profile. The web page and terminal share the host tool implementation, with separate exploration and guided tool policies. The simulator still defaults to mock evidence; changing the agent does not turn fixture or stand-in results into GPU measurements.
 
 ## Start
 
@@ -42,7 +42,7 @@ The lease directory is under the OS temporary directory and contains only a time
 
 ### OpenAI login
 
-Every workspace has a private `.mlab/codex` directory. Only the Codex child process receives that directory as `CODEX_HOME`; the parent's environment is unchanged. Version checks also run with temporary state. The application does not copy personal configuration, skills, plugins, rules, sessions or caches. Built-in command execution, plugins, apps, hooks, web search and subagents are disabled for the lab thread. The host supplies the workspace's `AGENTS.md` explicitly and keeps native filesystem access read-only.
+Every workspace has a private `.mlab/codex` directory. Only the Codex child process receives that directory as `CODEX_HOME`; the parent's environment is unchanged. Version checks also run with temporary state. The application does not copy personal configuration, skills, plugins, rules, sessions or caches. Built-in command execution, plugins, apps, hooks, web search and subagents are disabled for the lab thread. Guided conversations receive the workspace's `AGENTS.md`; workbench conversations receive the exploration policy. Native filesystem access stays read-only.
 
 With `OPENAI_API_KEY`, the host passes the key to the App Server over its private standard-input pipe. With account login, it reads the existing Codex `auth.json` and supplies the access token through `chatgptAuthTokens`. `MLAB_CODEX_AUTH_FILE` can point to another existing login file. Both modes set `cli_auth_credentials_store="ephemeral"`; no credential file or token is written into the workspace, audit, command arguments or child environment.
 
@@ -52,7 +52,9 @@ The protocol's dynamic tools and external-token mode are experimental. The integ
 
 ## Tools and records
 
-Codex receives `Bash`, `Read`, `Write`, `Edit` and `AskUserQuestion` as host-executed dynamic tools. Bash accepts one `mlab` command in the current workspace and executes an argument vector without a shell. Approval, decision, unlock and conclusion commands wait for the same confirmation cards used by the page. Refusals return to the model verbatim; stopping a turn cancels pending cards. File writes are limited to editable lab records; private state, task definitions and frozen evidence cannot be changed through these tools.
+The workbench exposes only `Explore`, `Bash` and `Read`. `Explore` lists task-wide evidence, reads qualified references, or creates a new editable draft. Bash is limited to read operations. Direct file writes, execution, approvals, cancellation and conclusions are rejected by the host even if requested by the model. The student uses the page controls directly. Changing from a guided conversation starts a new exploration conversation while retaining all experiment records.
+
+In the terminal and guided interface, Codex receives `Bash`, `Read`, `Write`, `Edit` and `AskUserQuestion` as host-executed dynamic tools. Bash accepts one `mlab` command in the current workspace and executes an argument vector without a shell. Approval, decision, unlock and conclusion commands wait for the same confirmation cards used by the page. Refusals return to the model verbatim; stopping a turn cancels pending cards. File writes are limited to editable lab records; private state, task definitions and frozen evidence cannot be changed through these tools.
 
 The `Read` tool can read `.mlab/last-output.json`, the detailed result artifact returned by long CLI responses. Other private state remains inaccessible. `mlab align` includes `config_diff` even when empty, so the agent can distinguish no recorded mismatch from missing information.
 
@@ -64,16 +66,18 @@ The `llm` simulator also uses an isolated Codex App Server with GPT-6 Luna by de
 
 ```bash
 .venv/bin/python -m pytest -q tests
-cd workspaces/web-demo
-uv run --no-project --with websockets python record.py run-luna --agent codex --mode mixed --provider codex-luna
+cd frontend
+npm run test:browser
 ```
 
-The recording requires outgoing model access and local TCP sockets for the page and Chromium. `--agent fake --mode forms` checks the page without a model, but still requires local TCP. The video script labels that mode as an offline example.
+Install the isolated test browser as described in [Frontend verification](web-frontend.md#build-and-verify) before the first browser run. These checks use scripted protocol peers and an offline page assistant. They validate tool restrictions and the student controls, not live-model availability or teaching quality.
 
-`tests/test_codex.py` uses a scripted App Server protocol peer to check isolation, credential handling, tool restrictions, decisions, question answers, resume, usage accounting, process failure and interruption. These tests do not establish real-model teaching quality. The legacy SDK and real Claude tests remain explicit opt-ins; normal setup does not install or run them.
+`tests/test_codex.py` checks isolation, credential handling, tool restrictions, decisions, question answers, resume, usage accounting, process failure and interruption. Exploration tests also check that a proposed draft cannot run itself. The legacy SDK and real Claude tests remain explicit opt-ins; normal setup does not install or run them.
+
+Earlier recordings and the workspace-local `workspaces/web-demo/record.py` script belong to the guided interface. They are retained as historical artifacts, not as the workbench's browser test. That recorder uses legacy selectors and must target `/classic` to be used with this version. A live-model recording requires outgoing provider access and local TCP sockets for the page and Chromium; its generated text is not guaranteed by offline tests.
 
 ## Page presentation
 
-The page uses a quieter neutral palette, a single accent, clearer headings and more space around experiment results. The welcome page introduces the three tasks, while the discussion keeps technical activity and model usage in expandable details. Student notes remain distinct from computed results. Static English and Chinese text describes the action and its purpose, without exposing hashes, record filenames or agent messaging in the main flow. Model replies are real, unedited responses and may still use technical terms.
+The workbench keeps the task, experiment drafts and execution history in the main view. Discussion opens when the student requests it and carries the selected evidence. The interface offers Chinese/English and light/dark themes, with local CSS, system fonts, a run table and charts. Main actions use experiment language rather than tool names or internal record mechanics; advanced configuration and log views retain technical detail.
 
-The visual references were [Linear](https://linear.app/) for workspace hierarchy and [Vercel Geist](https://vercel.com/geist/introduction) for typography, spacing and restrained component styling. The implementation remains local CSS and JavaScript with no external fonts or page dependencies. Desktop, dark-theme and 390-pixel mobile previews were checked; tables scroll within their containers.
+The design references, component choices and current browser checks are documented in [the frontend guide](web-frontend.md). Live model replies remain unedited and may still contain technical terms.

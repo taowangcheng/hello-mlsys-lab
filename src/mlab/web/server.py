@@ -4,23 +4,26 @@ A session is one attempt at a task from the start, in its own workspace of the c
 sessions from the page and can go back to any of them.
 
 Rules stay in mlab: records are read through a read-only Lab, forms go through core.student and the Lab methods the
-CLI uses, and runs are started only by the agents' mlab commands. Every response is JSON in the CLI's envelope; a
+CLI uses. The workbench admits runs directly after the student's confirmation. Every response is JSON in the CLI's envelope; a
 refused check is HTTP 200 with ok:false.
 """
 import asyncio
 import contextlib
+import secrets
 import webbrowser
 from pathlib import Path
+from pydantic import ValidationError
 from starlette.applications import Starlette
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
-from starlette.responses import FileResponse, JSONResponse, PlainTextResponse
+from starlette.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
-from ..core.io import NOTICE, LabError
+from ..core.io import NOTICE, LabError, hashed, require
 from ..core.workspace import Lab
-from . import approvals, forms, i18n, views
+from . import approvals, exploration, forms, i18n, views
+from ..core.locking import file_lock
 from .agent import TaskRuntime
 from .bus import Bus
 from .course import Course
@@ -44,6 +47,8 @@ class Guard:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
+        if scope["path"] == "/":
+            scope["mlab_style_nonce"] = secrets.token_urlsafe(24)
         if scope["method"] not in {"GET", "HEAD"} and not Headers(scope=scope).get("content-type", "").startswith("application/json"):
             return await self.secure(PlainTextResponse("JSON only", 415), scope, receive, send)
         await self.secure(self.app, scope, receive, send)
@@ -54,7 +59,8 @@ class Guard:
         async def with_headers(message):
             if message["type"] == "http.response.start":
                 extra = MutableHeaders(scope=message)
-                extra["Content-Security-Policy"] = CSP
+                nonce = scope.get("mlab_style_nonce")
+                extra["Content-Security-Policy"] = CSP.replace("style-src 'self'", f"style-src 'self' 'nonce-{nonce}'") if nonce else CSP
                 extra["X-Content-Type-Options"] = "nosniff"
                 extra["Referrer-Policy"] = "no-referrer"
                 extra["X-Frame-Options"] = "DENY"
@@ -91,7 +97,12 @@ def agent_factory(kind, provider=None):
     if kind != "sdk":
         raise LabError("E_SCHEMA", f"unknown agent {kind}", 2)
     from .sdk_client import factory
-    return factory(provider)
+    legacy_factory = factory(provider)
+    def legacy_client(runtime):
+        require(not getattr(runtime, "exploration", False), "E_BACKEND_UNAVAILABLE",
+                "Use the Codex assistant for this workbench, or open /classic for the earlier guided interface")
+        return legacy_factory(runtime)
+    return legacy_client
 
 
 def create_app(root, agent="fake", provider=None, opening=True, auto_continue=False, watch_interval=1.0):
@@ -134,9 +145,15 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         return wrapped
 
     async def index(request):
-        page = STATIC / "index.html"
+        page = STATIC / "workbench/index.html" if request.url.path != "/classic" else STATIC / "index.html"
+        if not page.exists():
+            page = STATIC / "index.html"
         if not page.exists():
             return PlainTextResponse("static files missing", 500)
+        if page.parent.name == "workbench":
+            nonce = request.scope["mlab_style_nonce"]
+            html = page.read_text(encoding="utf-8").replace("<head>", f'<head><meta name="csp-style-nonce" content="{nonce}">')
+            return HTMLResponse(html)
         return FileResponse(page)
 
     async def course_view(request):
@@ -155,7 +172,8 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         settings = course.settings()
         from ..agent_env import load_profile
         profile = load_profile(settings["provider"]) if settings.get("provider") else {}
-        return {"ok": True, "tasks": tasks, "sessions": sessions, "notice": NOTICE, "agent": agent, "provider": settings.get("provider"),
+        return {"ok": True, "storage_id": hashed(str(course.root))[7:31],
+                "tasks": tasks, "sessions": sessions, "notice": NOTICE, "agent": agent, "provider": settings.get("provider"),
                 "model_label": profile.get("display_name") or profile.get("model"),
                 "simulator": settings.get("simulator"), "hardware": settings.get("hardware"), "last_event": bus.last}
 
@@ -168,6 +186,79 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         watcher.poke()
         bus.publish("course.changed", name, created=name)
         return {"ok": True, "session": name, "task": session["task"], "number": session["number"]}
+
+    async def open_task(request):
+        task = request.path_params["task"]
+        def ensure():
+            with file_lock(course.root / ".mlab/course.lock"):
+                sessions = [item for item in course.sessions() if item["task"] == task]
+                return sessions[-1]["id"] if sessions else course.create(task)
+        name = await asyncio.to_thread(ensure)
+        if name not in runtimes:
+            add_runtime(next(item for item in course.sessions() if item["id"] == name))
+        runtime = runtimes[name]
+        if not getattr(runtime, "exploration", False):
+            runtime.exploration = True
+            await runtime.restart()
+        return {"ok": True, "session": name}
+
+    async def workbench(request):
+        return {"ok": True, **await asyncio.to_thread(exploration.task_view, course, request.path_params["task"])}
+
+    async def workbench_action(request):
+        runtime = runtime_of(request)
+        body = await body_of(request)
+        name = request.path_params["action"]
+        try:
+            result = await asyncio.to_thread(exploration.action, runtime.root, name, body)
+        except (ValidationError, ValueError, TypeError, KeyError, OSError) as error:
+            return forms.rejected(error)
+        watcher.poke()
+        bus.publish("records.changed", runtime.key, action=name)
+        return {"ok": True, **result}
+
+    async def workbench_compare(request):
+        body = await body_of(request)
+        return {"ok": True, **await asyncio.to_thread(exploration.compare, course, body.get("runs"))}
+
+    async def workbench_chat(request):
+        runtime = runtime_of(request)
+        if agent == "sdk":
+            return failure("E_BACKEND_UNAVAILABLE", "Use the Codex assistant for this workbench, or open /classic for the earlier guided interface. Experiment controls still work here.")
+        body = await body_of(request)
+        text = str(body.get("text") or "").strip()
+        if not text:
+            return failure("E_SCHEMA", "Write a message first")
+        refs = body.get("refs", [])
+        if not isinstance(refs, list) or not all(isinstance(ref, str) for ref in refs):
+            return failure("E_SCHEMA", "Choose valid evidence references")
+        refs = refs[:12]
+        facts = []
+        for key in refs:
+            session, _, identifier = str(key).partition("/")
+            target = runtimes.get(session)
+            if not target or not identifier:
+                return failure("E_SCHEMA", "Unknown evidence reference")
+            if session.split("-")[0] != runtime.key.split("-")[0]:
+                return failure("E_SCHEMA", "Choose evidence from this task")
+            record = await asyncio.to_thread(read, target.root, views.record, identifier, runtime.lang)
+            if not record["ok"]:
+                return record
+            facts.append({"reference": key, "record": record})
+        if not getattr(runtime, "exploration", False):
+            if runtime.busy():
+                return failure("E_AGENT_BUSY", "Finish or stop the earlier discussion before opening this one")
+            runtime.exploration = True
+            await runtime.restart()
+        if facts:
+            from ..core.student import log_student
+            await asyncio.to_thread(log_student, runtime.root, text, source="web-chat", kind="chat", refs=refs)
+            runtime.add("student", text, refs=refs)
+            import json
+            outcome = await runtime.send(text[:4000] + "\n\n[Page note] Selected evidence:\n" + json.dumps(facts, ensure_ascii=False)[:40000])
+        else:
+            outcome = await runtime.say(text[:4000])
+        return {"ok": True, "status": outcome, "agent": runtime.snapshot()}
 
     async def state(request):
         runtime = runtime_of(request)
@@ -313,7 +404,13 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
     get, post = ["GET"], ["POST"]
     routes = [
         Route("/", index, methods=get),
+        Route("/classic", index, methods=get),
         Mount("/static", StaticFiles(directory=STATIC, check_dir=False), name="static"),
+        Route("/api/workbench/tasks/{task}/open", endpoint(open_task), methods=post),
+        Route("/api/workbench/tasks/{task}", endpoint(workbench), methods=get),
+        Route("/api/workbench/compare", endpoint(workbench_compare), methods=post),
+        Route("/api/workbench/sessions/{session}/chat", endpoint(workbench_chat), methods=post),
+        Route("/api/workbench/sessions/{session}/{action}", endpoint(workbench_action), methods=post),
         Route("/api/course", endpoint(course_view), methods=get),
         Route("/api/sessions", endpoint(create_session), methods=post),
         Route("/api/events", endpoint(events), methods=get),

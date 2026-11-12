@@ -2,7 +2,7 @@
 
 The page and `evals/web_story.py` use only the endpoints listed here. Requests and responses are JSON. When a business-logic check fails, the response is HTTP 200 with `ok:false`, in the same format as the CLI; an unknown session returns 404.
 
-The unit of work on the page is a session: a session does one task from the start and has its own workspace under the course directory (`9.2-1/`, `9.2-2/`, …) and one agent. A session ID is made of the task and a sequence number. Sessions of the same task share only the hardware budget.
+The default workbench is organized by task. It combines experiment and run records from all sessions of that task. A session remains the storage and conversation boundary under the course directory (`9.2-1/`, `9.2-2/`, …). Sessions of one task share the hardware budget. The earlier guided API and `/classic` page remain available for compatibility.
 
 ## Starting and access
 
@@ -10,14 +10,14 @@ The unit of work on the page is a session: a session does one task from the star
 mlab web [<course-dir>] [--provider <profile>] [--simulator llm|fixture] [--agent codex|sdk|fake] [--port 8765] [--no-browser] [--no-opening] [--auto-continue]
 ```
 
-- The course directory defaults to `mlsys-course`. The first run creates the directory and `course.json`, and the student opens sessions on the page; later runs keep the simulator, hardware backend and model profile chosen at creation.
-- `--agent fake` uses the offline fake agent: it takes the agent's steps by `mlab next` and still sends confirmation cards for commands that need confirmation, but it calls no model and does not write the student's own words on the student's behalf.
-- `--no-opening` turns off the agent speaking first when a session opens; `--auto-continue` lets the agent continue on its own after runs finish (off by default).
+- The course directory defaults to `mlsys-course`. The first run creates the directory and `course.json`, and opening a task creates its first session if needed; later runs keep the simulator, hardware backend and model profile chosen at creation.
+- In the workbench, `--agent fake` leaves experiment controls fully usable and explains that discussion is offline. In the guided interface, it uses the offline fake agent: it takes the agent's steps by `mlab next` and still sends confirmation cards for commands that need confirmation, but it calls no model and does not write the student's own words on the student's behalf.
+- `--no-opening` turns off the agent speaking first when a session opens; `--auto-continue` applies to guided sessions only; the workbench never starts a discussion automatically after a run.
 - If the port is taken, the command says why and exits; pass a different `--port`.
 
 The server listens only on 127.0.0.1, and the page has no login. When connected to a remote server, open the address given by port forwarding (`ssh -L` or VS Code Remote); any host name and origin are accepted. Opened from an external browser through a VS Code tunnel (a `*.devtunnels.ms` address), the page stalls after being idle for a while or after a few refreshes in a row, and so does a small static page served by Python's built-in `http.server`; in that case use the editor's built-in browser or `ssh -L` instead. The `Content-Type` of a non-GET request must be `application/json`, otherwise the server returns 415; this keeps ordinary cross-site forms from posting to it.
 
-Every response carries a CSP (same-origin resources only, no inline scripts), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`. Data responses carry `Cache-Control: no-store`; page files carry `Cache-Control: no-cache` and an ETag, and the server answers 304 when a file is unchanged. Responses larger than 1 KB are gzip-compressed when the browser supports it. Every endpoint is a short request that returns at once; there are no streams that stay open.
+Every response carries a CSP (same-origin resources only, no inline scripts), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`. Data responses carry `Cache-Control: no-store`; static assets carry `Cache-Control: no-cache` and an ETag, and the server answers 304 when a file is unchanged. Responses larger than 1 KB are gzip-compressed when the browser supports it. The page uses request/response calls rather than persistent streams. Validation and admission finish before mutation responses return; accepted runs continue in worker processes.
 
 ## Response format
 
@@ -26,11 +26,35 @@ Every response carries a CSP (same-origin resources only, no inline scripts), `X
 {"ok": false, "status": "rejected", "error": {"code": "E_SCHEMA", "message": "…", "field": null}, "next_actions": [{"actor": "student", "do": "review", "say": "…"}]}
 ```
 
-While the agent is working or a card is waiting, a form returns `E_AGENT_BUSY`; resend it with `"interrupt": true`, and the server stops the agent first, then submits.
+The workbench runs independently of discussion. Legacy guided forms retain their busy check: while the agent is working or a card is waiting, a form returns `E_AGENT_BUSY`; resend it with `"interrupt": true`, and the server stops the agent first, then submits.
 
 ## Language
 
 The server and `mlab` write English. The page offers Chinese or English; the choice is kept in the browser, and the first visit follows the browser's language. The page translates its own text, the step labels, cards and notices with `static/locales/zh.json`, whose keys are the English text; a sentence with no entry is shown as it is. Every request carries the header `X-Mlab-Lang: en|zh`. The server uses it for two things: `GET …/records/report` renders the report in that language (`report.md` stays English), and the session's agent is told to reply in it, with a `[Page note]` appended to the next message whenever the language is new to the agent. Records keep the words of whoever wrote them.
+
+## Task workbench
+
+All mutation endpoints below use the same validation and execution core as the CLI. Updates to an existing experiment or measurement name its object ID. Creation calls return the new object and its revision for later actions.
+
+| Endpoint | Request and behavior |
+| --- | --- |
+| `POST /api/workbench/tasks/{task}/open` | Opens the latest session, creating one if needed, and selects the exploration conversation policy. Does not call a model. |
+| `GET /api/workbench/tasks/{task}` | Task overview, templates, parameter rules, experiments, runs, measurements, notes, conclusions and shared hardware budget across the task's sessions. References are qualified as `9.2-1/r001` or `9.2-1/sim_0001`. |
+| `POST /api/workbench/compare` | `runs`: 2–12 distinct qualified run references from the same task. Returns metrics, configuration differences and comparability checks. |
+| `POST /api/workbench/sessions/{s}/create` | `title`, optional `question`/`expectation`, `candidates`, `seeds`, `workloads`, optional `source`. Creates one editable experiment. |
+| `POST /api/workbench/sessions/{s}/save` | Experiment fields plus `workflow` and `revision`. Invalid input or stale revision cannot replace the saved draft. |
+| `POST /api/workbench/sessions/{s}/simulate` | `workflow`, `revision`, `confirm: true`. Validates and records the configuration, then admits the selected simulation batch. |
+| `POST /api/workbench/sessions/{s}/prepare_measurement` | `points` with workflow, candidate, workload, repetitions (`runs`) and rationale. For a draft, also `workflow`, `revision`, `confirm_config: true`. Validates the complete selection, records the configuration and prepares missing matching simulations. No hardware runs are spent. |
+| `POST /api/workbench/sessions/{s}/check_measurement` | `measurement`. Refreshes the preview after predictions complete, or reopens an approved measurement whose submission was rejected. Returns `plan_hash`, points, planned hardware count and the current budget. |
+| `POST /api/workbench/sessions/{s}/measure` | `measurement`, `revision` equal to the preview's `plan_hash`, `confirm: true`. Rechecks the shared budget and submits hardware work. |
+| `POST /api/workbench/sessions/{s}/cancel` | `run`. Cancels an active run; completed evidence is unchanged. |
+| `POST /api/workbench/sessions/{s}/note` | Student `text` and qualified `refs`. Appends an observation. |
+| `POST /api/workbench/sessions/{s}/conclude` | `candidate` such as `r002/c16`, `confirm: true`. Submits the evidence-based conclusion and updates the report. |
+| `POST /api/workbench/sessions/{s}/chat` | Student `text` and optional qualified `refs` from the same task. Selected records are included as evidence context. The assistant can propose drafts but cannot start runs. |
+
+Mutation requests may include `request_id`. Repeating an identical request returns its original result; reusing the key for different content returns `E_CONFLICT`. Draft revisions also return `E_CONFLICT` when stale. Workspace edit locks and a task-wide process lock serialize admission, including submissions from different sessions. Hardware confirmation remains mandatory even when the model is unavailable or busy.
+
+The production HTML includes a fresh style nonce for the dialog library's scroll lock. Inline scripts remain blocked. Static JavaScript, CSS and fonts are local; the browser never receives model credentials.
 
 ## Read
 
@@ -47,9 +71,9 @@ The server and `mlab` write English. The page offers Chinese or English; the cho
 | `GET /api/sessions/{s}/chat?limit=200&before=<id>` | The chat shown on the page and the agent's status |
 | `POST /api/sessions/{s}/compare` `{"runs": [...]}` | Comparability check, comparable groups, each run's strategy differences from the first run, and chart data. Computes only, writes nothing |
 
-In record data, every piece of text has a clear source: the student's own words (hypothesis, comments, decision, rationales for hardware points), drafted by the agent (research question, candidates, analysis, changes and responses), or computed by mlab (everything else). All views are built with the read-only `Lab` and change no file or ledger entry in the workspace.
+Records distinguish authored content from computed results. Guided records retain the original student/assistant sections; workbench drafts record whether the student or assistant created them, and students can edit either kind before execution. Notes preserve the student's words and evidence references. Read views use a read-only `Lab` and change no file or ledger entry.
 
-## Write
+## Legacy guided writes
 
 ### New session `POST /api/sessions`
 
@@ -94,9 +118,9 @@ What the student writes goes into the record verbatim, changing only the student
 | `POST /api/sessions/{s}/approvals/{card}` | `{"decision": "allow"}` or `{"decision": "deny", "reason": "…"}`; the reason is passed to the agent verbatim and recorded in `student.jsonl` (source `web-card`) |
 | `POST /api/sessions/{s}/questions/{card}` | `{"answers": {"question": "an option or the student's own answer"}}` or `{"cancel": true}`; answers are recorded in `student.jsonl` (source `web-question`) |
 
-## Confirmation cards
+## Guided confirmation cards
 
-When the Codex agent calls a command below through its dynamic Bash tool, the host waits for the page confirmation card before executing it. The optional legacy SDK uses `can_use_tool` for the same flow. The card's summary is computed by the read-only `Lab`: `title`, `facts` (what is to be approved), `effects` (the effects of approving), `will_fail` (why `mlab` would refuse, empty if it would not) and `record`.
+In a guided conversation, when the Codex agent calls a command below through its dynamic Bash tool, the host waits for the page confirmation card before executing it. The optional legacy SDK uses `can_use_tool` for the same flow. The card's summary is computed by the read-only `Lab`: `title`, `facts` (what is to be approved), `effects` (the effects of approving), `will_fail` (why `mlab` would refuse, empty if it would not) and `record`.
 
 | Kind | Command | The card lists |
 | --- | --- | --- |
@@ -106,11 +130,13 @@ When the Codex agent calls a command below through its dynamic Bash tool, the ho
 | `conclude` | `mlab conclude [--candidate <round>/<candidate>]` | The chosen configuration, the conclusion it would get and the basis for it; if a measurement has not finished running, that the command will be refused |
 | `workflow_unlock`, `measure_unlock` | `mlab workflow unlock`, `mlab measure unlock` | The error record |
 
-These commands must be run on their own, in the standard form. When one is hidden in a compound command, a variant form such as `--workspace`, `$(…)`, backticks or `bash -c`, the `PreToolUse` hook refuses it and gives the reason, and the chat shows a "Blocked" entry. Other commands and edits outside what is allowed are refused as well. After the server restarts, cards left unhandled before the restart are marked stale.
+These commands must be run on their own, in the standard form. When one is hidden in a compound command, a variant form such as `--workspace`, `$(…)`, backticks or `bash -c`, the host tool checks (or the legacy SDK's `PreToolUse` hook) refuse it and give the reason, and the chat shows a "Blocked" entry. Other commands and edits outside what is allowed are refused as well. After the server restarts, cards left unhandled before the restart are marked stale.
 
 ## Events `GET /api/events?last=N`
 
-The page fetches new events with a short request every one to a few seconds: once a second while something is happening, every 2.5 seconds when quiet, and every 8 seconds while the page is in the background. Without `last`, only the current event number `last` is returned, to fetch from; with `last=N`, the events numbered above N (at most 500 per request) and the new `last` are returned at once. If the number is too old for the buffer to fill the gap, the response is `"resync": true`, and the page reloads all data. Each event is `{"id", "type", "session", "data"}`.
+The legacy page fetches new events with a short request every one to a few seconds: once a second while something is happening, every 2.5 seconds when quiet, and every 8 seconds while the page is in the background. Without `last`, only the current event number `last` is returned, to fetch from; with `last=N`, the events numbered above N (at most 500 per request) and the new `last` are returned at once. If the number is too old for the buffer to fill the gap, the response is `"resync": true`, and the page reloads all data. Each event is `{"id", "type", "session", "data"}`.
+
+The workbench instead refreshes its task summary approximately every 2.2 seconds while visible and the open discussion approximately every 1.4 seconds. It does not consume this legacy event feed.
 
 | Event | Data |
 | --- | --- |
@@ -132,10 +158,11 @@ The page fetches new events with a short request every one to a few seconds: onc
 | --- | --- |
 | `<course-dir>/course.json` | The simulator, hardware backend and model profile chosen at creation |
 | `<course-dir>/9.2-1/` | One session's workspace, the same as one created by `mlab init` |
-| `<workspace>/.mlab/student.jsonl` | The student's own words; each line has `at`, `source` (`web-form`, `web-chat`, `web-question`, `web-card`, `cli`), `kind`, `workflow`, `measurement` (the current round and measurement when it was said), `refs`, `text` |
+| `<workspace>/.mlab/student.jsonl` | The student's words and action inputs; each line has `at`, `source` (`web-action`, `web-form`, `web-chat`, `web-question`, `web-card`, `cli`), `kind`, `workflow`, `measurement` (the current round and measurement when it was said), `refs`, `text` |
+| `<workspace>/.mlab/ledger.sqlite3` | Authoritative experiment, run, measurement, observation, conclusion and replay-key records |
 | `<workspace>/.mlab/web/chat.jsonl` | The chat on the page. `role` is `student`, `agent`, `tool`, `card`, `notice` or `error`; later changes (a card's outcome, a tool's output) are appended as `{"update": <id>, …}` |
 | `<workspace>/.mlab/codex/` | Isolated Codex state, sessions and caches; credentials remain in memory |
 | `<workspace>/.mlab/web/codex.jsonl` | Prompts, visible replies, lab tool calls/results and usage; excludes authentication and reasoning |
 | `<workspace>/.mlab/web/sdk.jsonl` | Legacy only: raw messages the SDK received, with long fields truncated, for auditing |
-| `<workspace>/.mlab/web/agent.json` | Backend, model, conversation ID, turns and token counts; Codex sets `cost_available:false` because the protocol does not report a USD cost |
+| `<workspace>/.mlab/web/agent.json` | Backend, model, interaction policy, conversation ID, turns and token counts; Codex sets `cost_available:false` because the protocol does not report a USD cost |
 | `<workspace>/.mlab/web/claude-config/` | Legacy only: this session's Claude Code configuration directory, used with an API key |

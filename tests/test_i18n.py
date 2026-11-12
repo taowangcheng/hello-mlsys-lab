@@ -75,6 +75,9 @@ def page_texts():
     for replies in labels.QUICK_REPLIES.values():
         texts.update(replies)
     texts.update(yaml.safe_load(path.read_text(encoding="utf-8"))["title"] for path in (ROOT / "tasks").glob("*/task.yaml"))
+    for path in (ROOT / "frontend/src").glob("*.ts*"):
+        code = path.read_text(encoding="utf-8")
+        texts.update(re.findall(r"\bt\(\s*'([^']+)'", code))
     return texts
 
 
@@ -211,11 +214,11 @@ def test_the_repository_is_english():
     allowed = {"src/mlab/web/static/locales/zh.json", "docs/plan.zh-CN.md"}
     # Also kept: the link to the plan's Chinese copy, and the name of the course's implementation plan, a file outside this repo.
     external = "".join(map(chr, (0x5B9E, 0x65BD, 0x65B9, 0x6848))) + "_1.md"
-    roots = ["src", "tests", "evals", "scripts", "template", "tasks", "examples", "catalog", "agent", "config", "docs", ".github"]
+    roots = ["src", "frontend/src", "frontend/tests", "tests", "evals", "scripts", "template", "tasks", "examples", "catalog", "agent", "config", "docs", ".github"]
     found = []
     for path in [ROOT / "README.md", ROOT / "pyproject.toml", *(p for root in roots for p in (ROOT / root).rglob("*") if p.is_file())]:
         relative = path.relative_to(ROOT).as_posix()
-        if relative in allowed or "__pycache__" in relative or path.suffix in {".pyc", ".png", ".jpg", ".mp4"}:
+        if relative in allowed or relative.startswith("src/mlab/web/static/workbench/") or "__pycache__" in relative or path.suffix in {".pyc", ".png", ".jpg", ".mp4"}:
             continue
         try:
             lines = path.read_text(encoding="utf-8").splitlines()

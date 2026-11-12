@@ -49,8 +49,11 @@ for line in sys.stdin:
     elif method in {"thread/start", "thread/resume"}:
         assert params["model"] in {"gpt-6-luna", "qwen3.8:27b"} and params["sandbox"] == "read-only"
         if method == "thread/start":
-            assert {x["name"] for x in params["dynamicTools"]} == {"Bash", "Read", "Write", "Edit", "AskUserQuestion"}
+            exploration = "The student controls their experiments in a task workbench" in params["baseInstructions"]
+            expected = {"Bash", "Read", "Explore"} if exploration else {"Bash", "Read", "Write", "Edit", "AskUserQuestion"}
+            assert {x["name"] for x in params["dynamicTools"]} == expected
             assert all(x["type"] == "function" for x in params["dynamicTools"])
+            (state / "test-tools.json").write_text(json.dumps(sorted(expected)))
         else:
             assert params["threadId"] == session and params["excludeTurns"]
         send({"id": message["id"], "result": {"thread": {"id": session}}})
@@ -62,7 +65,14 @@ for line in sys.stdin:
         saved.write_text(json.dumps(history))
         turn = f"turn-{len(history)}"
         send({"id": message["id"], "result": {"turn": {"id": turn}}})
-        if "begin" in prompt:
+        if "explore proposal" in prompt:
+            proposal = json.loads((Path.cwd() / ".mlab/test-proposal.json").read_text())
+            steps = [("Explore", {"action": "list"}),
+                     ("Explore", {"action": "draft", "draft_json": json.dumps(proposal)}),
+                     ("Bash", {"command": "mlab workflow submit"}),
+                     ("Write", {"file_path": "analysis/note.md", "content": "The student's conclusion"}),
+                     ("Explore", {"action": "show", "reference": "9.2-1/r002"})]
+        elif "begin" in prompt:
             steps = [("Bash", {"command": "mlab next"}), ("Bash", {"command": "mlab conclude"}),
                      ("Bash", {"command": "mlab --workspace . conclude"}),
                      ("AskUserQuestion", {"questions": [{"question": "Which candidate?", "header": "Pick", "multiSelect": False,
