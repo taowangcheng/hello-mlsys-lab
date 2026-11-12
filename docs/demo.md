@@ -87,6 +87,8 @@ Each task exports 15 numbered screenshots, `conversation.json`, `conversation.md
 
 The gallery is a static snapshot: rerun `build-review.mjs` after new recordings arrive. Use the same `MLAB_REVIEW_DIR` for the recorder and gallery builder; the builder writes the gallery, README and optional ZIP to that directory's parent. Only named public recording artifacts enter the ZIP; course state, raw capture files and logs are excluded. Missing or failed recordings remain visibly incomplete.
 
+A task may also include `quality-review.json` with reviewer notes about unsupported or overstated claims. These notes appear separately from the unchanged conversation and are included in the review bundle. Each note can provide `severity`, an original `messageId`, an `issue` and supporting `evidence`; recording completion is distinct from explanation quality.
+
 ## Record all three tasks with a real assistant
 
 The recorder runs a complete example in each task: a real assistant proposes a draft, the student edits and confirms execution, simulations cover the available workloads, measurements include repetitions and holdouts, and the student submits a conclusion. It saves the assistant's actual replies without rewriting them and refreshes the partial transcript after every completed turn, so earlier replies remain available if a later step fails. The performance backends are still the fixture and hardware stand-in.
