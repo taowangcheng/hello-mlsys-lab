@@ -61,7 +61,9 @@ export function setStorageScope(value: string) {
   storageScope = value;
 }
 function storageKey(key: string) {
-  return /^mlab-(plan|note|filters|compare)-/.test(key) ? `${storageScope}:${key}` : key;
+  return /^mlab-(plan|note|filters|compare|chat|conversation|session|location|seen)-/.test(key)
+    ? `${storageScope}:${key}`
+    : key;
 }
 export function stored<T>(key: string, fallback: T): T {
   try {
@@ -90,12 +92,27 @@ export function act(session: string, action: string, body: Data) {
     ...body,
   });
 }
-export function nav(task: string, page: string, key = '') {
-  location.hash = `/${task}/${page}${key ? '/' + encodeURIComponent(key) : ''}`;
+export function nav(target: string, page: string, key = '') {
+  const current = route();
+  const session = /^9\.[123]-\d+$/.test(target)
+    ? target
+    : current.task === target && current.session
+      ? current.session
+      : target;
+  location.hash = `/${session}/${page}${key ? '/' + encodeURIComponent(key) : ''}`;
 }
 export function route() {
-  const [task = '9.2', page = 'runs', key = ''] = location.hash.replace(/^#\/?/, '').split('/');
-  return { task: task || '9.2', page, key: decodeURIComponent(key) };
+  const [target = '9.2', page = 'overview', key = ''] = location.hash
+    .replace(/^#\/?/, '')
+    .split('/');
+  const session = /^9\.[123]-\d+$/.test(target) ? target : '';
+  let decoded = '';
+  try {
+    decoded = decodeURIComponent(key);
+  } catch {
+    decoded = key;
+  }
+  return { task: session ? session.split('-')[0] : target || '9.2', session, page, key: decoded };
 }
 export function number(value: unknown, digits = 1) {
   return typeof value === 'number' && Number.isFinite(value)

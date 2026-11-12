@@ -55,7 +55,7 @@ export function RunTable({
   onMeasure: () => void;
   onCreate: () => void;
 }) {
-  const filterKey = `mlab-filters-${workspace.task}`;
+  const filterKey = `mlab-filters-${workspace.session}`;
   const savedFilters = stored<Data>(filterKey, {});
   const [query, setQuery] = useState<string>(savedFilters.query || '');
   const [source, setSource] = useState<string>(savedFilters.source || 'all');
@@ -991,7 +991,7 @@ export function Notes({
   reload: () => Promise<void>;
   compact?: boolean;
 }) {
-  const noteKey = `mlab-note-${workspace.task}-${compact ? refs.join(',') : 'task'}`;
+  const noteKey = `mlab-note-${workspace.session}-${compact ? refs.join(',') : 'task'}`;
   const [text, setText] = useState(stored(noteKey, ''));
   useEffect(() => {
     store(noteKey, text);
@@ -1130,7 +1130,7 @@ export function Notes({
                   )}
                 </span>
                 <p>{item.reason}</p>
-                <a href={`/classic#/${item.session}/report`}>
+                <a href={`#/${item.session}/report`}>
                   {t('View report')}
                   <ArrowUpRight size={12} />
                 </a>

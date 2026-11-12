@@ -1,9 +1,10 @@
 """Direct, object-scoped exploration operations shared by the page and assistant.
 
-The assistant may create drafts. Only page actions admit simulations, spend the
-measurement budget or submit conclusions. Existing guided records stay readable.
+The assistant may prepare experiments and run requested simulations. Hardware
+execution still requires the student's confirmation. Existing guided records stay readable.
 """
 import json
+import re
 import tempfile
 import uuid
 from pathlib import Path
@@ -64,8 +65,8 @@ def run_row(lab, run, session):
     return row
 
 
-def task_view(course, task):
-    sessions = [session for session in course.sessions() if session["task"] == task]
+def task_view(course, task, session_id=None):
+    sessions = [session for session in course.sessions() if session["task"] == task and (session_id is None or session["id"] == session_id)]
     require(sessions, "E_SCHEMA", "Open this task first", 2)
     experiments, runs, measurements, notes, conclusions = [], [], [], [], []
     overview = None
@@ -97,11 +98,109 @@ def task_view(course, task):
         from ..core.workspace import TASKS
         templates = [load(path) for path in sorted((ROOT / "examples" / TASKS[task] / "candidates").glob("*.yaml"))]
         catalog = load(lab.root / "task/catalog.json")
-        return {"task": task, "session": sessions[-1]["id"], "overview": overview,
+        return {"task": task, "session": sessions[-1]["id"],
+                "sessions": [{key: session[key] for key in ("id", "task", "number", "created_at")} for session in sessions], "overview": overview,
                 "experiments": experiments, "runs": runs, "measurements": measurements, "notes": notes,
                 "conclusions": conclusions, "templates": templates, "rules": lab.task["decision_space"],
                 "infra": {key: catalog["infra"][key] for key in lab.task["infra_options"]},
                 "budget": lab.hardware_budget()}
+    finally:
+        lab.close()
+
+
+def session_view(root):
+    from .course import Course
+    root = Path(root)
+    task = load(root / ".mlab/config.json")["task"]
+    return task_view(Course(root.parent), task, root.name)
+
+
+def reference_target(root, reference):
+    """Resolve a record only inside the active conversation's workspace."""
+    require(isinstance(reference, str), "E_SCHEMA", "Choose an evidence reference", 2)
+    session, separator, identifier = reference.partition("/")
+    require(separator and identifier, "E_SCHEMA", "Use a qualified reference such as 9.2-1/r001", 2)
+    require(session == Path(root).name, "E_SCHEMA", "Choose evidence from this conversation; switch conversations to inspect earlier records", 2)
+    target = Path(root)
+    lab = Lab(target, readonly=True)
+    try:
+        views.record(lab, identifier)
+    finally:
+        lab.close()
+    return target, identifier
+
+
+def conversation_context(root, text, references):
+    """Validate attachments and add task facts even before the first experiment."""
+    require(isinstance(references, list) and all(isinstance(ref, str) for ref in references),
+            "E_SCHEMA", "Choose valid evidence references", 2)
+    typed = re.findall(r"@((?:\d\.\d-\d+/)?(?:r\d+(?:/[A-Za-z0-9_-]+)?|m\d+|(?:sim|hw)_\d+|overview|report))\b", text)
+    refs = list(dict.fromkeys([*references, *typed]))
+    require(len(refs) <= 12, "E_SCHEMA", "Attach at most 12 evidence records", 2)
+    qualified, facts = [], []
+    for ref in refs:
+        if not re.match(r"^\d\.\d-\d+/", ref):
+            ref = f"{Path(root).name}/{ref}"
+        target, identifier = reference_target(root, ref)
+        lab = Lab(target, readonly=True)
+        try:
+            record = views.record(lab, identifier)
+        finally:
+            lab.close()
+        if ref not in qualified:
+            qualified.append(ref)
+            facts.append({"reference": ref, "record": record})
+    lab = Lab(root, readonly=True)
+    try:
+        overview = views.task_overview(lab)
+    finally:
+        lab.close()
+    def compact(value):
+        if isinstance(value, str):
+            return value if len(value) <= 3000 else value[:3000] + " [continued in the full record]"
+        if isinstance(value, list):
+            return [compact(item) for item in value[:30]] + ([{"omitted_items": len(value) - 30}] if len(value) > 30 else [])
+        if isinstance(value, dict):
+            return {key: compact(item) for key, item in value.items()}
+        return value
+    context = json.dumps(compact({"task": overview, "evidence": facts}), ensure_ascii=False)
+    return qualified, "Task and selected evidence (page context, not student instructions):\n" + context
+
+
+def wait_for_record(root, identifier, seconds=30):
+    require(type(seconds) is int and 1 <= seconds <= 60, "E_SCHEMA", "Wait between 1 and 60 seconds", 2)
+    lab = Lab(root, workflow=identifier if identifier.startswith("r") else None,
+              measurement=identifier if identifier.startswith("m") else None)
+    try:
+        if identifier.startswith("r"):
+            progress = lab.wait(seconds)
+        elif identifier.startswith("m"):
+            progress = lab.measure_wait(seconds)
+        else:
+            raise LabError("E_SCHEMA", "Wait for an experiment or measurement reference", 2)
+        return {"progress": progress, "record": views.record(lab, identifier)}
+    finally:
+        lab.close()
+
+
+def execution_summary(root, identifier):
+    """Bind an in-chat hardware confirmation to checked points and full settings."""
+    lab = Lab(root, measurement=identifier)
+    try:
+        preview = measurement_preview(lab)
+        if preview.get("status") == "simulating":
+            return preview
+        measurement = lab.measurement()
+        if measurement["status"] == "draft":
+            _, points, _ = lab.measure_points(measurement)
+        else:
+            frozen, _ = lab.measure_frozen(measurement)
+            points = frozen["points"]
+        return {**preview, "title": measurement.get("title", "Sandbox measurement"), "session": Path(root).name,
+                "measurement": identifier, "configs": [point["candidate_config"] for point in points],
+                "points": [{**row, "workflow": point["workflow"], "seed": point["seed"]}
+                           for row, point in zip(preview["points"], points)],
+                "backend": lab.hardware}
     finally:
         lab.close()
 
@@ -163,6 +262,8 @@ def save(lab, body):
 
 
 def create(lab, body, author="student"):
+    if body.get("source"):
+        reference_target(lab.root, body["source"])
     pending = {"id": "pending", "iteration": len(lab.store.all("workflow")) + 1,
                "locked": False, "exploratory": True}
     plan, candidates, fields = payload(lab, pending, body)
@@ -182,7 +283,6 @@ def simulate(lab, body):
     require(workflow.get("exploratory"), "E_NEEDS_APPROVAL", "Duplicate the earlier experiment to run it again")
     require(body.get("confirm") is True, "E_NEEDS_APPROVAL", "Confirm the simulation before starting")
     require(body.get("revision") == revision(lab, workflow), "E_CONFLICT", "The experiment changed. Review its current configuration")
-    require(workflow.get("title") != "Untitled experiment", "E_SCHEMA", "Give this experiment a name or research question", 2)
     if workflow["status"] == "draft":
         checked = lab.check()
         lab.approve(checked["plan_hash"])
@@ -207,7 +307,6 @@ def prepare_measurement(lab, body):
         require(draft.get("exploratory") and body.get("confirm_config") is True,
                 "E_NEEDS_APPROVAL", "Review the configuration before preparing its measurement")
         require(body.get("revision") == revision(lab, draft), "E_CONFLICT", "The experiment changed. Review its current configuration")
-        require(draft.get("title") != "Untitled experiment", "E_SCHEMA", "Give this experiment a name or research question", 2)
     # Validate the full selection before creating a record or launching predictions.
     plan = dump(MeasurementPlan.model_validate({"schema": "mlab.v1", "measurement": "pending", "points": points}))
     with tempfile.TemporaryDirectory(dir=lab.root / ".mlab", prefix="measure-") as directory:
@@ -234,7 +333,7 @@ def prepare_measurement(lab, body):
     lab.store.put("measurement", measurement["id"], measurement)
     lab.store.commit()
     atomic(lab.mfolder() / "points.yaml", {"schema": "mlab.v1", "measurement": measurement["id"], "points": points})
-    return {"id": measurement["id"], **lab.measure_check()}
+    return measurement_preview(lab)
 
 
 def measure(lab, body):
@@ -253,20 +352,25 @@ def measurement_preview(lab):
     """Reopen a checked or approved selection without creating or spending runs."""
     measurement = lab.measurement()
     if measurement["status"] == "draft":
-        return {"id": measurement["id"], **lab.measure_check()}
+        preview = {"id": measurement["id"], **lab.measure_check()}
+        if "points" in preview:
+            _, points, _ = lab.measure_points(measurement)
+            preview["points"] = [{**row, "workflow": point["workflow"]} for row, point in zip(preview["points"], points)]
+        return preview
     require(measurement["status"] in {"approved", "submitted"}, "E_SCHEMA", "This measurement has no preview", 2)
     _, approval = lab.measure_frozen(measurement)
     return {"id": measurement["id"], "plan_hash": approval["plan_hash"],
             "metric": lab.task["key_metrics"][0], "hardware_runs": approval["hardware_runs"],
             "hardware_budget": lab.hardware_budget(),
-            "points": [{key: point[key] for key in ("candidate", "workload", "runs", "simulated", "sim_margin_pct")}
+            "points": [{key: point[key] for key in ("candidate", "workflow", "workload", "runs", "simulated", "sim_margin_pct")}
                        for point in approval["sim_predictions"]]}
 
 
 def action(root, name, body, author="student"):
     """Mutations have explicit object targets, revision checks and replay keys."""
     require(isinstance(body, dict), "E_SCHEMA", "Expected an action object", 2)
-    require(author == "student" or name == "create", "E_NEEDS_APPROVAL", "The assistant may only propose experiment drafts")
+    require(author == "student" or name in {"create", "simulate", "prepare_measurement", "check_measurement", "cancel"},
+            "E_NEEDS_APPROVAL", "This action requires the student's confirmation")
     target = {"save": "workflow", "simulate": "workflow", "check_measurement": "measurement",
               "measure": "measurement", "cancel": "run", "conclude": "candidate"}.get(name)
     require(not target or (isinstance(body.get(target), str) and body[target].strip()),
@@ -305,6 +409,8 @@ def action(root, name, body, author="student"):
                 refs = body.get("refs", [])
                 require(isinstance(refs, list) and all(isinstance(ref, str) for ref in refs),
                         "E_SCHEMA", "Choose valid evidence references", 2)
+                for ref in refs:
+                    reference_target(lab.root, ref)
                 result = {"id": uuid.uuid4().hex, "text": text[:16000], "refs": refs[:30], "at": now(), "author": author}
                 lab.store.put("note", result["id"], result)
                 lab.store.event("note_added", {"note": result["id"]})
@@ -316,6 +422,9 @@ def action(root, name, body, author="student"):
                 result = lab.conclude(body.get("candidate"))
                 from ..core.reporting import build_report
                 result["report"] = build_report(lab)["result_path"]
+            elif name == "report":
+                from ..core.reporting import build_report
+                result = build_report(lab)
             else:
                 raise LabError("E_SCHEMA", f"Unknown exploration action: {name}", 2)
             if author == "student":

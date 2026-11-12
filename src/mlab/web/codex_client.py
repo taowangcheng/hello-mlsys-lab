@@ -12,6 +12,7 @@ import os
 import re
 import shlex
 import sys
+import uuid
 
 from ..codex import AppServer, MODEL
 from ..agent_env import load_profile
@@ -33,10 +34,20 @@ APPEND += ("Write prose in plans, candidate rationales and analyses in the same 
            "Keep schema keys and required template headings unchanged. Quote YAML strings containing colons.\n\n")
 
 EXPLORATION = ("You are the hello-mlsys experiment assistant. The student controls their experiments in a task workbench. "
+    "Conversation is the main learning experience: answer arbitrary task questions, explain ideas, help plan experiments, "
+    "carry out requested runs, and inspect historical evidence together. Questions need no experiment or selected record. "
+    "Answer conceptual questions directly, discuss misconceptions and tradeoffs, and use tools only when useful. "
+    "Do not turn every question into an experiment or comparison. When asked about earlier work in this conversation, find its records even without attachments. "
+    "Each conversation is a clean attempt. Use only its workspace and never import records or context from another conversation. "
     "There is no mandatory sequence of hypothesis, review, decision and next step. Help with the question the student asked. "
-    "Use Explore to list evidence, inspect an experiment, or create an editable draft. A draft is a proposal; it never runs automatically. "
-    "Use Read and read-only mlab commands for deeper evidence. Never approve, execute, cancel or conclude an experiment yourself. "
-    "The student uses the workbench buttons to run simulations, confirm measurements and submit conclusions. "
+    "Use Explore to inspect evidence, prepare configurations, execute requested simulations, and arrange sandbox measurements. "
+    "A draft alone never runs. When the student asks you to simulate, use action='simulate' with its exact qualified experiment reference; "
+    "do not send the student to a page editor. Use action='wait' to inspect the results and continue the discussion. "
+    "For requested sandbox measurements use action='measure', an exact experiment reference, and points listing candidate, workload and runs. "
+    "This prepares the comparison and opens an in-chat confirmation showing exact configurations, run count and remaining budget. "
+    "The tool resumes automatically after consent. Never claim a measurement ran before receiving successful tool results. "
+    "Use action='cancel' with an exact run reference when the student asks to stop a run. "
+    "Use Read and read-only mlab commands for deeper evidence. Only the student writes their observations and submits conclusions. "
     "Never rewrite a student's observation or claim that your proposed expectation is their own. "
     "For a request to use unchanged task examples, call Explore(action='list') once, then "
     "Explore(action='draft', template_ids=[the requested example IDs], title=the requested name). "
@@ -49,14 +60,19 @@ EXPLORATION = ("You are the hello-mlsys experiment assistant. The student contro
     "change only the requested variables, and pass valid JSON in draft_json with title, question, candidates, seeds and workloads. "
     "Each candidate must retain schema, id, infra, rationale and strategy, including all required deployment fields. "
     "Supply only one of template_ids, variants or draft_json. The examples and available workloads are already in the list response. "
-    "Use Explore(action='show', reference='session/record') for existing records. No Bash command is needed to create a draft. "
+    "Use Explore(action='show', reference='session/record') for existing records in the active session only. "
+    "To inspect another conversation the student must switch to it. No Bash command is needed to create or execute a draft. "
     "If deeper inspection is needed, supported commands include 'mlab task show', 'mlab history' and 'mlab run show sim_0001'. "
     "There is no shell, 'mlab list', 'mlab workloads', or 'mlab experiment' command. "
     "Discuss the current selection explicitly. Cite run IDs for numerical claims and distinguish observations from possible explanations. "
-    "Before claiming a workload or validation is missing, list the task's evidence and inspect all relevant measurements; "
+    "Distinguish permitted task limits from actual configuration values; inspect the configuration before stating its settings. "
+    "When multiple variables change, the comparison cannot isolate any one variable's causal effect. "
+    "One measured configuration cannot establish ranking reliability across configurations. Limit conclusions to the observed configurations, workloads and repeats. "
+    "Latency gaps alone do not prove a runtime cause; describe possible causes as hypotheses unless profiling or controlled evidence supports them. "
+    "Before claiming a workload or validation is missing, list this conversation's evidence and inspect all relevant measurements; "
     "one selected pair or measurement group does not describe the whole experiment. "
     "Speak naturally in the student's language, keep replies focused, and hide command names and paths unless asked. "
-    "Synthetic simulator and stand-in data are demonstration evidence, never real GPU measurements. "
+    "When interpreting synthetic simulator or stand-in results, explicitly call the performance data synthetic; it is demonstration evidence, never real GPU measurements. "
     "Ask clarifying questions in ordinary chat. Do not demand a hypothesis or formal decision before helping.\n")
 
 
@@ -67,12 +83,13 @@ def tool(name, description, properties, required):
 
 STRING = {"type": "string"}
 TOOLS = [
-    tool("Explore", "List task templates and evidence, show a record, or create an editable draft without running it. "
+    tool("Explore", "Discuss task evidence, create drafts, execute requested simulations, wait for results, cancel requested runs, "
+         "or arrange sandbox measurements with in-chat confirmation. "
          "For unchanged examples use action=draft, template_ids=[requested IDs], title=experiment name. "
          "For parameter changes use variants=[{template_id,id,changes:[{field,value}]}]; values are text. "
          "For custom settings use draft_json, copying complete candidate objects from list.templates; do not omit infra or rationale.",
-         {"action": {"type": "string", "enum": ["list", "show", "draft"]},
-          "reference": {"type": "string", "description": "For show: qualified record such as 9.1-1/r001 or 9.1-1/sim_0001."},
+         {"action": {"type": "string", "enum": ["list", "show", "draft", "simulate", "measure", "wait", "cancel"]},
+          "reference": {"type": "string", "description": "Exact qualified record: show any record; simulate an experiment (9.1-1/r001); measure an experiment or prepared measurement; wait an experiment or measurement; cancel a run (9.1-1/sim_0001)."},
           "template_ids": {"type": "array", "items": STRING, "minItems": 1, "maxItems": 12,
                            "description": "For draft: IDs from list.templates to copy exactly, in order. Prefer this for unchanged examples."},
           "variants": {"type": "array", "minItems": 1, "maxItems": 12,
@@ -85,6 +102,15 @@ TOOLS = [
                                "required": ["field", "value"], "additionalProperties": False}}},
                            "required": ["template_id", "id", "changes"], "additionalProperties": False}},
           "title": {"type": "string", "description": "Name for a draft created from template_ids or variants."},
+          "seeds": {"type": "array", "items": {"type": "integer"}, "description": "For template drafts: requested simulation seeds; default [42]."},
+          "workloads": {"type": "array", "items": STRING, "description": "For template drafts: development and/or task holdout names."},
+          "points": {"type": "array", "minItems": 1, "description": "For measure from an experiment: exact requested configurations, workloads and repeat counts.",
+                     "items": {"type": "object", "properties": {"candidate": STRING, "workload": STRING,
+                               "runs": {"type": "integer", "minimum": 1, "maximum": 8},
+                               "workflow": {"type": "string", "pattern": "^r[0-9]+$", "description": "Optional approved experiment in this same session; defaults to the referenced experiment."}},
+                               "required": ["candidate", "workload", "runs"], "additionalProperties": False}},
+          "reason": {"type": "string", "description": "Brief reason for the requested measurement; do not invent a student observation."},
+          "wait_seconds": {"type": "integer", "minimum": 1, "maximum": 60, "description": "For wait: maximum time before returning current progress; default 30."},
           "draft_json": {"type": "string", "description": "For custom drafts only: valid JSON object with title, question, candidates, seeds, workloads. Each candidate retains schema, id, infra, rationale, strategy from list.templates. Do not also supply template_ids."}}, ["action"]),
     tool("Bash", "Run a single mlab command in this workspace. Commands that need a decision open a confirmation card.",
          {"command": STRING}, ["command"]),
@@ -152,13 +178,73 @@ def example_draft(root, data):
             candidate["rationale"] = f"A variation of {variant['template_id']} for comparison."
         candidates.append(candidate)
     return {"title": data.get("title") or "Experiment draft", "candidates": candidates,
-            "seeds": [42], "workloads": ["development"]}
+            "seeds": data.get("seeds", [42]), "workloads": data.get("workloads", ["development"])}
 
 
 class LabTools:
     def __init__(self, runtime):
         self.runtime, self.root = runtime, runtime.root.resolve()
         self.process = None
+        self.cancelled = False
+
+    async def explore_execution(self, data):
+        from . import exploration
+        from ..core.workspace import Lab
+        target, identifier = await asyncio.to_thread(exploration.reference_target, self.root, data["reference"])
+        name = data["action"]
+        require(not self.cancelled, "E_NEEDS_APPROVAL", "The turn was stopped")
+        if name == "wait":
+            result = await asyncio.to_thread(exploration.wait_for_record, target, identifier, data.get("wait_seconds", 30))
+        elif name == "cancel":
+            require(re.fullmatch(r"(?:sim|hw)_\d+", identifier), "E_SCHEMA", "Choose the exact run to stop", 2)
+            result = await asyncio.to_thread(exploration.action, target, "cancel", {"run": identifier}, "assistant")
+        else:
+            if name == "simulate" or identifier.startswith("r"):
+                require(re.fullmatch(r"r\d+", identifier), "E_SCHEMA", "Choose an experiment reference", 2)
+                def current_experiment():
+                    lab = Lab(target, workflow=identifier, readonly=True)
+                    try:
+                        return exploration.experiment(lab, lab.workflow(), target.name)
+                    finally:
+                        lab.close()
+                experiment = await asyncio.to_thread(current_experiment)
+                body = {"workflow": identifier, "revision": experiment["revision"]}
+                if name == "simulate":
+                    result = await asyncio.to_thread(exploration.action, target, "simulate", {**body, "confirm": True}, "assistant")
+                    result["reference"] = data["reference"]
+                    self.runtime.bus.publish("records.changed", target.name, action=name)
+                    result.update(await asyncio.to_thread(exploration.wait_for_record, target, identifier, 10))
+                else:
+                    points = data.get("points")
+                    require(isinstance(points, list) and points, "E_SCHEMA", "List the exact candidate, workload and run count for measurement", 2)
+                    require(all(isinstance(point, dict) and {"candidate", "workload", "runs"} <= set(point)
+                                and set(point) <= {"candidate", "workload", "runs", "workflow"}
+                                and ("workflow" not in point or (isinstance(point["workflow"], str) and re.fullmatch(r"r\d+", point["workflow"]))) for point in points),
+                            "E_SCHEMA", "Measurement points need candidate, workload and runs", 2)
+                    body.update(confirm_config=True, title=data.get("title") or "Requested sandbox measurement",
+                                points=[{**point, "workflow": point.get("workflow", identifier), "rationale": data.get("reason") or "Requested comparison with the simulator"} for point in points])
+                    result = await asyncio.to_thread(exploration.action, target, "prepare_measurement", body, "assistant")
+                    identifier = result["id"]
+            if name == "measure":
+                require(re.fullmatch(r"m\d+", identifier), "E_SCHEMA", "Choose a prepared measurement", 2)
+                summary = await asyncio.to_thread(exploration.execution_summary, target, identifier)
+                if summary.get("status") == "simulating":
+                    await asyncio.to_thread(exploration.wait_for_record, target, identifier, 60)
+                    require(not self.cancelled, "E_NEEDS_APPROVAL", "The turn was stopped")
+                    summary = await asyncio.to_thread(exploration.execution_summary, target, identifier)
+                if summary.get("status") == "simulating":
+                    return {**summary, "reference": f"{target.name}/{identifier}",
+                            "next": "Predictions are still running. Wait for this measurement, then call measure with its reference."}
+                require(not self.cancelled, "E_NEEDS_APPROVAL", "The turn was stopped")
+                decision = await self.runtime.confirm_execution(summary)
+                require(decision["allow"] and not self.cancelled, "E_NEEDS_APPROVAL", decision.get("message") or "The turn was stopped")
+                result = await asyncio.to_thread(exploration.action, target, "measure", {
+                    "measurement": identifier, "revision": summary["plan_hash"], "confirm": True,
+                    "request_id": f"chat-{uuid.uuid4().hex}"})
+                result["reference"] = f"{target.name}/{identifier}"
+        self.runtime.remember_references([f"{target.name}/{identifier}", *[f"{target.name}/{run}" for run in result.get("runs", result.get("run_ids", []))]])
+        self.runtime.bus.publish("records.changed", target.name, action=name)
+        return result
 
     def path(self, name, write=False):
         path = inside(self.root, name)
@@ -183,7 +269,6 @@ class LabTools:
             if name == "Explore":
                 require(exploratory, "E_SCHEMA", "Open the exploration workbench to propose experiment drafts")
                 from . import exploration, views
-                from .course import Course
                 from .server import read
                 if data["action"] == "draft":
                     require(sum(key in data for key in ("template_ids", "variants", "draft_json")) == 1,
@@ -194,19 +279,14 @@ class LabTools:
                         draft = json.loads(data["draft_json"])
                     result = await asyncio.to_thread(exploration.action, self.root, "create", draft, "assistant")
                     self.runtime.bus.publish("records.changed", self.runtime.key, action="create")
+                elif data["action"] in {"simulate", "measure", "wait", "cancel"}:
+                    result = await self.explore_execution(data)
                 elif data["action"] == "show":
-                    reference = str(data["reference"])
-                    session, _, identifier = reference.partition("/")
-                    target = self.root
-                    sessions = {item["id"]: item for item in Course(self.root.parent).sessions()}
-                    if session in sessions:
-                        require(sessions[session]["task"] == self.root.name.split("-")[0], "E_SCHEMA", "Choose evidence from this task")
-                        target, reference = sessions[session]["root"], identifier
+                    target, reference = await asyncio.to_thread(exploration.reference_target, self.root, data["reference"])
                     result = await asyncio.to_thread(read, target, views.record, reference)
+                    self.runtime.remember_references([data["reference"]])
                 else:
-                    from ..core.io import load
-                    task = load(self.root / ".mlab/config.json")["task"]
-                    result = await asyncio.to_thread(exploration.task_view, Course(self.root.parent), task)
+                    result = await asyncio.to_thread(exploration.session_view, self.root)
                     result["runs"] = result["runs"][-30:]
                     result["experiments"] = result["experiments"][-20:]
                     result = {"task": result["task"], "templates": result["templates"],
@@ -214,11 +294,11 @@ class LabTools:
                                              "controlled_variants": "Use variants=[{template_id: an example ID, id: a new configuration ID, changes: [{field: a task parameter path, value: the new value as text}]}]. Deployment paths include an index, e.g. deployments.0.weight_precision.",
                                              "custom_settings": "Copy complete candidate objects from templates into draft_json. Retain schema, id, infra, rationale and strategy. Use valid JSON; no comments or trailing commas.",
                                              "workloads": ["development", *result["overview"]["holdouts"]],
-                                             "note": "The draft remains editable. The student chooses workloads and execution. No CLI or file discovery is needed."},
+                                             "note": "The draft remains editable. Use simulate on request; measure opens an in-chat confirmation. No CLI or file discovery is needed."},
                               **{key: value for key, value in result.items() if key not in {"task", "templates"}}}
                 return json.dumps(result, ensure_ascii=False)[:60000], False
             if exploratory and name in {"Write", "Edit", "AskUserQuestion"}:
-                return "Use Explore to propose an editable experiment draft, and ask questions in ordinary chat. The student controls execution and their own notes.", True
+                return "Use Explore for experiment drafts and requested execution, and ask questions in ordinary chat. Only the student writes their observations and conclusions.", True
             if name == "AskUserQuestion":
                 result = await self.runtime.permission(name, data)
                 return (json.dumps(result.get("updated_input", {}).get("answers", {}), ensure_ascii=False), False) if result["allow"] else (result["message"], True)
@@ -239,7 +319,7 @@ class LabTools:
                 if exploratory:
                     read_only = tokens[1] in {"task", "history", "show", "compare", "align"} or (tokens[1] in {"run", "workflow", "measure"} and tokens[2:3] in [["show"], ["status"]])
                     if not read_only:
-                        return "This workbench action belongs to the student. Use Explore to read evidence or propose a draft; the student runs it from the page.", True
+                        return "Use Explore simulate for requested simulations or Explore measure for an in-chat hardware confirmation. Bash is read-only in this conversation.", True
                 if found["kind"] and "--help" not in tokens:
                     decision = await self.runtime.permission(name, data)
                     if not decision["allow"]:
@@ -277,6 +357,7 @@ class LabTools:
             return str(error), True
 
     async def interrupt(self):
+        self.cancelled = True
         if self.process and self.process.returncode is None:
             self.process.terminate()
             await self.process.wait()
@@ -348,6 +429,7 @@ class CodexAgentClient:
 
     async def run_turn(self, prompt):
         self.stopped = False
+        self.tools.cancelled = False
         self.log({"type": "prompt", "text": prompt})
         response = await self.server.request("turn/start", {"threadId": self.session, "input": [{"type": "text", "text": prompt}]})
         self.turn_id = response["turn"]["id"]

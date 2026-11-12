@@ -1,18 +1,26 @@
-# Student-led experiment workbench
+# Conversation and experiment workspace
 
-The default page at `/` is a task workspace. Students can keep several experiment drafts, edit configurations, schedule simulations or measurements, inspect any earlier run, and compare evidence across experiments. The assistant is an optional discussion panel. There is no required hypothesis/review/decision sequence in this interface.
+The default page at `/` uses three persistent panes: tasks and sessions on the left, the selected task or evidence in the center, and student–assistant conversation on the right. Students can ask about the task, explore an explanation, plan an experiment, request execution, or investigate evidence without leaving the current result. Questions need no selected result or prepared experiment. There is no required hypothesis/review/decision sequence.
 
 ## Interaction model
 
+- **Conversation** supports learning throughout the workspace. The assistant answers task questions, helps reason about configurations, carries out requested simulations and prepares sandbox measurements for confirmation. Students can change direction in ordinary conversation while the center pane keeps their evidence visible.
+- **New conversation** creates a clean session in the same task. Its conversation, experiments, runs, attachments, comparison selection, notes and report start empty. Earlier sessions remain available from the session list. Only the task's hardware budget is shared; starting a session does not restore spent runs.
+- **Evidence references** can be added with **Add from history** or `@`, without first selecting rows in a table. Search covers the current session's experiments, configurations and runs. Sent messages retain their references, and draft messages and attachments survive navigation and refresh within that session. To inspect an older session's evidence, reopen that session explicitly.
 - **Task overview** explains the objective, constraints and available methods.
 - **Experiments** holds editable drafts and executed configurations. A draft can contain one or several configurations, workloads and repetition seeds. Expectations are optional. Local edits survive navigation and refresh. A revision conflict preserves those edits and offers a new experiment instead of overwriting someone else's saved version.
-- **Runs** collects simulations and measurements across all sessions of the task. Search, filters, sort order and comparison selections survive navigation. Execution status and constraint verdict are separate. A successful process can still violate the SLA.
+- **Runs** collects simulations and measurements in the current session. Search, filters, sort order and comparison selections survive navigation. Execution status and constraint verdict are separate. A successful process can still violate the SLA.
 - **Run details** expose the saved configuration, task constraints, matching simulation, request timings and observations. Duplicate an earlier configuration to continue exploring; executed inputs never change.
-- **Compare** accepts 2–12 runs, including runs from earlier sessions. Students choose the baseline. The page shows metrics and changed settings, and calls out different workloads, evaluation rules, evidence types or execution backends.
+- **Compare** accepts 2–12 runs from the current session, including different experiments. Students choose the baseline. The page shows metrics and changed settings, and calls out different workloads, evaluation rules, evidence types or execution backends.
+- **Configuration evidence** brings together every run of a configuration in the session, with development, repeat and holdout validation. **Measurement records** group predictions and observations, show verdict changes and intervals, and let students inspect matched per-request ratios.
+- **Thinking and reflection** preserves an experiment's hypothesis, alternative explanation, falsification condition, review, analysis and decision when present. Students can add reflections without completing a form sequence or unlocking another action.
 - **Notes and conclusions** keeps the student's observations linked to evidence. Submitting a conclusion does not end exploration. An incomplete validation remains an incomplete conclusion.
-- **Discussion** carries explicitly selected evidence. The assistant can answer questions and propose a new editable draft. It cannot execute work, spend measurement budget, cancel runs, or submit the student's conclusion.
+- **Report** is available at any time in the center pane. It contains the current evidence, original reasoning and linked records, and makes unfinished validation visible. Saving a report does not require submitting a conclusion.
+- **Conversation beside a result** keeps questions and evidence together while students inspect configurations, charts or request timings. The assistant can also find relevant history without explicit attachments. Numerical claims should cite the records used.
 
-Simulation and measurement are separate student actions. A student can arrange a measurement directly from a draft. The preview prepares a matching simulation if one is missing, then shows the hardware count and remaining budget for explicit confirmation. Closing the dialog leaves the pending measurement available for later review. Preparatory simulations do not spend hardware budget.
+Students can ask the assistant to run a specific simulation or use the experiment controls themselves. Creating a draft alone does not start it. The assistant can wait for requested work, discuss its results in the same turn, or cancel a run when asked. Observations and submitted conclusions remain the student's own actions.
+
+Sandbox measurements require confirmation of the selected configurations, workloads, repetitions and budget. In conversation, the assistant prepares the request and displays a measurement card; confirming it resumes the same conversation turn. Cancelling it spends no measurement budget. A student can also arrange a measurement directly from a draft. Both paths prepare a matching simulation if one is missing. These preparatory simulations do not spend hardware budget. Closing the direct measurement dialog leaves its pending request available for later review.
 
 The current fixture/LLM simulator and hardware stand-in produce demonstration data. The UI labels this limitation. A different model provider does not make those numbers real GPU measurements.
 
@@ -20,7 +28,7 @@ The current fixture/LLM simulator and hardware stand-in produce demonstration da
 
 The visual system uses warm neutral surfaces, a forest-green accent, restrained borders, consistent spacing and clear type hierarchy. Simulation and measurement have distinct marks. Light and dark themes and narrow layouts share the same information architecture. Charts respect reduced-motion preferences and offer keyboard-operable points.
 
-The task navigation and hierarchy draw on [Linear's design refresh](https://linear.app/now/behind-the-latest-design-refresh). The run table and comparison workflow draw on [Aim's run explorer](https://aimstack.readthedocs.io/en/latest/ui/pages/run_management.html). The optional evidence discussion is informed by [Hex Threads](https://learn.hex.tech/docs/explore-data/threads). These are interaction references; this application does not embed those services or copy a full product template.
+The task navigation and hierarchy draw on [Linear's design refresh](https://linear.app/now/behind-the-latest-design-refresh). The run table and comparison workflow draw on [Aim's run explorer](https://aimstack.readthedocs.io/en/latest/ui/pages/run_management.html). Connecting discussion to evidence is informed by [Hex Threads](https://learn.hex.tech/docs/explore-data/threads). These are interaction references; this application does not embed those services or copy a full product template.
 
 | Layer | Implementation |
 | --- | --- |
@@ -33,7 +41,7 @@ The task navigation and hierarchy draw on [Linear's design refresh](https://line
 | Server | Existing Starlette server and shared `Lab` validation |
 | Storage | Existing experiment files and SQLite ledger; no second database |
 
-The interface itself needs no CDN, external fonts, analytics, remote UI service or account. A live assistant requires the selected model provider's credentials. Markdown is rendered without raw HTML. The production output ships in `src/mlab/web/static/workbench/`, so students do not need Node. The earlier page remains at `/classic` for older guided records and reports. Switching a conversation to the workbench selects its exploration policy; use a separate session for a legacy guided demonstration.
+The interface itself needs no CDN, external fonts, analytics, remote UI service or account. A live assistant requires the selected model provider's credentials. Markdown is rendered without raw HTML. The production output ships in `src/mlab/web/static/workbench/`, so students do not need Node. The earlier page remains at `/classic` for compatibility; the current workspace renders configuration evidence, measurements, reflections and full reports itself. Switching a conversation to the workbench selects its exploration policy; use a separate session for a legacy guided demonstration.
 
 ## Build and verify
 
@@ -64,14 +72,18 @@ npm run format:check
 
 The general browser checks create a disposable course under `.test-runs/`, serve it on loopback port 8877, and use an isolated browser profile. They exercise student editing, draft recovery, simulation, measurement confirmation, evidence navigation, notes, comparisons, contextual discussion, Chinese, dark mode and mobile width. Screenshots and failure traces go to `workspaces/ui-refactor-check/`. No live model is called by these checks.
 
+`frontend/tests/conversation.spec.ts` checks that all three tasks show the three-pane workspace and accept a question without selected evidence. It also covers session isolation, references, keeping the conversation while inspecting a result, and requesting simulation and confirming or cancelling sandbox measurement in chat. Its scripted offline assistant tests the interaction mechanics, not the quality of model explanations. Screenshots go to `workspaces/conversation-review/`; run these scenarios from `frontend` with `npm run test:browser -- conversation.spec.ts`.
+
+`frontend/tests/records.spec.ts` checks configuration validation, grouped measurement analysis, request ratios, saved reflections and full reports without a submitted conclusion. It also checks that a fresh session has no earlier evidence while retaining the task's budget usage. It runs its own disposable course and saves screenshots under `workspaces/records-review/`.
+
 `frontend/tests/all-tasks.spec.ts` additionally completes a full investigation in each of tasks 9.1, 9.2 and 9.3: edit two configurations, simulate every provided workload with repetitions, inspect requests, compare results, measure the selected configuration twice on development and once on every holdout, write an observation, submit a conclusion, open its report, and reuse an earlier configuration in a new draft. Each task exports ten numbered screenshots and `evidence.json` under `workspaces/all-tasks-review/offline/task-9.x/`. Its separate disposable course and generated reports remain under `workspaces/all-tasks-review/offline/course-*`; the test server chooses an available loopback port. Run just these scenarios from `frontend` with `npm run test:browser -- all-tasks.spec.ts`.
 
-These offline scenarios use fixture simulations and hardware stand-in results. Real SoC conversations, recordings and the review gallery are generated separately; follow [the live recording procedure](demo.md#record-all-three-tasks-with-a-real-assistant). Record into a fresh course: a new session does not reset the task-wide measurement budget.
+These offline scenarios use fixture simulations and hardware stand-in results. Real SoC conversations and recordings are generated separately; follow [the conversation recording procedure](demo.md#record-the-conversation-experience). Its current gallery is `workspaces/studio-review/index.html`, with per-task exports under `workspaces/studio-review/live/`. The earlier full-workflow gallery has [its own recorder](demo.md#record-all-three-tasks-with-a-real-assistant). Record into a fresh course: a new conversation does not reset the task-wide measurement budget.
 
 ## Consistency and compatibility
 
 Workbench mutations name the experiment or measurement explicitly. A workspace lock serializes edits; revision checks reject stale writes; request IDs replay the original result. Shared task admission locks prevent simultaneous submissions from overspending hardware budget across sessions. Execution keeps the existing immutable specification and result checks.
 
-Historical guided experiments remain readable. Cloning one produces a new exploratory draft. The terminal and earlier guided API retain their existing approval rules. Opening the workbench switches its conversation to the exploration tool policy, and automatic guided continuation is disabled there.
+Historical guided experiments remain readable. Cloning one produces a new exploratory draft. The terminal and earlier guided API retain their existing approval rules. Opening the workbench switches its conversation to the exploration tool policy. Requested tools can return results to the ongoing conversation; completion of an unrelated run does not start a new conversation turn automatically.
 
-The workbench currently polls complete task summaries. This is suitable for classroom-sized histories; a long-running deployment with thousands of runs should add pagination and incremental result loading. Live model availability and real GPU backend validation remain separate from browser and protocol tests.
+The workbench currently polls complete session summaries. This is suitable for classroom-sized histories; a long-running deployment with thousands of runs should add pagination and incremental result loading. Live model availability and real GPU backend validation remain separate from browser and protocol tests.

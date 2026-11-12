@@ -6,6 +6,8 @@ and the opt-in legacy `sdk_client`. A client implements connect(session) -> sess
 interrupt() and disconnect(), and asks for permissions through TaskRuntime.permission().
 """
 import asyncio
+import json
+import re
 import contextlib
 import time
 from pathlib import Path
@@ -46,7 +48,8 @@ class TaskRuntime:
         self.lang = None  # The page's language, from its requests; the agent replies in it.
         self.told = None  # The language the agent was last told.
         self.chat = ChatLog(self.root)
-        for entry in self.chat.read(limit=1_000_000):
+        history = self.chat.read(limit=1_000_000)
+        for entry in history:
             if entry.get("role") == "card" and entry.get("state") == "pending":
                 self.chat.update(entry["id"], state="expired")  # Cards live in memory; a restart ends them.
         self.status, self.detail = "offline", None
@@ -59,6 +62,7 @@ class TaskRuntime:
         self.idle = asyncio.Event()
         self.idle.set()
         self.tools = {}
+        self.known_references = set()
         self.last_opened = None
         self.auto_sent = []
         self.state = None  # The watcher keeps the latest task state here.
@@ -67,6 +71,14 @@ class TaskRuntime:
                      "cost_estimated": False, "cost_available": True}
         if self.meta_path.exists():
             self.meta.update(load(self.meta_path))
+        self.exploration = self.meta.get("workbench", False) or self.meta.get("interaction") == "exploration"
+        visible = [entry for entry in history if entry.get("role") in {"student", "agent"}]
+        first = next((entry for entry in visible if entry["role"] == "student"), None)
+        if first:
+            self.meta.setdefault("conversation_title", " ".join(first["text"].split())[:96])
+        if visible:
+            self.meta.update(last_message_seq=int(visible[-1]["id"][1:]), last_message_at=visible[-1]["at"],
+                             last_message_role=visible[-1]["role"])
         self.form_lock = asyncio.Lock()
 
     # Page-facing state.
@@ -74,6 +86,7 @@ class TaskRuntime:
     def snapshot(self):
         return {"status": self.status, "label": labels.AGENT_STATUS.get(self.status, self.status), "detail": self.detail,
                 "cards": [self.public(card) for card in self.cards.values()], "queued": len(self.inbox), "connected": bool(self.client),
+                "interaction": "exploration" if self.exploration else "guided",
                 "session": self.meta.get("session"), "usage": {k: self.meta[k] for k in ("turns", "cost_usd", "input_tokens", "output_tokens",
                                                                                          "cost_estimated", "cost_available")}}
 
@@ -82,14 +95,39 @@ class TaskRuntime:
 
     def set_status(self, status, detail=None):
         self.status, self.detail = status, detail
-        badge = labels.badge(self.state, status) if self.state else None
+        badge = self.present_state(self.state)["badge"] if self.exploration else labels.badge(self.state, status) if self.state else None
         self.bus.publish("agent.status", self.key, status=status, label=labels.AGENT_STATUS.get(status, status), detail=detail,
                          badge=badge, queued=len(self.inbox))
 
     def add(self, role, text="", **extra):
         entry = self.chat.append(role, text, **extra)
+        if role in {"student", "agent"}:
+            if role == "student":
+                self.meta.setdefault("conversation_title", " ".join(text.split())[:96])
+            self.meta.update(last_message_seq=int(entry["id"][1:]), last_message_at=entry["at"], last_message_role=role)
+            self.save_meta()
         self.bus.publish("chat.append", self.key, entry=entry)
         return entry
+
+    def present_state(self, state=None):
+        """Keep guided checkpoints out of a free exploration conversation."""
+        state = dict(state or {})
+        if not self.exploration:
+            return state
+        busy = self.status in {"connecting", "running"} or bool(self.inbox) or bool(state.get("runs_in_flight"))
+        attention = self.status in {"waiting_approval", "waiting_answer", "error"}
+        label = labels.AGENT_STATUS.get(self.status, self.status)
+        if state.get("runs_in_flight") and self.status in {"idle", "offline"}:
+            label = "Runs in progress"
+        state.update(interaction="exploration", step=None, step_label="", form=None, actor="student", hint="", quick_replies=[], next_actions=[],
+                     badge={"text": label, "tone": "attention" if attention else "busy" if busy else "info"})
+        return state
+
+    def conversation_metadata(self):
+        return {"title": self.meta.get("conversation_title"), "last_message_seq": self.meta.get("last_message_seq", 0),
+                "last_message_at": self.meta.get("last_message_at"), "last_message_role": self.meta.get("last_message_role"),
+                "status": self.status, "queued": len(self.inbox), "pending_count": len(self.cards),
+                "interaction": "exploration" if self.exploration else "guided"}
 
     def change(self, entry_id, **changes):
         self.chat.update(entry_id, **changes)
@@ -209,7 +247,14 @@ class TaskRuntime:
         if kind == "delta":
             self.bus.publish("chat.delta", self.key, text=event["text"])
         elif kind == "text" and event.get("text", "").strip():
-            self.add("agent", event["text"].strip())
+            text = event["text"].strip()
+            refs = []
+            for reference in sorted(self.known_references):
+                identifier = reference.split("/", 1)[1]
+                same_name = [item for item in self.known_references if item.split("/", 1)[1] == identifier]
+                if reference in text or (len(same_name) == 1 and re.search(r"(?<![\w/])" + re.escape(identifier) + r"(?![\w/])", text)):
+                    refs.append(reference)
+            self.add("agent", text, refs=refs)
         elif kind == "tool":
             entry = self.add("tool", tool_summary(event["name"], event.get("input") or {}), tool=event["name"])
             if event.get("id"):
@@ -263,24 +308,31 @@ class TaskRuntime:
         finally:
             lab.close()
 
-    async def say(self, text, refs=(), interrupt=False):
+    def remember_references(self, refs):
+        self.known_references.update(ref for ref in refs if "/" in ref)
+
+    async def say(self, text, refs=(), interrupt=False, context=None):
         """The student wrote in the chat. While a card waits, the words answer the card."""
         text = (text or "").strip()
         refs = list(dict.fromkeys(refs))
+        self.remember_references(refs)
         where = await asyncio.to_thread(position, self.root)
         await asyncio.to_thread(log_student, self.root, text, source="cli" if self.source == "cli" else "web-chat", kind="chat", refs=refs,
                                 session=self.meta.get("session"), **where)
         self.add("student", text, refs=refs)
         pending = next(iter(self.cards.values()), None)
         if pending:
-            if pending["kind"] == "approval":
-                self.resolve(pending["id"], {"allow": False, "reason": text, "logged": True})
+            if pending["kind"] in {"approval", "execution"}:
+                reason = text + (f"\n\n{NOTE} {context}" if context else "")
+                self.resolve(pending["id"], {"allow": False, "reason": reason, "logged": True})
             else:
                 first = (pending["data"]["questions"] or [{}])[0].get("question", "")
                 self.resolve(pending["id"], {"answers": {first: text}, "logged": True})
             return "answered_card"
-        facts = await asyncio.to_thread(self.references, refs)
+        facts = await asyncio.to_thread(self.references, refs) if context is None else []
         prompt = text if not facts else text + f"\n\n{NOTE} Records cited (facts the page added, not the student's words):\n" + "\n".join(f"- {line}" for line in facts)
+        if context:
+            prompt += f"\n\n{NOTE} {context}"
         return await self.send(prompt, interrupt)
 
     async def notify(self, notice, show=True):
@@ -293,7 +345,7 @@ class TaskRuntime:
         """The page opened this task: connect, and once per ten minutes let the agent say where things stand."""
         self.start()
         now = time.monotonic()
-        if self.opening and not self.busy() and (self.last_opened is None or now - self.last_opened > OPENING_GAP_S):
+        if self.opening and not self.exploration and not self.busy() and (self.last_opened is None or now - self.last_opened > OPENING_GAP_S):
             self.last_opened = now
             return await self.send(OPENING)
         await self.queue.put(("connect", None))
@@ -337,6 +389,8 @@ class TaskRuntime:
             await self.continue_after(owner, label)
 
     async def continue_after(self, owner, label="Runs"):
+        if self.exploration:
+            return await self.notify(f"{NOTICE} {label} finished ({owner}). Inspect the relevant records in this conversation and respond to the student's request.")
         return await self.notify(f"{NOTICE} {label} finished ({owner}).\nRun mlab next and continue as it says; stop and ask when a confirmation or "
                                  "input is needed.")
 
@@ -348,7 +402,7 @@ class TaskRuntime:
     def open_card(self, kind, **data):
         future = asyncio.get_running_loop().create_future()
         identifier = f"{kind[0]}{int(time.time() * 1000):x}{len(self.cards)}"
-        entry = self.add("card", data.get("command") or tool_summary("AskUserQuestion", data), card=kind, card_id=identifier, state="pending",
+        entry = self.add("card", data.get("command") or (data.get("summary") or {}).get("title") or tool_summary("AskUserQuestion", data), card=kind, card_id=identifier, state="pending",
                          **{k: v for k, v in data.items() if k != "command"})
         card = {"id": identifier, "kind": kind, "data": data, "future": future, "entry": entry["id"]}
         self.cards[identifier] = card
@@ -394,6 +448,24 @@ class TaskRuntime:
             command = tool_summary(tool, data)
         self.add("notice", f"Blocked agent action: {command}", to="student", reason=reason)
         return {"allow": False, "message": reason}
+
+    async def confirm_execution(self, summary):
+        """Confirm exact sandbox inputs without entering the legacy workflow gates."""
+        card = self.open_card("execution", action="measure", summary=summary)
+        self.set_status("waiting_approval")
+        decision = await card["future"]
+        allowed = decision.get("allow") is True
+        self.close_card(card, "approved" if allowed else "cancelled" if decision.get("system") else "denied")
+        if self.turning:
+            self.set_status("running")
+        if not decision.get("system") and not decision.get("logged"):
+            await asyncio.to_thread(log_student, self.root, json.dumps({
+                "action": "measure", "allow": allowed, "session": summary["session"],
+                "measurement": summary["measurement"], "plan_hash": summary["plan_hash"],
+                "hardware_runs": summary["hardware_runs"], "reason": decision.get("reason", "")}),
+                source="web-card", kind="execution")
+        return {"allow": allowed, "message": "The student confirmed this measurement." if allowed else
+                "Measurement was not run. " + str(decision.get("reason") or "The student declined the request.")}
 
     async def approval(self, command, found):
         summary = await asyncio.to_thread(self.summarize, found["kind"], found["args"])

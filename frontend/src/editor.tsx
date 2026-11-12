@@ -18,6 +18,7 @@ import {
   store,
   stored,
   nav,
+  route,
   label,
   number,
   type Data,
@@ -95,7 +96,7 @@ export function Editor({
         });
         store(localKey, null);
         await reload();
-        nav(workspace.task, 'runs');
+        if (route().session === workspace.session) nav(workspace.session, 'runs');
       }
       setReview(false);
     } catch (failure) {
@@ -109,7 +110,8 @@ export function Editor({
     setBusy(true);
     setError('');
     try {
-      onMeasure(await saveDraft());
+      const value = await saveDraft();
+      if (route().session === workspace.session) onMeasure(value);
     } catch (error) {
       setError((error as Error).message);
     } finally {
@@ -121,7 +123,7 @@ export function Editor({
     try {
       const value = await act(draft.session, 'create', { ...draft, source: original.key });
       await reload();
-      nav(workspace.task, 'plans', value.key);
+      if (route().session === workspace.session) nav(workspace.session, 'plans', value.key);
     } catch (error) {
       setError((error as Error).message);
     } finally {
@@ -559,12 +561,33 @@ export function Measurement({
   const [workload, setWorkload] = useState('development');
   const [repetitions, setRepetitions] = useState(1);
   const [reason, setReason] = useState('');
+  const [staged, setStaged] = useState<Data[]>([]);
   const [preview, setPreview] = useState<Data | null>(null);
   const [restoring, setRestoring] = useState(Boolean(measurement));
   const [session, setSession] = useState(source?.session || measurement?.session || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const count = selected.length * repetitions;
+  const currentPoints = source
+    ? selected.map((candidate) => ({
+        candidate,
+        workflow: source.id,
+        workload,
+        runs: repetitions,
+        rationale: reason.trim() || 'Selected for measurement',
+      }))
+    : [];
+  const points = [...staged, ...currentPoints].reduce<Data[]>((items, point) => {
+    const previous = items.find(
+      (item) =>
+        item.workflow === point.workflow &&
+        item.candidate === point.candidate &&
+        item.workload === point.workload,
+    );
+    if (previous) previous.runs += point.runs;
+    else items.push({ ...point });
+    return items;
+  }, []);
+  const count = points.reduce((sum, point) => sum + point.runs, 0);
   async function check(id: string, target = session) {
     const result = await act(target, 'check_measurement', { measurement: id });
     setPreview(result);
@@ -598,26 +621,23 @@ export function Measurement({
     return () => clearInterval(timer);
   }, [preview?.status, preview?.id, session]);
   async function prepare() {
-    if (!source || !selected.length || !reason.trim()) {
-      setError(t('Select configurations and explain why you want to measure them.'));
+    if (!source || !points.length) {
+      setError(t('Select the configurations to measure.'));
       return;
     }
     setBusy(true);
     setError('');
     try {
-      setSession(source.session);
-      const result = await act(source.session, 'prepare_measurement', {
-        title: source.title,
-        workflow: source.id,
-        revision: source.revision,
+      const target = currentPoints.length
+        ? source
+        : options.find((item) => item.id === points[0].workflow)!;
+      setSession(target.session);
+      const result = await act(target.session, 'prepare_measurement', {
+        title: target.title,
+        workflow: target.id,
+        revision: target.revision,
         confirm_config: true,
-        points: selected.map((candidate) => ({
-          candidate,
-          workflow: source.id,
-          workload,
-          runs: repetitions,
-          rationale: reason,
-        })),
+        points,
       });
       setPreview(result);
       await reload();
@@ -637,8 +657,10 @@ export function Measurement({
         confirm: true,
       });
       await reload();
-      onClose();
-      nav(workspace.task, 'runs');
+      if (route().session === workspace.session) {
+        onClose();
+        nav(workspace.session, 'runs');
+      }
     } catch (error) {
       setError((error as Error).message);
     } finally {
@@ -721,9 +743,46 @@ export function Measurement({
               />
             </label>
           </div>
+          {source?.approved && (
+            <Button
+              className="small"
+              disabled={!selected.length}
+              onClick={() => {
+                setStaged(points);
+                setSelected([]);
+              }}
+            >
+              <Plus size={14} />
+              {t('Add these points and choose more')}
+            </Button>
+          )}
+          {staged.length > 0 && (
+            <div className="staged-measurements">
+              <h3>{t('Included in this measurement')}</h3>
+              {staged.map((point, index) => (
+                <div key={`${point.workflow}/${point.candidate}/${point.workload}`}>
+                  <span>
+                    <strong>{point.candidate}</strong>
+                    <small>
+                      {point.workflow} · {label(point.workload)} ·{' '}
+                      {t('{count} runs', { count: point.runs })}
+                    </small>
+                  </span>
+                  <button
+                    className="icon-button"
+                    aria-label={t('Remove measurement point {number}', { number: index + 1 })}
+                    onClick={() => setStaged(staged.filter((_, i) => i !== index))}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <label>
-            {t('Why measure these configurations?')}
+            {t('Why measure these configurations?')} <small>{t('Optional')}</small>
             <textarea
+              aria-label={t('Why measure these configurations?')}
               rows={3}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
@@ -758,11 +817,14 @@ export function Measurement({
                 <strong>{preview.hardware_runs}</strong>
               </div>
               {preview.points?.map((point: Data) => (
-                <div className="prediction-line" key={point.candidate + point.workload}>
+                <div
+                  className="prediction-line"
+                  key={`${point.workflow}/${point.candidate}/${point.workload}`}
+                >
                   <span>
                     <strong>{point.candidate}</strong>
                     <small>
-                      {label(point.workload)} · {point.runs}×
+                      {point.workflow} · {label(point.workload)} · {point.runs}×
                     </small>
                   </span>
                   <span>

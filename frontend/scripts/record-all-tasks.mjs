@@ -150,7 +150,6 @@ try {
         page.getByRole('button', { name: 'Start an experiment', exact: true }),
       ).toBeVisible();
       await screenshot('01-overview');
-      await page.getByRole('button', { name: 'Discuss', exact: true }).click();
       await speak(spec.prompt, '02-agent-proposal');
       let state = await view();
       const experiment = state.experiments
@@ -165,7 +164,6 @@ try {
       verifyConfigurations(task, state.templates, experiment.candidates);
       if (state.runs.some((r) => r.session === session))
         throw Error('An experiment ran before the student confirmed it');
-      await page.getByRole('button', { name: 'Close discussion', exact: true }).click();
       await page.goto(`${base}/#/${task}/plans/${encodeURIComponent(experiment.key)}`);
       await page
         .getByRole('textbox', { name: 'What do you expect?', exact: true })
@@ -204,7 +202,6 @@ try {
         'Compare the selected results using their actual metrics and configuration changes. Which tradeoff matters for this task? Explain one limitation and one useful measurement to make next. Cite the run IDs and keep it under 180 words.',
         '06-agent-analysis',
       );
-      await page.getByRole('button', { name: 'Close discussion', exact: true }).click();
       const preferred = firstRuns.find((r) => r.candidate === spec.selected);
       await page.goto(`${base}/#/${task}/runs/${encodeURIComponent(preferred.key)}`);
       await page.getByRole('button', { name: 'Requests', exact: true }).click();
@@ -296,7 +293,6 @@ try {
           )}. Read every listed measurement before deciding whether validation is missing; the selected pair is only one part of the experiment. Does this design meet the task requirements? Explain the gap and remaining uncertainty, distinguish demonstration data from real GPU evidence, and cite run IDs. Keep it under 200 words.`,
         '10-agent-measurement-review',
       );
-      await page.getByRole('button', { name: 'Close discussion', exact: true }).click();
       await page.goto(`${base}/#/${task}/notes`);
       const note = `I select ${spec.selected} after checking development, repeat and all provided holdout workloads. I compared the configuration and per-request evidence. All measurements here are synthetic stand-in data; this does not establish real hardware performance.`;
       await page.getByRole('textbox', { name: 'Your observation', exact: true }).fill(note);

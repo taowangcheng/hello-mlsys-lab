@@ -393,6 +393,20 @@ def config_name(lab, run):
 
 def config_view(lab, reference):
     """A configuration across the task: every simulation and hardware run of it, gaps to the frozen predictions, validation."""
+    workflow, _, candidate_id = reference.partition("/")
+    record = lab.store.get("workflow", workflow)
+    if record and record["status"] == "draft":
+        plan = load(lab.root / record["folder"] / "plan.yaml")
+        candidates, _ = candidates_of(lab, record, plan)
+        candidate = next((item for item in candidates if item.get("id") == candidate_id), None)
+        if not candidate:
+            raise LabError("E_SCHEMA", f"{workflow} has no candidate {candidate_id}", 2)
+        metric = lab.task["key_metrics"][0]
+        return {"id": reference, "kind": "config", "workflow": workflow, "candidate": candidate_id,
+                "configuration": candidate, "config_hash": None, "names": [reference], "metric": metric,
+                "runs": [], "validation": {}, "missing": {}, "selected": False, "conclusions": [],
+                "preview": "not_evaluated", "reason": "This configuration has not been run.", "draft": True,
+                "chart": {"kind": "bars", "metric": metric, "threshold": key_constraint(lab), "bars": []}}
     data = evidence(lab, reference)
     measured = [r for r in data["runs"] if r["role"] == "hardware" and r.get("value") is not None]
     if measured:
@@ -413,6 +427,8 @@ def record(lab, identifier, lang=None):
         return task_notebook(lab)
     if identifier == "report":
         return report_view(lab, lang)
+    if re.fullmatch(r"r\d{3}/[A-Za-z0-9][A-Za-z0-9_-]{0,47}", identifier):
+        return config_view(lab, identifier)
     kind, found = resolve(lab, identifier)
     if kind == "config":
         return config_view(lab, found["id"])

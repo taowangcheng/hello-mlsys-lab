@@ -46,14 +46,12 @@ export async function addReferenceExperiment({
   let state = await view();
   let reference = findReference(state);
   if (!reference) {
-    await page.getByRole('button', { name: 'Discuss', exact: true }).click();
     await speak(
       'Please add the unchanged tp2_bf16 task example as a separate one-configuration draft named Tensor parallel reference. I will run it myself, then compare it with the previous two designs. Explain in under 80 words why this broader architectural reference does not isolate the effect of precision.',
       '09-reference-proposal',
     );
     state = await view();
     reference = findReference(state);
-    await page.getByRole('button', { name: 'Close discussion', exact: true }).click();
   }
   if (!reference) throw Error('The tensor-parallel reference draft was not created');
   verifyCandidates([state.templates.find((c) => c.id === 'tp2_bf16')], reference.candidates);

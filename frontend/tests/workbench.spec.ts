@@ -65,7 +65,6 @@ test('a student controls experiments, measurements, history and evidence discuss
   await page.getByLabel('Message', { exact: true }).fill('What could explain the difference?');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.locator('.discussion-message.agent')).toContainText('offline preview');
-  await page.getByRole('button', { name: 'Close discussion', exact: true }).click();
   await page.getByRole('link', { name: 'Runs', exact: true }).click();
   await page.getByRole('button', { name: 'Arrange measurement', exact: true }).click();
   await page.getByRole('dialog').getByRole('checkbox').nth(1).check();
@@ -171,4 +170,103 @@ test('the workbench supports Chinese, dark mode and narrow screens', async ({ pa
     page.getByRole('button', { name: words['Start an experiment'], exact: true }),
   ).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('one measurement can include configurations from different experiments', async ({
+  page,
+  request,
+}) => {
+  const opened = await (await request.post('/api/sessions', { data: { task: '9.2' } })).json();
+  const endpoint = `/api/workbench/sessions/${opened.session}`;
+  const initial = await (await request.get(endpoint)).json();
+  const experiments = [];
+  for (const concurrency of [16, 20]) {
+    const candidate = structuredClone(
+      initial.templates.find((item: any) => item.id === 'baseline'),
+    );
+    candidate.id = `c${concurrency}`;
+    candidate.strategy.serving.max_concurrency = concurrency;
+    const experiment = await (
+      await request.post(`${endpoint}/create`, {
+        data: {
+          title: `Concurrency ${concurrency}`,
+          candidates: [candidate],
+          seeds: [42],
+          workloads: ['development'],
+          request_id: crypto.randomUUID(),
+        },
+      })
+    ).json();
+    expect(experiment.ok).toBe(true);
+    const launched = await (
+      await request.post(`${endpoint}/simulate`, {
+        data: {
+          workflow: experiment.id,
+          revision: experiment.revision,
+          confirm: true,
+          request_id: crypto.randomUUID(),
+        },
+      })
+    ).json();
+    expect(launched.ok).toBe(true);
+    experiments.push(experiment);
+  }
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get(endpoint)).json()).runs.filter(
+          (run: any) => run.status === 'succeeded',
+        ).length,
+    )
+    .toBe(2);
+  const unrelated = await (
+    await request.post(`${endpoint}/create`, {
+      data: {
+        title: 'Unrelated draft',
+        candidates: [initial.templates.find((item: any) => item.id === 'baseline')],
+        seeds: [42],
+        workloads: ['development'],
+        request_id: crypto.randomUUID(),
+      },
+    })
+  ).json();
+  await page.goto(`/#/${opened.session}/runs`);
+  await page.getByRole('button', { name: 'Arrange measurement', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog
+    .getByRole('combobox', { name: 'Experiment', exact: true })
+    .selectOption(experiments[0].key);
+  await dialog.getByRole('checkbox').check();
+  await dialog
+    .getByRole('button', { name: 'Add these points and choose more', exact: true })
+    .click();
+  await dialog
+    .getByRole('combobox', { name: 'Experiment', exact: true })
+    .selectOption(experiments[1].key);
+  await dialog.getByRole('checkbox').check();
+  await dialog
+    .getByRole('button', { name: 'Add these points and choose more', exact: true })
+    .click();
+  await dialog
+    .getByRole('combobox', { name: 'Experiment', exact: true })
+    .selectOption(unrelated.key);
+  await dialog.getByRole('button', { name: 'Review measurement', exact: true }).click();
+  await expect(dialog.locator('.prediction-line')).toHaveCount(2);
+  expect(
+    (await (await request.get(endpoint)).json()).experiments.find(
+      (item: any) => item.key === unrelated.key,
+    ).editable,
+  ).toBe(true);
+
+  await expect(dialog).toContainText('c16');
+  await expect(dialog).toContainText('c20');
+  await dialog.getByRole('button', { name: 'Confirm and measure', exact: true }).click();
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get(endpoint)).json()).runs.filter(
+          (run: any) => run.role === 'hardware' && run.status === 'succeeded',
+        ).length,
+    )
+    .toBe(2);
 });

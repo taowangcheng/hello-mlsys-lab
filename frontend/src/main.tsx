@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity,
@@ -9,10 +9,12 @@ import {
   ChevronRight,
   Copy,
   Cpu,
+  FileText,
   FlaskConical,
   GitCompare,
   LayoutDashboard,
   Layers,
+  Maximize2,
   MessageSquare,
   Moon,
   Plus,
@@ -42,6 +44,7 @@ import { Badge, Button, Empty, ErrorLine, Tradeoff } from './ui';
 import { Editor, Measurement } from './editor';
 import { Comparison, Notes, RunDetail, RunTable } from './results';
 import { Chat } from './chat';
+import { RecordView, ExperimentReflection } from './records';
 import './style.css';
 import './nonce';
 
@@ -50,6 +53,7 @@ const sections = [
   ['plans', 'Experiments', Layers],
   ['runs', 'Runs', Activity],
   ['compare', 'Compare', GitCompare],
+  ['report', 'Report', FileText],
   ['notes', 'Notes & conclusions', BookOpen],
 ] as const;
 
@@ -61,13 +65,18 @@ function App() {
   const [working, setWorking] = useState(false);
   const [locale, setLocale] = useState(language);
   const [dark, setDark] = useState(stored('mlab-dark', false));
-  const [chat, setChat] = useState(stored('mlab-discussion', false));
+  const [pane, setPane] = useState('workbench');
+  const [focused, setFocused] = useState(false);
+  const [chatWidth, setChatWidth] = useState(stored('mlab-chat-width', 430));
   const [refs, setRefs] = useState<string[]>([]);
   const [selected, updateSelected] = useState<string[]>([]);
   const [measurement, setMeasurement] = useState<{
     initial?: Experiment;
     measurement?: Data;
   } | null>(null);
+  const contentRef = useRef<HTMLElement>(null);
+  const positions = useRef<Record<string, number>>({});
+  const [directory, setDirectory] = useState(false);
   useEffect(() => {
     const update = () => setLocation(route());
     window.addEventListener('hashchange', update);
@@ -80,13 +89,17 @@ function App() {
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
-  useEffect(() => {
-    store('mlab-discussion', chat);
-  }, [chat]);
   const reload = useCallback(async () => {
-    const result = await api(`/api/workbench/tasks/${location.task}`);
-    if (route().task === location.task) setWorkspace(result);
-  }, [location.task]);
+    if (!location.session) return;
+    const [value, latest] = await Promise.all([
+      api(`/api/workbench/sessions/${location.session}`),
+      api('/api/course'),
+    ]);
+    if (route().session === location.session) {
+      setWorkspace(value);
+      setCourse(latest);
+    }
+  }, [location.session]);
   useEffect(() => {
     let current = true;
     setWorkspace(null);
@@ -94,48 +107,104 @@ function App() {
     setRefs([]);
     setMeasurement(null);
     updateSelected([]);
-    api('/api/course')
-      .then(async (result) => {
-        if (!current) return;
-        setStorageScope(result.storage_id);
-        updateSelected(stored(`mlab-compare-${location.task}`, []));
-        setCourse(result);
-        if (!result.tasks.some((item: Data) => item.task === location.task)) {
-          nav('9.2', 'runs');
-          return;
-        }
-        await api(`/api/workbench/tasks/${location.task}/open`, {});
-        const value = await api(`/api/workbench/tasks/${location.task}`);
-        if (current) setWorkspace(value);
-      })
-      .catch((error) => {
-        if (current) setError(error.message);
-      });
+    setDirectory(false);
+    async function load() {
+      const latest = await api('/api/course');
+      if (!current) return;
+      setStorageScope(latest.storage_id);
+      setCourse(latest);
+      if (!latest.tasks.some((item: Data) => item.task === location.task)) {
+        nav('9.2', 'overview');
+        return;
+      }
+      if (!location.session) {
+        const saved = stored(`mlab-session-${location.task}`, '');
+        const available = latest.sessions.filter((item: Data) => item.task === location.task);
+        const session =
+          available.find((item: Data) => item.id === saved)?.id ||
+          available.at(-1)?.id ||
+          (await api(`/api/workbench/tasks/${location.task}/open`, {})).session;
+        if (current)
+          nav(session, location.page === 'conversation' ? 'overview' : location.page, location.key);
+        return;
+      }
+      if (!latest.sessions.some((item: Data) => item.id === location.session))
+        throw Error(t('This conversation is not available. Choose one from the list.'));
+      store(`mlab-session-${location.task}`, location.session);
+      updateSelected(stored(`mlab-compare-${location.session}`, []));
+      await api(`/api/workbench/sessions/${location.session}/open`, {});
+      const value = await api(`/api/workbench/sessions/${location.session}`);
+      if (current) setWorkspace(value);
+    }
+    load().catch((failure) => {
+      if (current) setError(failure.message);
+    });
     const timer = setInterval(() => {
-      if (!document.hidden)
-        api(`/api/workbench/tasks/${location.task}`)
-          .then((value) => {
-            if (current) setWorkspace(value);
+      if (!document.hidden && location.session)
+        Promise.all([api(`/api/workbench/sessions/${location.session}`), api('/api/course')])
+          .then(([value, latest]) => {
+            if (current) {
+              setWorkspace(value);
+              setCourse(latest);
+            }
           })
-          .catch((error) => {
-            if (current) setError(error.message);
+          .catch((failure) => {
+            if (current) setError(failure.message);
           });
     }, 2200);
     return () => {
       current = false;
       clearInterval(timer);
     };
-  }, [location.task]);
+  }, [location.task, location.session]);
+  const viewKey = `${location.session}/${location.page}/${location.key}`;
+  useEffect(() => {
+    if (location.session) {
+      store(`mlab-location-${location.session}`, { page: location.page, key: location.key });
+      if (course) {
+        const current = course.sessions.find((item: Data) => item.id === location.session);
+        if (current) store(`mlab-seen-${location.session}`, current.last_message_seq || 0);
+      }
+    }
+    if (contentRef.current) contentRef.current.scrollTop = positions.current[viewKey] || 0;
+  }, [
+    viewKey,
+    workspace?.session,
+    course?.sessions.find((item: Data) => item.id === location.session)?.last_message_seq,
+  ]);
   function setSelected(keys: string[]) {
     updateSelected(keys);
-    store(`mlab-compare-${location.task}`, keys);
+    store(`mlab-compare-${location.session}`, keys);
   }
   function addCompare(key: string) {
     updateSelected((previous) => {
-      const value = [...new Set([...previous, key])].slice(0, 12);
-      store(`mlab-compare-${location.task}`, value);
-      return value;
+      const next = [...new Set([...previous, key])].slice(0, 12);
+      store(`mlab-compare-${location.session}`, next);
+      return next;
     });
+  }
+  function selectSession(session: string) {
+    const previous = stored(`mlab-location-${session}`, { page: 'overview', key: '' });
+    nav(session, previous.page === 'conversation' ? 'overview' : previous.page, previous.key);
+    setPane('workbench');
+    setFocused(false);
+  }
+  async function newSession() {
+    const startingLocation = window.location.hash;
+    setWorking(true);
+    setError('');
+    try {
+      const value = await api('/api/sessions', { task: location.task });
+      if (window.location.hash === startingLocation) {
+        nav(value.session, 'overview');
+        setPane('workbench');
+        setFocused(false);
+      }
+    } catch (failure) {
+      setError((failure as Error).message);
+    } finally {
+      setWorking(false);
+    }
   }
   async function create(source?: Experiment, candidate?: string) {
     if (!workspace) return;
@@ -166,21 +235,53 @@ function App() {
         source: source?.key,
       });
       await reload();
-      if (route().task === location.task) nav(location.task, 'plans', value.key);
-    } catch (error) {
-      setError((error as Error).message);
+      if (route().session === workspace.session) nav(workspace.session, 'plans', value.key);
+    } catch (failure) {
+      setError((failure as Error).message);
     } finally {
       setWorking(false);
     }
   }
   function discuss(keys: string[]) {
     setRefs(keys);
-    setChat(true);
+    setPane('conversation');
   }
   function openReference(key: string) {
-    const identifier = key.split('/')[1];
-    nav(location.task, identifier?.startsWith('r') ? 'plans' : 'runs', key);
+    if (!workspace || !key.startsWith(workspace.session + '/')) return;
+    const identifier = key.slice(workspace.session.length + 1);
+    const page =
+      identifier === 'report'
+        ? 'report'
+        : identifier === 'overview'
+          ? 'overview'
+          : identifier.includes('/')
+            ? 'config'
+            : identifier.startsWith('m')
+              ? 'measurements'
+              : identifier.startsWith('r')
+                ? 'plans'
+                : 'runs';
+    nav(workspace.session, page, key);
+    setPane('workbench');
+    setFocused(false);
   }
+  function resize(event: React.PointerEvent<HTMLDivElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const start = event.clientX;
+    const width = chatWidth;
+    const node = event.currentTarget;
+    const move = (next: PointerEvent) =>
+      setChatWidth(Math.max(340, Math.min(650, width + start - next.clientX)));
+    const end = () => {
+      node.removeEventListener('pointermove', move);
+      node.removeEventListener('pointerup', end);
+    };
+    node.addEventListener('pointermove', move);
+    node.addEventListener('pointerup', end);
+  }
+  useEffect(() => {
+    store('mlab-chat-width', chatWidth);
+  }, [chatWidth]);
   const run = workspace?.runs.find((item) => item.key === location.key);
   const experiment = workspace?.experiments.find((item) => item.key === location.key);
   const inProgress = workspace?.runs.filter((item) => !terminal(item)).length || 0;
@@ -204,6 +305,7 @@ function App() {
           onClone={create}
           onMeasure={(item) => setMeasurement({ initial: item })}
           onDiscuss={discuss}
+          reload={reload}
         />
       );
     else if (location.page === 'plans')
@@ -232,7 +334,18 @@ function App() {
       );
     else if (location.page === 'notes')
       content = <Notes workspace={workspace} refs={selected} reload={reload} />;
-    else if (location.page === 'overview')
+    else if (['report', 'config', 'measurements'].includes(location.page))
+      content = (
+        <RecordView
+          key={location.key || 'report'}
+          workspace={workspace}
+          reference={location.key || `${workspace.session}/report`}
+          onDiscuss={discuss}
+          onOpen={openReference}
+          reload={reload}
+        />
+      );
+    else if (['overview', 'conversation'].includes(location.page))
       content = <Overview workspace={workspace} create={() => create()} />;
     else
       content = (
@@ -245,10 +358,17 @@ function App() {
         />
       );
   }
+  const activeSessions = (course?.sessions || [])
+    .filter((item: Data) => item.task === location.task)
+    .slice()
+    .reverse();
   return (
-    <div className={`app-shell ${chat ? 'with-discussion' : ''}`}>
-      <aside className="navigation">
-        <a className="brand" href="#/9.2/runs">
+    <div
+      className={`app-shell studio-shell pane-${pane} ${focused ? 'focus-conversation' : ''}`}
+      style={{ '--conversation-width': `${chatWidth}px` } as React.CSSProperties}
+    >
+      <aside className="navigation" aria-label={t('Tasks and conversations')}>
+        <a className="brand" href={`#/${location.session || location.task}/overview`}>
           <span className="brand-symbol">
             m<span>·</span>
           </span>
@@ -268,7 +388,12 @@ function App() {
             <button
               key={task.task}
               className={location.task === task.task ? 'selected' : ''}
-              onClick={() => nav(task.task, 'runs')}
+              onClick={() => {
+                if (task.task !== location.task) {
+                  window.location.hash = `/${task.task}/overview`;
+                  setPane('workbench');
+                }
+              }}
             >
               <span>{task.task}</span>
               <strong>{t(task.title)}</strong>
@@ -277,20 +402,61 @@ function App() {
           ))}
         </div>
         <div className="nav-rule" />
-        <nav className="section-nav">
-          {sections.map(([key, text, Icon]) => (
-            <a
-              href={`#/${location.task}/${key}`}
-              key={key}
-              className={location.page === key ? 'selected' : ''}
-            >
-              <Icon size={17} />
-              <span>{t(text)}</span>
-              {key === 'compare' && selected.length > 0 && <small>{selected.length}</small>}
-              {key === 'runs' && inProgress > 0 && <span className="nav-dot" />}
-            </a>
-          ))}
-        </nav>
+        <div className="session-heading">
+          <span>{t('Conversations')}</span>
+          <button
+            className="icon-button"
+            title={t('Start fresh. Earlier work stays in its own conversation.')}
+            aria-label={t('New conversation')}
+            disabled={working}
+            onClick={newSession}
+          >
+            <Plus size={17} />
+          </button>
+        </div>
+        <div className="session-list">
+          {activeSessions.map((item: Data) => {
+            const busy = ['running', 'connecting'].includes(item.agent);
+            const waiting = ['waiting_approval', 'waiting_answer'].includes(item.agent);
+            const unread =
+              item.id !== location.session &&
+              item.last_message_seq > stored(`mlab-seen-${item.id}`, 0);
+            return (
+              <button
+                key={item.id}
+                className={`session-item ${item.id === location.session ? 'selected' : ''}`}
+                aria-label={t('Conversation {number}', { number: item.number })}
+                aria-current={item.id === location.session ? 'true' : undefined}
+                onClick={() => selectSession(item.id)}
+              >
+                <span className="session-item-top">
+                  <strong>{t('Conversation {number}', { number: item.number })}</strong>
+                  {unread && <i className="unread-dot" />}
+                  <small title={time(item.created_at)}>
+                    {new Date(item.created_at).toLocaleTimeString(locale, {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </small>
+                </span>
+                <span className="session-title">
+                  {item.title && !course?.tasks.some((task: Data) => task.title === item.title)
+                    ? item.title
+                    : t('A fresh start')}
+                </span>
+                <span className={`session-state ${waiting ? 'attention' : ''}`}>
+                  {waiting
+                    ? t('Waiting for you')
+                    : busy
+                      ? t('Working…')
+                      : item.conclusion
+                        ? t('Conclusion saved')
+                        : t('Ready to continue')}
+                </span>
+              </button>
+            );
+          })}
+        </div>
         <div className="navigation-bottom">
           <div className="budget-card">
             <div>
@@ -327,7 +493,9 @@ function App() {
             <ChevronRight size={13} />
             <span>{location.task}</span>
             <ChevronRight size={13} />
-            <strong>{t(sections.find(([key]) => key === location.page)?.[1] || 'Runs')}</strong>
+            <strong>
+              {t('Conversation {number}', { number: location.session?.split('-')[1] || '—' })}
+            </strong>
           </div>
           <div className="topbar-actions">
             {inProgress > 0 && (
@@ -353,57 +521,170 @@ function App() {
             >
               {locale === 'zh' ? 'EN' : t('Chinese')}
             </button>
-            <Button className={`small ${chat ? 'selected' : ''}`} onClick={() => setChat(!chat)}>
-              <MessageSquare size={15} />
-              <span>{t('Discuss')}</span>
-            </Button>
+            <button
+              className="icon-button focus-control"
+              aria-label={t(focused ? 'Show workbench' : 'Focus conversation')}
+              onClick={() => setFocused(!focused)}
+            >
+              <Maximize2 size={16} />
+            </button>
           </div>
         </header>
-        <main className="workspace-content" key={location.task}>
-          <ErrorLine text={error} />
-          {working && (
-            <div className="working-banner" role="status">
-              {t('Preparing the draft…')}
-            </div>
-          )}
-          {workspace?.measurements
-            .filter(
-              (item) =>
-                ['measure_plan', 'measure_approved'].includes(item.status) &&
-                !item.runs.some((key: string) => key.startsWith('hw_')),
-            )
-            .map((item) => (
-              <div className="pending-measurement" key={item.key}>
-                <Cpu size={16} />
-                <span>
-                  {t('Measurement waiting for review')}: {item.title}
-                </span>
-                <Button className="small" onClick={() => setMeasurement({ measurement: item })}>
-                  {t('Review')}
-                </Button>
+        <nav className="mobile-panes" aria-label={t('Workspace panels')}>
+          {[
+            ['sessions', 'Conversations'],
+            ['workbench', 'Workbench'],
+            ['conversation', 'Conversation'],
+          ].map(([key, text]) => (
+            <button
+              key={key}
+              className={pane === key ? 'selected' : ''}
+              onClick={() => setPane(key)}
+            >
+              {t(text)}
+            </button>
+          ))}
+        </nav>
+        <ErrorLine text={error} />
+        <div className="studio-columns">
+          <section className="evidence-workbench" aria-label={t('Experiment workbench')}>
+            <nav className="section-nav record-tabs">
+              {sections.map(([key, text, Icon]) => (
+                <a
+                  key={key}
+                  href={`#/${location.session || location.task}/${key}`}
+                  className={location.page === key ? 'selected' : ''}
+                  aria-label={t(text)}
+                >
+                  <Icon size={15} />
+                  <span>{t(text)}</span>
+                  {key === 'compare' && selected.length > 0 && <small>{selected.length}</small>}
+                </a>
+              ))}
+            </nav>
+            {workspace && (
+              <div className="record-directory">
+                <button
+                  className="text-button"
+                  aria-expanded={directory}
+                  onClick={() => setDirectory(!directory)}
+                >
+                  <Layers size={14} />
+                  {t('Record directory')}
+                  <span>
+                    {workspace.experiments.length} / {workspace.runs.length}
+                  </span>
+                  <ChevronRight size={13} />
+                </button>
+                {directory && (
+                  <div className="record-directory-items">
+                    {workspace.experiments.map((item) => (
+                      <div key={item.key}>
+                        <button onClick={() => openReference(item.key)}>
+                          <FlaskConical size={13} />
+                          {item.id} · {item.title}
+                        </button>
+                        <div>
+                          {item.candidates.map((candidate) => (
+                            <button
+                              key={candidate.id}
+                              onClick={() => openReference(`${item.key}/${candidate.id}`)}
+                            >
+                              {candidate.id}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {workspace.measurements.map((item) => (
+                      <button key={item.key} onClick={() => openReference(item.key)}>
+                        <Cpu size={13} />
+                        {item.id} · {item.title}
+                      </button>
+                    ))}
+                    <button onClick={() => openReference(`${workspace.session}/report`)}>
+                      <FileText size={13} />
+                      {t('Report')}
+                    </button>
+                    {!workspace.experiments.length && (
+                      <p>{t('Experiments and results will appear here as you explore.')}</p>
+                    )}
+                  </div>
+                )}
               </div>
-            ))}
-          {workspace ? (
-            content
-          ) : (
-            <div className="loading-state">
-              <div className="loading-line" />
-              <div className="loading-line short" />
-              <div className="loading-block" />
-            </div>
-          )}
-        </main>
+            )}
+            <main
+              className="workspace-content"
+              ref={contentRef}
+              key={location.session}
+              onScroll={(event) => {
+                positions.current[viewKey] = event.currentTarget.scrollTop;
+              }}
+            >
+              {working && (
+                <div className="working-banner" role="status">
+                  {t('Preparing the workspace…')}
+                </div>
+              )}
+              {workspace?.measurements
+                .filter(
+                  (item) =>
+                    ['measure_plan', 'measure_approved'].includes(item.status) &&
+                    !item.runs.some((key: string) => key.startsWith('hw_')),
+                )
+                .map((item) => (
+                  <div className="pending-measurement" key={item.key}>
+                    <Cpu size={16} />
+                    <span>
+                      {t('Measurement waiting for review')}: {item.title}
+                    </span>
+                    <Button className="small" onClick={() => setMeasurement({ measurement: item })}>
+                      {t('Review')}
+                    </Button>
+                  </div>
+                ))}
+              {workspace ? (
+                content
+              ) : (
+                <div className="loading-state">
+                  <div className="loading-line" />
+                  <div className="loading-line short" />
+                  <div className="loading-block" />
+                </div>
+              )}
+            </main>
+          </section>
+          <div
+            className="pane-resizer"
+            role="separator"
+            aria-label={t('Resize conversation')}
+            aria-orientation="vertical"
+            tabIndex={0}
+            onPointerDown={resize}
+            onKeyDown={(event) => {
+              if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+                event.preventDefault();
+                setChatWidth((value) =>
+                  Math.max(340, Math.min(650, value + (event.key === 'ArrowLeft' ? 20 : -20))),
+                );
+              }
+            }}
+          />
+          <div className="conversation-host">
+            {workspace && (
+              <Chat
+                key={workspace.session}
+                workspace={workspace}
+                refs={refs}
+                setRefs={setRefs}
+                mode="panel"
+                onNavigate={openReference}
+                onRefresh={reload}
+              />
+            )}
+          </div>
+        </div>
       </div>
-      {chat && workspace && (
-        <Chat
-          key={location.task}
-          workspace={workspace}
-          refs={refs}
-          setRefs={setRefs}
-          onClose={() => setChat(false)}
-          onNavigate={openReference}
-        />
-      )}
       {measurement && workspace && (
         <Measurement
           workspace={workspace}
@@ -517,12 +798,14 @@ function ExperimentDetail({
   onClone,
   onMeasure,
   onDiscuss,
+  reload,
 }: {
   experiment: Experiment;
   workspace: Workspace;
   onClone: (item: Experiment) => void;
   onMeasure: (item: Experiment) => void;
   onDiscuss: (keys: string[]) => void;
+  reload: () => Promise<void>;
 }) {
   const runs = workspace.runs.filter(
     (run) => run.session === experiment.session && run.owner === experiment.id,
@@ -591,6 +874,23 @@ function ExperimentDetail({
           ))}
         </div>
       </section>
+      <div className="configuration-links">
+        {experiment.candidates.map((candidate) => (
+          <button
+            key={candidate.id}
+            onClick={() => nav(workspace.task, 'config', `${experiment.key}/${candidate.id}`)}
+          >
+            {candidate.id}
+            <ArrowUpRight size={12} />
+          </button>
+        ))}
+      </div>
+      <ExperimentReflection
+        workspace={workspace}
+        experiment={experiment}
+        reload={reload}
+        onDiscuss={onDiscuss}
+      />
       <details className="detail-panel">
         <summary>{t('Saved configurations')}</summary>
         <pre>{JSON.stringify(experiment.candidates, null, 2)}</pre>

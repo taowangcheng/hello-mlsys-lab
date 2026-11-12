@@ -164,8 +164,11 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
             runtime = runtimes.get(session["id"])
             if not runtime:
                 continue
-            state = runtime.state or (await asyncio.to_thread(read, runtime.root, views.task_state))
-            sessions.append({"id": session["id"], "task": session["task"], "number": session["number"], "title": titles.get(session["task"], ""),
+            state = runtime.present_state(runtime.state or (await asyncio.to_thread(read, runtime.root, views.task_state)))
+            metadata = runtime.conversation_metadata()
+            title = metadata.pop("title") or titles.get(session["task"], "")
+            sessions.append({"id": session["id"], "task": session["task"], "number": session["number"], "title": title,
+                             "task_title": titles.get(session["task"], ""), **metadata,
                              "created_at": session["created_at"], "badge": state.get("badge"), "step": state.get("step"),
                              "step_label": state.get("step_label"), "selection": state.get("selection"), "conclusion": state.get("conclusion"),
                              "budget": (state.get("budget") or {}).get("hardware"), "agent": runtime.snapshot()["status"]})
@@ -180,12 +183,32 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
     async def create_session(request):
         """A new session: the task from the start, with its own workspace and agent."""
         body = await body_of(request)
-        name = await asyncio.to_thread(course.create, str(body.get("task") or ""))
+        def create():
+            with file_lock(course.root / ".mlab/course.lock"):
+                return course.create(str(body.get("task") or ""))
+        name = await asyncio.to_thread(create)
         session = next(item for item in course.sessions() if item["id"] == name)
         add_runtime(session)
         watcher.poke()
         bus.publish("course.changed", name, created=name)
         return {"ok": True, "session": name, "task": session["task"], "number": session["number"]}
+
+    async def use_exploration(runtime):
+        if not runtime.exploration:
+            require(not runtime.busy(), "E_AGENT_BUSY", "Finish or stop the earlier discussion before opening this one")
+            runtime.exploration = True
+            await runtime.restart()
+        runtime.meta["workbench"] = True
+        runtime.save_meta()
+
+    async def open_session(request):
+        runtime = runtime_of(request)
+        await use_exploration(runtime)
+        return {"ok": True, "session": runtime.key, "agent": runtime.snapshot()}
+
+    async def session_workbench(request):
+        runtime = runtime_of(request)
+        return {"ok": True, **await asyncio.to_thread(exploration.session_view, runtime.root)}
 
     async def open_task(request):
         task = request.path_params["task"]
@@ -197,9 +220,7 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         if name not in runtimes:
             add_runtime(next(item for item in course.sessions() if item["id"] == name))
         runtime = runtimes[name]
-        if not getattr(runtime, "exploration", False):
-            runtime.exploration = True
-            await runtime.restart()
+        await use_exploration(runtime)
         return {"ok": True, "session": name}
 
     async def workbench(request):
@@ -229,46 +250,22 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         text = str(body.get("text") or "").strip()
         if not text:
             return failure("E_SCHEMA", "Write a message first")
-        refs = body.get("refs", [])
-        if not isinstance(refs, list) or not all(isinstance(ref, str) for ref in refs):
-            return failure("E_SCHEMA", "Choose valid evidence references")
-        refs = refs[:12]
-        facts = []
-        for key in refs:
-            session, _, identifier = str(key).partition("/")
-            target = runtimes.get(session)
-            if not target or not identifier:
-                return failure("E_SCHEMA", "Unknown evidence reference")
-            if session.split("-")[0] != runtime.key.split("-")[0]:
-                return failure("E_SCHEMA", "Choose evidence from this task")
-            record = await asyncio.to_thread(read, target.root, views.record, identifier, runtime.lang)
-            if not record["ok"]:
-                return record
-            facts.append({"reference": key, "record": record})
-        if not getattr(runtime, "exploration", False):
-            if runtime.busy():
-                return failure("E_AGENT_BUSY", "Finish or stop the earlier discussion before opening this one")
-            runtime.exploration = True
-            await runtime.restart()
-        if facts:
-            from ..core.student import log_student
-            await asyncio.to_thread(log_student, runtime.root, text, source="web-chat", kind="chat", refs=refs)
-            runtime.add("student", text, refs=refs)
-            import json
-            outcome = await runtime.send(text[:4000] + "\n\n[Page note] Selected evidence:\n" + json.dumps(facts, ensure_ascii=False)[:40000])
-        else:
-            outcome = await runtime.say(text[:4000])
-        return {"ok": True, "status": outcome, "agent": runtime.snapshot()}
+        refs, context = await asyncio.to_thread(exploration.conversation_context, runtime.root, text, body.get("refs", []))
+        await use_exploration(runtime)
+        mode = body.get("mode", "queue")
+        require(mode in {"queue", "interrupt_then_send"}, "E_SCHEMA", "Choose queue or interrupt_then_send", 2)
+        outcome = await runtime.say(text[:4000], refs, interrupt=mode == "interrupt_then_send", context=context)
+        return {"ok": True, "status": outcome, "refs": refs, "agent": runtime.snapshot()}
 
     async def state(request):
         runtime = runtime_of(request)
         result = await asyncio.to_thread(read, runtime.root, views.task_state, runtime.status)
-        return {**result, "agent": runtime.snapshot()}
+        return {**runtime.present_state(result), "agent": runtime.snapshot()}
 
     def page_of(runtime, record, with_chat):
         """Everything a task's page shows, from one read-only Lab: one request per navigation through a slow forward."""
         def build(lab):
-            state = views.task_state(lab, runtime.status)
+            state = runtime.present_state(views.task_state(lab, runtime.status))
             identifier = record or views.default_record(state)
             try:
                 shown = {"ok": True, **views.record(lab, identifier, runtime.lang)}
@@ -378,6 +375,17 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         done = runtime.resolve(request.path_params["card"], {"allow": decision == "allow", "reason": str(body.get("reason") or "")[:2000]})
         return {"ok": done, **({} if done else failure("E_SCHEMA", "This card was already handled or does not exist"))}
 
+    async def execution(request):
+        runtime = runtime_of(request)
+        body = await body_of(request)
+        identifier = request.path_params["card"]
+        card = runtime.cards.get(identifier)
+        require(card and card["kind"] == "execution", "E_SCHEMA", "This execution request is no longer pending", 2)
+        require(type(body.get("allow")) is bool, "E_SCHEMA", "Choose whether to run this measurement", 2)
+        done = runtime.resolve(identifier, {"allow": body["allow"], "reason": str(body.get("reason") or "")[:2000]})
+        require(done, "E_SCHEMA", "This execution request was already handled", 2)
+        return {"ok": True}
+
     async def question(request):
         runtime = runtime_of(request)
         body = await body_of(request)
@@ -409,6 +417,8 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         Route("/api/workbench/tasks/{task}/open", endpoint(open_task), methods=post),
         Route("/api/workbench/tasks/{task}", endpoint(workbench), methods=get),
         Route("/api/workbench/compare", endpoint(workbench_compare), methods=post),
+        Route("/api/workbench/sessions/{session}", endpoint(session_workbench), methods=get),
+        Route("/api/workbench/sessions/{session}/open", endpoint(open_session), methods=post),
         Route("/api/workbench/sessions/{session}/chat", endpoint(workbench_chat), methods=post),
         Route("/api/workbench/sessions/{session}/{action}", endpoint(workbench_action), methods=post),
         Route("/api/course", endpoint(course_view), methods=get),
@@ -428,6 +438,7 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         Route("/api/sessions/{session}/chat", endpoint(chat), methods=post),
         Route("/api/sessions/{session}/agent/{action}", endpoint(agent_action), methods=post),
         Route("/api/sessions/{session}/approvals/{card}", endpoint(approval), methods=post),
+        Route("/api/sessions/{session}/execution/{card}", endpoint(execution), methods=post),
         Route("/api/sessions/{session}/questions/{card}", endpoint(question), methods=post),
     ]
 

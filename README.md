@@ -1,6 +1,8 @@
 # hello-mlsys-lab
 
-The experiment workbench for weeks 6–8 of hello-mlsys, available as a local course page and in the terminal. Students design configurations, arrange simulations and measurements, compare earlier results and record their conclusions. An optional Codex assistant, using GPT-6 Luna or SoC Qwen 27B, helps interpret evidence and proposes editable experiment drafts.
+The learning workspace for weeks 6–8 of hello-mlsys, available as a local course page and in the terminal. Students learn through conversation with a Codex assistant using GPT-6 Luna or SoC Qwen 27B: ask about the task, work through an idea, plan and run experiments, investigate earlier results, and compare explanations. Experiment editors, execution history and charts support that conversation, with direct controls available throughout.
+
+The page keeps task and session navigation on the left, task information and evidence in the center, and conversation on the right. Configuration histories, measurement analysis, optional reflections and full reports stay in the workspace. A new conversation starts a clean session; earlier work remains in its original session, and only the task's hardware budget is shared.
 
 Experiments can use simulation or hardware measurement. Simulation has no total run budget, but each batch has a size limit. Measurements share a task budget and currently use a stand-in until the AMD sandbox is connected. The fixture, LLM simulator and stand-in all produce demonstration numbers.
 
@@ -37,11 +39,15 @@ To use **SoC / Qwen 3.8 27B** with the same pinned Codex, run `scripts/start-soc
 mlab web workspaces/my-course --simulator fixture --provider codex-luna
 ```
 
-The first run creates the course directory and opens a page served on 127.0.0.1. For a remote machine, use an SSH or editor port forward. The page organizes work by task, with experiments, execution history, comparisons and notes. Students can keep several drafts and independently arrange simulations or measurements; no conversation or previous-round decision is required. Select earlier results to inspect their configurations, compare them, discuss them, or start a new experiment from them. The measurement budget is shared across each task. Chinese/English and light/dark settings are retained in the browser. Add `--port` if the default port is busy.
+The first run creates the course directory and opens a page served on 127.0.0.1. For a remote machine, use an SSH or editor port forward. Each task opens with its overview and a persistent conversation beside it. Ask a conceptual question without preparing an experiment, request a simulation, or bring earlier evidence from this session into the discussion with **Add from history** or an `@` reference. The assistant can find the session's earlier work even when nothing is attached. Requested sandbox measurements show their configuration, workload and budget for confirmation before execution. Students can also edit and run experiments directly, inspect request timings, compare results and write their own observations. There is no required sequence of questions, experiments or conclusions.
 
-The React workbench is included as built static assets. Developers rebuild it with `scripts/build-web.sh`; the toolchain and npm cache stay inside the project. See [Frontend design and verification](docs/web-frontend.md). Existing guided records and reports remain available at `/classic`.
+Use **New conversation** to start a clean session within the same task. Reopen an earlier session from the session list to recover its conversation, drafts and execution records. **Add from history** attaches evidence from the current session. Only the measurement budget remains shared across the task. Chinese/English and light/dark settings are retained in the browser. Add `--port` if the default port is busy.
 
-`mlab doctor --web` checks the CLI version, authentication availability, web dependencies and local TCP access, without calling a model. `--agent fake` provides an offline preview. Experiment controls still work; discussion explains that no model is connected. Demo steps and the TA checklist are in [Demo steps](docs/demo.md#course-page-demo); the API is in [docs/web-api.md](docs/web-api.md).
+The React workbench is included as built static assets. Developers rebuild it with `scripts/build-web.sh`; the toolchain and npm cache stay inside the project. See [Frontend design and verification](docs/web-frontend.md). Configuration records, measurement analysis and full reports open directly in the central pane; `/classic` remains available for compatibility.
+
+`mlab doctor --web` checks the CLI version, authentication availability, web dependencies and local TCP access, without calling a model. `--agent fake` provides an offline preview with scripted simulation and measurement requests; it cannot provide model explanations. Demo steps and the TA checklist are in [Demo steps](docs/demo.md#course-page-demo); the API is in [docs/web-api.md](docs/web-api.md).
+
+The [recording procedure](docs/demo.md#record-the-conversation-experience) produces a local review gallery at `workspaces/studio-review/index.html` and an optional `studio-review.zip` in the same directory. It includes full real SoC conversations, screenshots and normal-speed video; experiment performance remains fixture and stand-in data. The gallery labels missing or partial recordings.
 
 Do not use the same workspace from the course page and the terminal at the same time.
 

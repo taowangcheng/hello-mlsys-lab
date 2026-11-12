@@ -1,6 +1,6 @@
-# Demo: student-led experiments
+# Demo: learning through conversation and experiments
 
-The default page is an experiment workbench. Students choose what to try, when to simulate, what to measure, and which earlier results to investigate. The example below is one possible investigation, not a required sequence. It uses task 9.2 and synthetic fixture/stand-in results.
+The default page keeps navigation on the left, the task or evidence in the center, and conversation on the right. Students ask questions, work through explanations, decide what to try, request simulations or sandbox measurements, and revisit evidence while talking. The examples below are possible investigations, not a required sequence. Performance results use the synthetic fixture and hardware stand-in.
 
 ## Course page demo
 
@@ -8,10 +8,24 @@ From the repository root, after `scripts/setup.sh`:
 
 ```bash
 source .venv/bin/activate
-mlab web workspaces/exploration-demo --agent fake --simulator fixture --no-opening
+mlab web workspaces/conversation-demo --provider codex-luna --simulator fixture --no-opening
 ```
 
-Open the printed address, or its SSH/editor port forward, and select task 9.2. No model is required for the controls below. `--agent fake` gives an offline discussion response; it does not generate an analysis or experiment proposal. For a live assistant, use a fresh course with `--agent codex --provider codex-luna`, or start a SoC course with `scripts/start-soc.sh workspaces/soc-exploration-demo`. See [Codex integration](codex.md) for credentials, isolation and provider limits.
+Open the printed address, or its SSH/editor port forward, and choose a task. For SoC Qwen, start a fresh course with `scripts/start-soc.sh workspaces/soc-conversation-demo` instead. See [Codex integration](codex.md) for credentials, isolation and provider limits. An offline preview can use `--agent fake`; its experiment controls and scripted execution requests work, but it does not provide model explanations.
+
+Start with a question that needs no experiment: "What does this task ask me to learn?" or "Why can throughput improve while response time gets worse?" Continue in your own words. The assistant should explain the question, not require a hypothesis form or turn every answer into another run.
+
+| Task | Conversation to try | What to check |
+| --- | --- | --- |
+| 9.1: on-device assistant | Ask how model size, precision and memory interact. Request a draft comparing `int4_7b` and `fp8_3b`, discuss what that comparison can establish, then ask to run it. | Drafting alone starts nothing. An explicit simulation request runs the selected experiment. The discussion recognizes that both model size and precision changed. |
+| 9.2: serving under an SLA | Ask for a comparison of concurrency 16 and 20. After simulating, ask which earlier evidence helps explain the latency margin. Use **Add from history** or `@` to attach a result, then request measurements for one configuration. | References identify the correct session and run. The measurement card shows the chosen workloads, repetitions and budget. Confirming continues the discussion; cancelling spends no measurement budget. |
+| 9.3: dependent workload | Ask how a dependency chain changes the interpretation of latency. Bring in runs from different experiments and ask what explains their different completion times. Open a cited run to inspect its request timeline, then return to the question. | The conversation remains available while inspecting evidence. The assistant distinguishes a controlled precision comparison from a broader architecture comparison, and simulation evidence from sandbox measurements. |
+
+These are independent examples. Students may change direction, inspect old work, start another draft, or ask a conceptual follow-up at any point. **New conversation** creates a clean session in the same task, with empty evidence, notes, report and attachments. Earlier drafts, results and conversations remain in their original sessions; reopen one from the session list to continue it. Only the hardware budget is shared. **Add from history** or `@` attaches records from the current session. Typed questions and attachments remain available while navigating within it.
+
+### Direct experiment controls
+
+The same work can be arranged with page controls while continuing the conversation. To try this task 9.2 example, open **Experiments** first:
 
 | Investigation | Page actions | What to inspect |
 | --- | --- | --- |
@@ -22,26 +36,62 @@ Open the printed address, or its SSH/editor port forward, and select task 9.2. N
 | Choose a measurement | Return to **Runs**, click **Arrange measurement**, choose the experiment and select only `c20`. Write why this result needs checking, then click **Review measurement**. | The preview shows one hardware run and the remaining task budget. It reuses a matching simulation or prepares one without spending hardware budget. |
 | Measure and investigate the gap | Click **Confirm and measure**, open the new measurement result and follow **Matching simulation** or **Compare this pair**. | With the fixture and stand-in, `c20` is around 1940 ms in simulation and 2370 ms in measurement: the execution completes, but the measurement violates the 2000 ms SLA. These are demonstration numbers, not GPU measurements. |
 | Continue from earlier work | In a run detail, click **Use this configuration**, or use **Duplicate** in the experiment list. Adjust one parameter and give the new experiment a name. | The earlier configuration and its results remain unchanged. Other drafts can remain open while this experiment runs. |
-| Discuss or record a conclusion | Select evidence and click **Discuss these results** for a live assistant, or record your own observations in **Notes & conclusions**. **Submit conclusion** lets you review a configuration's evidence. | The assistant can propose an editable draft; the student starts execution. A conclusion without the required validation is marked as needing more evidence. Submitting does not end exploration. |
+| Discuss or record a conclusion | Select evidence and click **Discuss these results**, or add it from the conversation's history picker. Record your own observations in **Notes & conclusions**. **Submit conclusion** lets you review a configuration's evidence. | The assistant can help plan and run requested experiments. Observations and conclusions are the student's own actions. A conclusion without the required validation is marked as needing more evidence. Submitting does not end exploration. |
 
 Students may also click **Arrange measurement** while editing a draft, without first running a simulation round. The measurement preview records the selected configuration and prepares any missing matching simulation. Hardware work still requires the separate confirmation. There is no need to submit a decision about a previous experiment before creating another one.
 
+Use the center pane's directory to open a configuration's validation matrix and all its runs, or a measurement's predictions, observed differences, intervals and request ratios. **Thinking and reflection** keeps earlier hypotheses and decisions visible and accepts new observations without a required form sequence. **Report** shows the full current report and linked evidence; it can be saved before a conclusion is submitted, with missing validation still visible.
+
 ### Workbench checklist
 
+- [ ] Ask a task question with no experiment or selected evidence, then pursue a conceptual follow-up without starting a run.
+- [ ] Use **New conversation** within the task and confirm its conversation, drafts, runs, attachments, notes and report start empty. Reopen the earlier session to recover its work. Check that the task's spent hardware budget is unchanged.
+- [ ] Request a draft and revise the idea in conversation; request simulation separately and discuss its actual results.
+- [ ] Attach an earlier run from the current session using search or `@`, without leaving the result under discussion.
+- [ ] Inspect a cited result and return with the typed question and attachments intact; revisit the sent message's original references.
+- [ ] Request a sandbox measurement in conversation, inspect its details and budget, then test both cancellation and confirmation. Confirmation continues the same discussion.
 - [ ] Create two drafts without running or concluding the first one; switch between them and recover unsaved edits after a refresh.
 - [ ] Complete simulation and measurement using only page controls, without sending a chat message.
 - [ ] Select runs from different experiments, change the comparison baseline, and inspect the listed comparison conditions.
 - [ ] Reopen an earlier run and duplicate its configuration; confirm its original result is unchanged.
-- [ ] Write an observation linked to a result and find it again in the task's notes.
+- [ ] Write an observation linked to a result and find it again in the session's notes.
+- [ ] Open configuration and measurement records in the center pane, including request ratios, without losing the conversation.
+- [ ] Save a report before submitting a conclusion and check that unanswered questions and missing validation remain visible.
 - [ ] Keep a measurement pending while exploring another experiment, then reopen its review before spending hardware runs.
 - [ ] Switch Chinese/English and light/dark themes; inspect the page at a narrow width.
 - [ ] Keep all displayed fixture and stand-in numbers clearly identified as demonstration data.
 
 The automated browser checks use a fresh disposable course and no live model. Their setup and artifact locations are in [Frontend verification](web-frontend.md#build-and-verify).
 
+## Record the conversation experience
+
+Start a fresh SoC course from the repository root, with opening greetings disabled:
+
+```bash
+scripts/start-soc.sh workspaces/studio-review/live-course --port 8878 --no-browser --no-opening
+```
+
+After installing the isolated browser described in [Frontend verification](web-frontend.md#build-and-verify), run in another terminal:
+
+```bash
+cd frontend
+PLAYWRIGHT_BROWSERS_PATH=../.venv/playwright node_modules/.bin/node scripts/record-conversation.mjs
+node_modules/.bin/node scripts/build-review.mjs --zip
+```
+
+The recorder uses **New conversation** on the page for each task, checks the new session and unchanged task budget, asks a conceptual question, requests two simulations, attaches a current-session result through the `@` history picker, and requests one sandbox measurement. It checks the proposed configuration, workload, seed and count before confirming the measurement on the page. All changes use the UI; direct API calls only read verification data.
+
+It also records comparison beside the conversation, measurement analysis, saving a report, the mobile conversation, a second clean session and returning to the earlier one. This recording checks those interactions on the development workload; it does not submit a conclusion or complete repeat and holdout validation.
+
+Each task exports 15 numbered screenshots, `conversation.json`, `conversation.md`, `summary.json` and a normal-speed `walkthrough.webm` under `workspaces/studio-review/live/task-9.x/`. Open `workspaces/studio-review/index.html` for the gallery or share `workspaces/studio-review/studio-review.zip`. Extract the ZIP before opening its index. The transcript includes references and action cards, and partial exports are saved after each completed turn and on failure. `summary.json` in the `live` directory collects task results. The recorder accepts optional task IDs and uses `MLAB_REVIEW_URL` and `MLAB_REVIEW_DIR` to override the server and output directory. It consumes one measurement run per task; a new conversation does not restore spent budget.
+
+The gallery is a static snapshot: rerun `build-review.mjs` after new recordings arrive. Use the same `MLAB_REVIEW_DIR` for the recorder and gallery builder; the builder writes the gallery, README and optional ZIP to that directory's parent. Only named public recording artifacts enter the ZIP; course state, raw capture files and logs are excluded. Missing or failed recordings remain visibly incomplete.
+
 ## Record all three tasks with a real assistant
 
 The recorder runs a complete example in each task: a real assistant proposes a draft, the student edits and confirms execution, simulations cover the available workloads, measurements include repetitions and holdouts, and the student submits a conclusion. It saves the assistant's actual replies without rewriting them and refreshes the partial transcript after every completed turn, so earlier replies remain available if a later step fails. The performance backends are still the fixture and hardware stand-in.
+
+This script exercises direct experiment controls with real discussion. Its earlier recordings document the preceding workbench layout; they do not verify the newer conversation-started simulations, history attachments or in-chat measurement cards. Use the conversation checklist above when reviewing those interactions.
 
 Task 9.3 also compares the unchanged `tp2_bf16` reference with the initial controlled pair. Its six simulations run as a separate experiment so that both seeds and all workloads fit within the twelve-run batch limit. The task therefore covers three configurations without requiring one fixed sequence or one large batch.
 

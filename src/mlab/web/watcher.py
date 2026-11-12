@@ -30,10 +30,15 @@ def look(runtime):
     lab = Lab(runtime.root, readonly=True)
     try:
         state = views.task_state(lab, runtime.status)
+        if runtime.exploration:
+            state["runs_in_flight"] = [{"id": run["id"], "role": run.get("role", "simulator"), "candidate": run["candidate"],
+                                        "status": run["status"], "phase": (run.get("progress") or {}).get("phase")}
+                                       for run in lab.store.all("run") if run["status"] not in TERMINAL]
+            state = runtime.present_state(state)
         owners, folders = {}, []
         for kind in ("workflow", "measurement"):
-            if state.get(kind):
-                owner = lab.store.get(kind, state[kind])
+            records = lab.store.all(kind) if runtime.exploration else [lab.store.get(kind, state[kind])] if state.get(kind) else []
+            for owner in records:
                 folders.append(lab.root / owner["folder"])
                 runs = [lab.store.get("run", r) for r in owner["runs"]]
                 owners[owner["id"]] = {"kind": kind, "status": owner["status"], "runs": len(runs),

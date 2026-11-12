@@ -2,7 +2,7 @@
 
 The page and `evals/web_story.py` use only the endpoints listed here. Requests and responses are JSON. When a business-logic check fails, the response is HTTP 200 with `ok:false`, in the same format as the CLI; an unknown session returns 404.
 
-The default workbench is organized by task. It combines experiment and run records from all sessions of that task. A session remains the storage and conversation boundary under the course directory (`9.2-1/`, `9.2-2/`, …). Sessions of one task share the hardware budget. The earlier guided API and `/classic` page remain available for compatibility.
+The default workbench has persistent navigation, central evidence and conversation panes. A session is the storage and conversation boundary under the course directory (`9.2-1/`, `9.2-2/`, …). Its experiments, runs, references, notes and report are isolated from other sessions; students reopen an older session to continue its work. Sessions of one task share only the hardware budget. The earlier guided API and `/classic` page remain available for compatibility.
 
 ## Starting and access
 
@@ -11,8 +11,8 @@ mlab web [<course-dir>] [--provider <profile>] [--simulator llm|fixture] [--agen
 ```
 
 - The course directory defaults to `mlsys-course`. The first run creates the directory and `course.json`, and opening a task creates its first session if needed; later runs keep the simulator, hardware backend and model profile chosen at creation.
-- In the workbench, `--agent fake` leaves experiment controls fully usable and explains that discussion is offline. In the guided interface, it uses the offline fake agent: it takes the agent's steps by `mlab next` and still sends confirmation cards for commands that need confirmation, but it calls no model and does not write the student's own words on the student's behalf.
-- `--no-opening` turns off the agent speaking first when a session opens; `--auto-continue` applies to guided sessions only; the workbench never starts a discussion automatically after a run.
+- In the workbench, `--agent fake` leaves experiment controls fully usable and supports scripted simulation and measurement requests for offline interaction checks. It does not provide model explanations. In the guided interface, it uses the offline fake agent: it takes the agent's steps by `mlab next` and still sends confirmation cards for commands that need confirmation, but it calls no model and does not write the student's own words on the student's behalf.
+- `--no-opening` turns off the agent speaking first when a session opens; `--auto-continue` applies to guided sessions only. In the workbench, a requested tool returns its result to the ongoing conversation, but completion of an unrelated run does not start a new turn automatically.
 - If the port is taken, the command says why and exits; pass a different `--port`.
 
 The server listens only on 127.0.0.1, and the page has no login. When connected to a remote server, open the address given by port forwarding (`ssh -L` or VS Code Remote); any host name and origin are accepted. Opened from an external browser through a VS Code tunnel (a `*.devtunnels.ms` address), the page stalls after being idle for a while or after a few refreshes in a row, and so does a small static page served by Python's built-in `http.server`; in that case use the editor's built-in browser or `ssh -L` instead. The `Content-Type` of a non-GET request must be `application/json`, otherwise the server returns 415; this keeps ordinary cross-site forms from posting to it.
@@ -26,7 +26,7 @@ Every response carries a CSP (same-origin resources only, no inline scripts), `X
 {"ok": false, "status": "rejected", "error": {"code": "E_SCHEMA", "message": "…", "field": null}, "next_actions": [{"actor": "student", "do": "review", "say": "…"}]}
 ```
 
-The workbench runs independently of discussion. Legacy guided forms retain their busy check: while the agent is working or a card is waiting, a form returns `E_AGENT_BUSY`; resend it with `"interrupt": true`, and the server stops the agent first, then submits.
+Workbench controls remain usable alongside conversation. Legacy guided forms retain their busy check: while the agent is working or a card is waiting, a form returns `E_AGENT_BUSY`; resend it with `"interrupt": true`, and the server stops the agent first, then submits.
 
 ## Language
 
@@ -38,9 +38,11 @@ All mutation endpoints below use the same validation and execution core as the C
 
 | Endpoint | Request and behavior |
 | --- | --- |
+| `POST /api/sessions` | `task`. Creates a clean session for **New conversation**. Earlier conversations, drafts and runs remain in their original sessions; the task's measurement budget is unchanged. |
 | `POST /api/workbench/tasks/{task}/open` | Opens the latest session, creating one if needed, and selects the exploration conversation policy. Does not call a model. |
-| `GET /api/workbench/tasks/{task}` | Task overview, templates, parameter rules, experiments, runs, measurements, notes, conclusions and shared hardware budget across the task's sessions. References are qualified as `9.2-1/r001` or `9.2-1/sim_0001`. |
-| `POST /api/workbench/compare` | `runs`: 2–12 distinct qualified run references from the same task. Returns metrics, configuration differences and comparability checks. |
+| `GET /api/workbench/sessions/{s}` | Current session's task overview, templates, parameter rules, experiments, runs, measurements, notes and conclusions, plus the shared task hardware budget. The current UI uses this endpoint. References are qualified as `9.2-1/r001` or `9.2-1/sim_0001`. |
+| `GET /api/workbench/tasks/{task}` | Compatibility endpoint aggregating the task's sessions. The current UI does not use this endpoint to populate session evidence. |
+| `POST /api/workbench/compare` | `runs`: 2–12 distinct qualified run references from the same task. Returns metrics, configuration differences and comparability checks. This compatibility endpoint can span sessions; the current UI selects only the active session's runs. |
 | `POST /api/workbench/sessions/{s}/create` | `title`, optional `question`/`expectation`, `candidates`, `seeds`, `workloads`, optional `source`. Creates one editable experiment. |
 | `POST /api/workbench/sessions/{s}/save` | Experiment fields plus `workflow` and `revision`. Invalid input or stale revision cannot replace the saved draft. |
 | `POST /api/workbench/sessions/{s}/simulate` | `workflow`, `revision`, `confirm: true`. Validates and records the configuration, then admits the selected simulation batch. |
@@ -50,9 +52,15 @@ All mutation endpoints below use the same validation and execution core as the C
 | `POST /api/workbench/sessions/{s}/cancel` | `run`. Cancels an active run; completed evidence is unchanged. |
 | `POST /api/workbench/sessions/{s}/note` | Student `text` and qualified `refs`. Appends an observation. |
 | `POST /api/workbench/sessions/{s}/conclude` | `candidate` such as `r002/c16`, `confirm: true`. Submits the evidence-based conclusion and updates the report. |
-| `POST /api/workbench/sessions/{s}/chat` | Student `text` and optional qualified `refs` from the same task. Selected records are included as evidence context. The assistant can propose drafts but cannot start runs. |
+| `POST /api/workbench/sessions/{s}/report` | Saves the current report without requiring a submitted conclusion. Read `GET /api/sessions/{s}/records/report` for the full localized Markdown and whether a report was saved. |
+| `POST /api/workbench/sessions/{s}/chat` | Student `text`, optional `refs`, and optional `mode` (`queue` or `interrupt_then_send`). Includes task context and resolves attached or typed `@` references from the same session. Returns canonical `refs`, conversation status and agent snapshot. The assistant can answer questions, inspect records and carry out requested work. |
+| `POST /api/sessions/{s}/execution/{card}` | `allow`: boolean, optional `reason`. Resolves a pending sandbox measurement card and resumes its waiting model tool. Confirmation permits the exact checked plan; rejection leaves the measurement unsubmitted. A missing or already handled card returns `E_SCHEMA`. |
 
-Mutation requests may include `request_id`. Repeating an identical request returns its original result; reusing the key for different content returns `E_CONFLICT`. Draft revisions also return `E_CONFLICT` when stale. Workspace edit locks and a task-wide process lock serialize admission, including submissions from different sessions. Hardware confirmation remains mandatory even when the model is unavailable or busy.
+Direct workbench action requests may include `request_id`. Repeating an identical request returns its original result; reusing the key for different content returns `E_CONFLICT`. This replay mechanism does not apply to chat or card responses. Draft revisions also return `E_CONFLICT` when stale. Workspace edit locks and a task-wide process lock serialize admission, including submissions from different sessions. Hardware confirmation remains mandatory even when the model is unavailable or busy.
+
+Conversation references may name experiments, configurations, measurements, runs, overview or report records. The server accepts at most 12 distinct attached or typed references. Bare IDs such as `@sim_0001` resolve within the current session; qualified IDs such as `@9.2-1/sim_0001` must name that same session. Missing and other-session references are rejected before the message is recorded. The student's visible message preserves its wording and canonical references; task facts and compact record context are added separately for the model.
+
+The exploration tool can start an explicitly requested simulation without a separate confirmation card. A requested sandbox measurement prepares any missing prediction, then exposes an `execution` card in the chat history with its configuration, points, seed, plan hash and budget summary. Answering the card continues the same model turn. An ordinary follow-up message declines the pending measurement and is returned to the assistant as the student's response. Stopping the turn also cancels its pending card. Notes and conclusions remain student actions.
 
 The production HTML includes a fresh style nonce for the dialog library's scroll lock. Inline scripts remain blocked. Static JavaScript, CSS and fonts are local; the browser never receives model credentials.
 

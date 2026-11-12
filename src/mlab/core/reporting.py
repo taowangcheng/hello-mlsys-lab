@@ -1,4 +1,6 @@
 """Reports are compiled from verified artifacts, never an LLM's summary."""
+import json
+
 from .io import NOTICE, atomic, hashed, load, require
 from .metrics import get_metric
 from .store import local
@@ -92,14 +94,36 @@ def report_data(lab):
             "selected_candidate": selection.get("candidate"), "selection": selection or None,
             "hardware_budget": lab.hardware_budget(), "iterations": iterations, "measurements": measurements,
             "runs": runs, "student_messages": messages,
+            "student_notes": [note for note in lab.store.all("note") if note.get("author") == "student"],
             "notice": NOTICE, "warning": "Small synthetic samples do not establish reliable p99 or real hardware improvements."}
     return data
+
+
+def student_prose(data):
+    """Separate authored words from UI action envelopes without changing the audit."""
+    entries = []
+    for message in data["student_messages"]:
+        if message.get("source") == "web-action":
+            continue
+        if message.get("source") == "web-card" and message.get("kind") == "execution":
+            try:
+                action = json.loads(message["text"])
+            except (ValueError, TypeError):
+                continue
+            reason = action.get("reason") if isinstance(action, dict) else None
+            if isinstance(reason, str) and reason.strip():
+                entries.append({**message, "text": reason})
+        else:
+            entries.append(message)
+    entries.extend({**note, "source": "web-note"} for note in data.get("student_notes", []))
+    return sorted(entries, key=lambda entry: entry.get("at", ""))
 
 
 def render_report(lab, data, tr=english, translate=same):
     """report.md text for report_data(). report.md is English; the page passes tr (labels) and translate (sentences mlab
     wrote, such as a conclusion's basis) to show the report in its own language."""
-    iterations, measurements, runs, messages = data["iterations"], data["measurements"], data["runs"], data["student_messages"]
+    iterations, measurements, runs = data["iterations"], data["measurements"], data["runs"]
+    messages = student_prose(data)
     budget = data["hardware_budget"]
     selection = data["selection"]
     chosen = f"{selection['workflow']}/{selection['candidate']}" if selection else "-"
@@ -160,8 +184,11 @@ def render_report(lab, data, tr=english, translate=same):
     if messages:
         lines += ["", "## " + tr("Your original words"), "",
                   tr("Your original notes and comments, kept alongside the experiment records."), ""]
-        lines += [tr("- {at} ({source}): {text}", at=local(m["at"], seconds=True), source=tr(SOURCES.get(m.get("source"), "terminal")),
-                     text=m["text"].strip()) for m in messages]
+        for message in messages:
+            source = "note" if message.get("source") == "web-note" else SOURCES.get(message.get("source"), "terminal")
+            lines.append(tr("- {at} ({source}): {text}", at=local(message["at"], seconds=True), source=tr(source), text=message["text"].strip()))
+            if message.get("refs"):
+                lines.append("  " + tr("References") + ": " + ", ".join(f"`{ref}`" for ref in message["refs"]))
     lines += ["", tr("Full metrics, the simulation-vs-hardware data and the evidence paths are in report.json."), ""]
     return "\n".join(lines)
 

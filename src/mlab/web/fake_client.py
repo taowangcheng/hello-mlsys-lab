@@ -38,6 +38,8 @@ class FakeAgentClient:
         self.last = {}
         self.lang = "en"
         self.env = {**os.environ, "PATH": tool_path(), "PYTHONUTF8": "1", "MLAB_PROMPT_SOURCE": "web"}
+        from .codex_client import LabTools
+        self.exploration_tools = LabTools(runtime)
 
     def tr(self, template, /, **params):
         """The fake agent replies in the page's language, like the real one."""
@@ -52,6 +54,7 @@ class FakeAgentClient:
 
     async def interrupt(self):
         self.stopped = True
+        await self.exploration_tools.interrupt()
         if self.process and self.process.returncode is None:
             self.process.terminate()  # Only waits are long; they are safe to stop.
 
@@ -59,7 +62,9 @@ class FakeAgentClient:
         self.stopped = False
         self.lang = getattr(self.runtime, "lang", None) or "en"
         if getattr(self.runtime, "exploration", False):
-            yield {"type": "text", "text": self.tr("This is the offline preview. You can edit experiments and run them directly from the workbench; connect a model for evidence-based discussion.")}
+            self.exploration_tools.cancelled = False
+            async for event in self.exploration_turn(prompt):
+                yield event
             yield {"type": "result", "session": self.session, "usage": {"input_tokens": 0, "output_tokens": 0}}
             return
         notice = prompt.startswith(NOTICE)
@@ -105,6 +110,56 @@ class FakeAgentClient:
             if ended:
                 break
         yield self.result()
+
+    async def exploration_turn(self, prompt):
+        """Deterministic conversation actions for offline browser verification."""
+        from . import exploration
+        said = i18n.english(prompt.split(f"\n\n{NOTE}", 1)[0]).lower()
+        requested = bool(re.search(r"\b(?:run|start|execute)\b", said))
+        measuring = requested and any(word in said for word in ("measure", "sandbox"))
+        simulating = requested and any(word in said for word in ("simulate", "simulation"))
+        task = load(self.root / ".mlab/config.json")["task"]
+        view = await asyncio.to_thread(exploration.session_view, self.root)
+        if not measuring and not simulating:
+            yield self.say(self.tr("This is the offline preview. You can discuss the task, request a simulation or sandbox measurement, and attach earlier records. Connect a model for explanations of concepts and results."))
+            return
+
+        async def call(data):
+            output, failed = await self.exploration_tools.execute("Explore", data)
+            self.last = {"failed": failed, "output": output, "data": None if failed else json.loads(output)}
+        experiments = [item for item in view["experiments"] if item["session"] == self.root.name]
+        if not experiments:
+            template = {"9.1": "fp8_3b", "9.2": "baseline", "9.3": "fp8_single"}[task]
+            data = {"action": "draft", "template_ids": [template], "title": "Conversation experiment"}
+            yield {"type": "tool", "id": "draft", "name": "Explore", "input": data}
+            await call(data)
+            yield {"type": "tool_result", "id": "draft", "text": self.last["output"], "is_error": self.last["failed"]}
+            if self.last["failed"]:
+                yield self.say(self.last["output"])
+                return
+            experiment = self.last["data"]
+        else:
+            experiment = experiments[-1]
+        reference = experiment["key"]
+        data = {"action": "measure" if measuring else "simulate", "reference": reference}
+        if measuring:
+            data.update(points=[{"candidate": experiment["candidates"][0]["id"], "workload": "development", "runs": 1}],
+                        reason="The student requested a sandbox comparison.")
+        yield {"type": "tool", "id": "execute", "name": "Explore", "input": data}
+        await call(data)
+        yield {"type": "tool_result", "id": "execute", "text": self.last["output"], "is_error": self.last["failed"]}
+        if self.last["failed"]:
+            yield self.say(self.last["output"])
+            return
+        result = self.last["data"]
+        if measuring:
+            data = {"action": "wait", "reference": result["reference"], "wait_seconds": 30}
+            yield {"type": "tool", "id": "wait", "name": "Explore", "input": data}
+            await call(data)
+            yield {"type": "tool_result", "id": "wait", "text": self.last["output"], "is_error": self.last["failed"]}
+        runs = result.get("runs", result.get("run_ids", []))
+        names = ", ".join(f"{self.root.name}/{run}" for run in runs)
+        yield self.say(self.tr("Offline demonstration completed the requested run: {runs}. These are synthetic results, not real GPU measurements.", runs=names))
 
     # Helpers.
 

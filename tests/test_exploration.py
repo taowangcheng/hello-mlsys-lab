@@ -282,7 +282,7 @@ def test_history_and_comparison_span_sessions_but_not_tasks(workspace_path):
             exploration.compare(course, invalid)
 
 
-def test_assistant_can_propose_but_cannot_execute_or_write_student_notes(workspace_path):
+def test_assistant_cannot_bypass_execution_tools_or_write_student_notes(workspace_path):
     course, root = setup(workspace_path)
     example = draft(course, root)
     async def scenario():
@@ -301,6 +301,134 @@ def test_assistant_can_propose_but_cannot_execute_or_write_student_notes(workspa
     assert not exploration.task_view(course, "9.2")["runs"]
     with pytest.raises(LabError):
         exploration.action(root, "note", {"text": "A student observation"}, author="assistant")
+    with pytest.raises(LabError):
+        exploration.action(root, "measure", {"confirm": True}, author="assistant")
+
+
+@pytest.mark.parametrize("other_task", ["9.1", "9.2"])
+def test_conversation_execution_cannot_target_another_session(workspace_path, other_task):
+    course, root = setup(workspace_path)
+    other = workspace_path / course.create(other_task)
+    experiment = draft(course, other)
+    async def scenario():
+        runtime = TaskRuntime(root.name, root, Bus(), lambda _: None, opening=False)
+        runtime.exploration = True
+        tools = LabTools(runtime)
+        for action in ("show", "simulate", "measure", "wait", "cancel"):
+            output, failed = await tools.execute("Explore", {"action": action, "reference": experiment["key"]})
+            assert failed and "this conversation" in output
+        output, failed = await tools.execute("Explore", {"action": "list"})
+        assert not failed
+        listing = json.loads(output)
+        assert listing["session"] == root.name and listing["experiments"] == []
+        assert [item["id"] for item in listing["sessions"]] == [root.name]
+        for body in ({"source": experiment["key"], "candidates": experiment["candidates"]},):
+            output, failed = await tools.execute("Explore", {"action": "draft", "draft_json": json.dumps(body)})
+            assert failed and "this conversation" in output
+    asyncio.run(scenario())
+    assert not exploration.task_view(course, other_task)["runs"]
+
+
+def test_assistant_can_measure_approved_configurations_from_two_experiments_in_one_session(workspace_path):
+    from test_codex import until
+    course, root = setup(workspace_path)
+    first = draft(course, root, title="First comparison")
+    candidate = copy.deepcopy(first["candidates"][0])
+    candidate["strategy"]["serving"]["max_concurrency"] = 16
+    experiments = [first, draft(course, root, title="Second comparison", candidates=[candidate])]
+    for experiment in experiments:
+        simulate(root, experiment)
+        wait(root, "workflow", experiment["id"])
+    points = [{"candidate": experiment["candidates"][0]["id"], "workflow": experiment["id"],
+               "workload": "development", "runs": 1} for experiment in experiments]
+    async def scenario():
+        runtime = TaskRuntime(root.name, root, Bus(), lambda _: None, opening=False)
+        runtime.exploration = True
+        tools = LabTools(runtime)
+        invalid = copy.deepcopy(points)
+        invalid[1]["workflow"] = "9.2-2/r001"
+        output, failed = await tools.execute("Explore", {"action": "measure", "reference": experiments[0]["key"], "points": invalid})
+        assert failed and not runtime.cards
+        pending = asyncio.create_task(tools.execute("Explore", {"action": "measure", "reference": experiments[0]["key"], "points": points}))
+        await until(lambda: bool(runtime.cards))
+        card = next(iter(runtime.cards.values()))
+        assert card["data"]["summary"]["hardware_runs"] == 2
+        assert {point["workflow"] for point in card["data"]["summary"]["points"]} == {experiment["id"] for experiment in experiments}
+        preview = await asyncio.to_thread(exploration.action, root, "check_measurement", {"measurement": card["data"]["summary"]["measurement"]})
+        assert {point["workflow"] for point in preview["points"]} == {experiment["id"] for experiment in experiments}
+        assert {point["candidate"] for point in preview["points"]} == {candidate["id"]}
+        runtime.resolve(card["id"], {"allow": True})
+        output, failed = await pending
+        assert not failed, output
+        return json.loads(output)
+    result = asyncio.run(scenario())
+    wait(root, "measurement", result["measurement"])
+    approved = exploration.action(root, "check_measurement", {"measurement": result["measurement"]})
+    assert {point["workflow"] for point in approved["points"]} == {experiment["id"] for experiment in experiments}
+    assert {point["candidate"] for point in approved["points"]} == {candidate["id"]}
+    hardware = [run for run in exploration.session_view(root)["runs"] if run["role"] == "hardware"]
+    assert len(hardware) == 2
+    assert {run["config"].split("/")[1] for run in hardware} == {experiment["id"] for experiment in experiments}
+
+
+def test_draft_configuration_can_be_inspected_and_attached_without_approval(workspace_path):
+    course, root = setup(workspace_path)
+    experiment = draft(course, root)
+    candidate = experiment["candidates"][0]
+    reference = f"{experiment['key']}/{candidate['id']}"
+    with TestClient(create_app(workspace_path, "fake", opening=False)) as web:
+        record = web.get(f"/api/sessions/{root.name}/records/{experiment['id']}/{candidate['id']}").json()
+        assert record["ok"] and record["draft"] and record["configuration"] == candidate
+        assert not record["runs"] and record["preview"] == "not_evaluated"
+        result = web.post(f"/api/workbench/sessions/{root.name}/chat", json={"text": "Explain these settings.", "refs": [reference]}).json()
+        assert result["ok"] and result["refs"] == [reference]
+    current = exploration.session_view(root)["experiments"][0]
+    assert current["editable"] and not current["approved"] and not current["runs"]
+
+
+def test_default_named_experiments_need_no_research_question_before_execution(workspace_path):
+    course, root = setup(workspace_path)
+    first = draft(course, root, title="Untitled experiment", question="")
+    simulate(root, first)
+    wait(root, "workflow", first["id"])
+    second = draft(course, root, title="Untitled experiment", question="")
+    preview = prepare(root, second)
+    measure(root, preview)
+    wait(root, "measurement", preview["id"])
+    view = exploration.session_view(root)
+    assert all(item["status"] == "succeeded" for item in view["runs"])
+    assert view["budget"]["used"] == 1
+
+
+def test_report_keeps_authored_words_and_notes_without_rendering_action_envelopes(workspace_path):
+    from mlab.core.student import log_student
+    course, root = setup(workspace_path)
+    experiment = draft(course, root)
+    reference = experiment["key"]
+    literal_json = '{"action": "This JSON is my own example", "body": {"question": "Why?"}}'
+    log_student(root, literal_json, source="web-chat", kind="chat")
+    log_student(root, "The smaller configuration is worth checking.", source="web-form", kind="review")
+    log_student(root, json.dumps({"action": "measure", "allow": False, "reason": "Check the workload first.",
+                                 "plan_hash": "private-implementation-marker"}), source="web-card", kind="execution")
+    note = ("The second run may expose queueing. " + "Observe the tail carefully. " * 180).strip()
+    exploration.action(root, "note", {"text": note, "refs": [reference]})
+    audit_path = root / ".mlab/student.jsonl"
+    before = audit_path.read_bytes()
+    with TestClient(create_app(workspace_path, "fake", opening=False)) as web:
+        preview = web.get(f"/api/sessions/{root.name}/records/report").json()
+        assert preview["ok"] and not preview["written"]
+        markdown = preview["markdown"]
+        assert literal_json in markdown and "The smaller configuration is worth checking." in markdown
+        assert "Check the workload first." in markdown and "private-implementation-marker" not in markdown
+        assert note in markdown and f"`{reference}`" in markdown
+        assert '\"action\": \"note\"' not in markdown and '\"action\": \"create\"' not in markdown
+        assert audit_path.read_bytes() == before
+        result = web.post(f"/api/workbench/sessions/{root.name}/report", json={}).json()
+        assert result["ok"] and (root / "report.md").read_text() == markdown
+    exported = load(root / "report.json")
+    assert exported["student_notes"][0]["text"] == note
+    assert any(message["source"] == "web-action" for message in exported["student_messages"])
+    assert audit_path.read_bytes().startswith(before)
 
 
 @pytest.mark.parametrize("task,payload,ids", [
@@ -456,6 +584,172 @@ def test_workbench_api_is_usable_without_a_model(workspace_path):
         assert 'workbench/assets/' in web.get("/").text
         assert 'app.js' in web.get("/classic").text
         assert not web.get(f"/api/sessions/{session}/chat").json()["entries"]
+
+
+@pytest.mark.parametrize("decision", ["allow", "deny", "followup", "changed", "interrupt"])
+def test_conversation_executes_requested_simulations_and_confirms_exact_hardware_inputs(workspace_path, decision):
+    from mlab.core.io import atomic
+    course = Course(workspace_path)
+    course.ensure("fixture")
+    app = create_app(workspace_path, "fake", opening=False)
+    with TestClient(app) as web:
+        session = web.post("/api/workbench/tasks/9.2/open", json={}).json()["session"]
+        root = workspace_path / session
+        def history():
+            return web.get(f"/api/sessions/{session}/chat").json()
+        def until(predicate):
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                result = history()
+                if predicate(result):
+                    return result
+                time.sleep(.02)
+            pytest.fail(f"Conversation did not reach expected state: {history()}")
+        def say(text, refs=None):
+            return web.post(f"/api/workbench/sessions/{session}/chat", json={"text": text, "refs": refs or []}).json()
+
+        assert say("What is simulation?")["ok"]
+        until(lambda result: result["agent"]["status"] == "idle" and sum(entry["role"] == "agent" for entry in result["entries"]) >= 1)
+        assert not exploration.task_view(course, "9.2")["experiments"]
+        assert say("Run a simulation for this task.")["ok"]
+        until(lambda result: result["agent"]["status"] == "idle" and sum(entry["role"] == "agent" for entry in result["entries"]) >= 2)
+        view = exploration.task_view(course, "9.2")
+        assert len(view["experiments"]) == 1 and len(view["runs"]) == 1
+        assert view["runs"][0]["status"] == "succeeded" and view["budget"]["used"] == 0
+        assert say("Run a sandbox measurement for this experiment.")["ok"]
+        waiting = until(lambda result: any(card["kind"] == "execution" for card in result["agent"]["cards"]))
+        card = waiting["agent"]["cards"][0]
+        summary = card["summary"]
+        sidebar = next(item for item in web.get("/api/course").json()["sessions"] if item["id"] == session)
+        assert sidebar["status"] == "waiting_approval" and sidebar["pending_count"] == 1 and sidebar["queued"] == 0
+        assert summary["hardware_runs"] == 1 and summary["hardware_budget"]["remaining"] == 8
+        assert summary["configs"][0]["id"] == view["experiments"][0]["candidates"][0]["id"]
+        assert summary["points"][0]["workflow"] == view["experiments"][0]["id"]
+        assert summary["points"][0]["seed"] == 42
+        assert not any(run["role"] == "hardware" for run in exploration.task_view(course, "9.2")["runs"])
+        route = f"/api/sessions/{session}/execution/{card['id']}"
+        if decision == "followup":
+            reply = say("Explain the result before running anything else.", [f"{session}/r001"])
+            assert reply["ok"] and reply["status"] == "answered_card"
+        elif decision == "interrupt":
+            assert web.post(f"/api/sessions/{session}/agent/interrupt", json={}).json()["ok"]
+        else:
+            if decision == "changed":
+                points = root / "measurements" / summary["measurement"] / "points.yaml"
+                payload = load(points)
+                payload["points"][0]["runs"] = 2
+                atomic(points, payload)
+            assert web.post(route, json={"allow": decision != "deny"}).json()["ok"]
+        completed = until(lambda result: result["agent"]["status"] == "idle" and sum(entry["role"] == "agent" for entry in result["entries"]) >= 3)
+        assert not completed["agent"]["cards"]
+        assert not web.post(route, json={"allow": True}).json()["ok"]
+        final = exploration.task_view(course, "9.2")
+        hardware = [run for run in final["runs"] if run["role"] == "hardware"]
+        assert len(hardware) == (1 if decision == "allow" else 0)
+        assert final["budget"]["used"] == len(hardware)
+        if decision == "allow":
+            assert hardware[0]["status"] == "succeeded"
+            assert any(hardware[0]["key"] in entry.get("refs", []) for entry in completed["entries"] if entry["role"] == "agent"), completed["entries"]
+        assert not any(entry.get("card") in {"approval", "question"} for entry in completed["entries"])
+
+
+def test_new_conversation_has_task_context_but_never_imports_previous_records(workspace_path, monkeypatch):
+    from mlab.web.fake_client import FakeAgentClient
+    course, first = setup(workspace_path)
+    second = workspace_path / course.create("9.2")
+    empty = workspace_path / course.create("9.2")
+    for root in (first, second):
+        experiment = draft(course, root, title=f"Private experiment in {root.name}")
+        simulate(root, experiment)
+        wait(root, "workflow", experiment["id"])
+    first_experiment = exploration.session_view(first)["experiments"][0]
+    preview = prepare(first, first_experiment)
+    measure(first, preview)
+    wait(first, "measurement", preview["id"])
+    exploration.action(first, "note", {"text": "A previous observation", "refs": [f"{first.name}/sim_0001"]})
+    exploration.action(first, "conclude", {"candidate": f"r001/{first_experiment['candidates'][0]['id']}", "confirm": True})
+    captured = []
+    original = FakeAgentClient.turn
+    async def capture(self, prompt):
+        captured.append((self.root, prompt))
+        async for event in original(self, prompt):
+            yield event
+    monkeypatch.setattr(FakeAgentClient, "turn", capture)
+    with TestClient(create_app(workspace_path, "fake", opening=False)) as web:
+        assert web.post(f"/api/workbench/sessions/{empty.name}/open", json={}).json()["session"] == empty.name
+        endpoint = f"/api/workbench/sessions/{empty.name}/chat"
+        for body in ({"text": "Explain @sim_0001", "refs": []},
+                     {"text": "Explain this", "refs": [f"{first.name}/sim_0001"]},
+                     {"text": f"Explain @{first.name}/sim_0001", "refs": []}):
+            assert not web.post(endpoint, json=body).json()["ok"]
+        assert not web.get(f"/api/sessions/{empty.name}/chat").json()["entries"]
+        response = web.post(endpoint, json={"text": "Why can queueing increase latency?", "refs": []}).json()
+        assert response["ok"] and response["refs"] == []
+        deadline = time.monotonic() + 10
+        while not captured and time.monotonic() < deadline:
+            time.sleep(.01)
+        assert captured and captured[0][0] == empty
+        context = json.loads(captured[0][1].split("student instructions):\n", 1)[1])
+        assert context["task"]["task"] == "9.2" and context["task"]["constraints"]
+        assert context["evidence"] == [] and first.name not in captured[0][1]
+        messages = web.get(f"/api/sessions/{empty.name}/chat").json()["entries"]
+        assert any(entry["role"] == "student" and entry["refs"] == [] for entry in messages)
+        assert not web.get(f"/api/sessions/{first.name}/chat").json()["entries"]
+        isolated = web.get(f"/api/workbench/sessions/{empty.name}").json()
+        assert [item["id"] for item in isolated["sessions"]] == [empty.name]
+        for field in ("experiments", "runs", "measurements", "notes", "conclusions"):
+            assert isolated[field] == []
+        assert isolated["budget"]["used"] == 1
+        prior = web.get(f"/api/workbench/sessions/{first.name}").json()
+        assert len(prior["experiments"]) == 1 and prior["notes"] and prior["measurements"] and prior["conclusions"]
+        assert all(run["session"] == first.name for run in prior["runs"])
+        assert prior["budget"] == isolated["budget"]
+        assert web.post(f"/api/workbench/sessions/{first.name}/open", json={}).json()["session"] == first.name
+        own = web.post(f"/api/workbench/sessions/{first.name}/chat", json={"text": "Explain @sim_0001", "refs": []}).json()
+        assert own["ok"] and own["refs"] == [f"{first.name}/sim_0001"]
+        report = web.post(f"/api/workbench/sessions/{empty.name}/report", json={}).json()
+        assert report["ok"] and report["runs"] == 0 and report["conclusion"] is None
+        assert web.get(f"/api/sessions/{empty.name}/records/report").json()["written"]
+
+
+def test_new_conversation_keeps_the_previous_client_discussion_and_experiments(workspace_path):
+    course, root = setup(workspace_path)
+    experiment = draft(course, root)
+    app = create_app(workspace_path, "fake", opening=True)
+    with TestClient(app) as web:
+        opened = web.post(f"/api/workbench/sessions/{root.name}/open", json={}).json()
+        assert opened["ok"] and opened["agent"]["interaction"] == "exploration"
+        assert web.post(f"/api/sessions/{root.name}/agent/open", json={}).json()["ok"]
+        assert not web.get(f"/api/sessions/{root.name}/chat").json()["entries"]
+        state = web.get(f"/api/sessions/{root.name}/page").json()["state"]
+        assert state["form"] is None and state["step"] is None and not state["quick_replies"]
+        assert web.post(f"/api/workbench/sessions/{root.name}/chat", json={"text": "Explain the latency constraint."}).json()["ok"]
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            previous = web.get(f"/api/sessions/{root.name}/chat").json()
+            if previous["agent"]["status"] == "idle" and any(entry["role"] == "agent" for entry in previous["entries"]):
+                break
+            time.sleep(.01)
+        old_runtime = app.state.runtimes[root.name]
+        old_client = old_runtime.client
+        assert old_client is not None
+        before = exploration.task_view(course, "9.2")
+        created = web.post("/api/sessions", json={"task": "9.2"}).json()
+        assert created["ok"] and created["session"] != root.name
+        assert web.post(f"/api/workbench/sessions/{created['session']}/open", json={}).json()["session"] == created["session"]
+        assert web.post(f"/api/workbench/sessions/{root.name}/open", json={}).json()["session"] == root.name
+        assert app.state.runtimes[root.name] is old_runtime and old_runtime.client is old_client
+        assert web.get(f"/api/sessions/{root.name}/chat").json()["entries"] == previous["entries"]
+        assert web.get(f"/api/sessions/{created['session']}/chat").json()["entries"] == []
+        after = web.get("/api/workbench/tasks/9.2").json()
+        assert after["budget"] == before["budget"] and after["experiments"] == [experiment]
+        assert [session["id"] for session in after["sessions"]] == [root.name, created["session"]]
+        clean = web.get(f"/api/workbench/sessions/{created['session']}").json()
+        assert clean["experiments"] == [] and clean["budget"] == before["budget"]
+        sidebar = next(item for item in web.get("/api/course").json()["sessions"] if item["id"] == root.name)
+        assert sidebar["title"] == "Explain the latency constraint."
+        assert sidebar["last_message_seq"] > 0 and sidebar["last_message_at"] and sidebar["last_message_role"] == "agent"
+        assert sidebar["interaction"] == "exploration" and sidebar["badge"]["text"] != "Hypothesis needed"
 
 
 def test_html_style_nonce_is_fresh_and_chat_rejects_wrong_task_or_unknown_evidence(workspace_path):

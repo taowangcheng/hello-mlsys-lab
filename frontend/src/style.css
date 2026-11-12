@@ -2339,3 +2339,853 @@ tr:last-child td {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Sessions, evidence and discussion stay together throughout an attempt. */
+.studio-shell {
+  grid-template-columns: 218px minmax(0, 1fr);
+}
+.studio-shell .navigation {
+  padding: 22px 14px 16px;
+}
+.studio-shell .brand {
+  padding-bottom: 25px;
+}
+.studio-shell .work-area {
+  min-height: 0;
+}
+.studio-shell .topbar {
+  padding: 0 24px;
+  flex-shrink: 0;
+}
+.studio-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6px min(44vw, var(--conversation-width));
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.evidence-workbench {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.studio-shell .workspace-content {
+  padding: 27px 30px 50px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.record-tabs {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 12px 21px 0;
+  gap: 3px;
+  overflow: auto;
+  border-bottom: 1px solid var(--border);
+}
+.record-tabs a {
+  display: flex;
+  gap: 7px;
+  white-space: nowrap;
+  padding: 12px 10px;
+  margin: 0;
+  border-radius: 7px 7px 0 0;
+  font-size: 11px;
+}
+.record-tabs a.selected {
+  box-shadow: inset 0 -2px var(--accent);
+}
+.record-tabs a small {
+  font-size: 9px;
+}
+.record-directory {
+  padding: 10px 30px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 11px;
+}
+.record-directory > button {
+  font-size: 11px;
+}
+.record-directory > button > span {
+  color: var(--muted);
+  font: 10px var(--mono);
+  margin-left: 5px;
+}
+.record-directory-items {
+  max-height: 260px;
+  overflow: auto;
+  padding: 10px 0 5px;
+}
+.record-directory-items button {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  text-align: left;
+  padding: 6px 0;
+  font-size: 11px;
+  color: var(--secondary);
+}
+.record-directory-items > div > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-left: 20px;
+}
+.record-directory-items > div > div button {
+  color: var(--accent);
+}
+.record-directory-items p {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 10px 0;
+}
+.session-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.session-list {
+  flex: 1;
+  min-height: 70px;
+  overflow: auto;
+  padding: 2px;
+}
+.session-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 13px 11px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  margin: 0 0 7px;
+}
+.session-item.selected {
+  border-color: var(--border);
+  background: var(--surface);
+  box-shadow: 0 2px 5px #00000003;
+}
+.session-item:hover {
+  background: var(--surface);
+}
+.session-item-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.session-item-top strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.session-item-top small {
+  font-size: 9px;
+  color: var(--muted);
+  margin-left: auto;
+}
+.session-title {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--secondary);
+  font-size: 11px;
+  margin: 7px 0;
+  line-height: 1.5;
+}
+.session-state {
+  font-size: 10px;
+  color: var(--muted);
+}
+.session-state.attention {
+  color: var(--amber);
+}
+.unread-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.studio-shell .navigation-bottom {
+  padding-top: 12px;
+}
+.studio-shell .nav-rule {
+  margin: 15px 8px;
+}
+.studio-shell .budget-card {
+  padding: 12px;
+}
+.studio-shell .budget-card p {
+  margin-top: 8px;
+}
+.conversation-host {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.studio-shell .discussion {
+  position: static;
+  width: 100%;
+  height: 100%;
+  box-shadow: none;
+  border-left: 0;
+  min-height: 0;
+}
+.pane-resizer {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+.pane-resizer:hover,
+.pane-resizer:focus-visible {
+  background: var(--accent-wash);
+  border-left-color: var(--accent);
+  outline: none;
+}
+.studio-shell .discussion-header {
+  min-height: 59px;
+  padding: 18px 20px;
+  border-bottom: 0;
+}
+.studio-shell .discussion-header strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.studio-shell .discussion-messages {
+  padding: 23px 21px;
+  min-height: 0;
+}
+.studio-shell .discussion-message {
+  font-size: 13px;
+  line-height: 1.85;
+}
+.studio-shell .discussion-message.student {
+  background: var(--accent-wash);
+  border-radius: 12px 12px 3px 12px;
+}
+.studio-shell .discussion-empty {
+  padding: 20px 0;
+}
+.studio-shell .discussion-empty h2 {
+  font-size: 20px;
+  letter-spacing: -0.5px;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+.studio-shell .discussion-empty p {
+  font-size: 12px;
+}
+.conversation-starters {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+.conversation-starters button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 11px;
+  color: var(--secondary);
+}
+.conversation-starters button:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+.studio-shell .discussion-composer {
+  flex-shrink: 0;
+  margin: 0 15px 17px;
+  padding: 13px;
+  border-radius: 12px;
+}
+.studio-shell .discussion-composer textarea {
+  font-size: 13px;
+  min-height: 80px;
+  line-height: 1.7;
+}
+.conversation .discussion-context {
+  padding: 0 0 12px;
+  margin-bottom: 12px;
+}
+.conversation .reference-chip {
+  min-width: 0;
+  max-width: 100%;
+}
+.conversation .reference-chip > button:first-child {
+  min-width: 0;
+  text-align: left;
+}
+.conversation .reference-chip strong {
+  display: block;
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.conversation .reference-chip small {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.message-citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+.message-citations .citation {
+  padding: 6px 8px;
+  margin: 0;
+  text-align: left;
+}
+.conversation-agent-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  flex-wrap: wrap;
+  padding: 0 20px 12px;
+  font-size: 11px;
+  color: var(--secondary);
+}
+.conversation-usage {
+  margin: 0 20px;
+  padding: 0 0 12px;
+  font-size: 10px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.conversation-usage summary {
+  cursor: pointer;
+}
+.conversation-usage p {
+  line-height: 1.6;
+  margin-top: 7px;
+}
+.conversation-activity {
+  border-left: 2px solid var(--border);
+  padding: 7px 12px;
+  margin: 14px 0;
+  font-size: 11px;
+  color: var(--secondary);
+}
+.conversation-activity summary {
+  cursor: pointer;
+}
+.conversation-activity ul {
+  padding: 8px 0 0 16px;
+  line-height: 1.8;
+}
+.conversation-send-mode {
+  font-size: 10px;
+  padding: 7px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.conversation-send-mode select {
+  font-size: 10px;
+  padding: 5px 7px;
+}
+.conversation-send-mode label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.conversation-send-mode input {
+  width: auto;
+}
+.conversation-action-card {
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 17px;
+  margin: 18px 0;
+  background: var(--wash);
+}
+.conversation-action-card h3 {
+  font-size: 14px;
+  margin: 7px 0;
+}
+.conversation-action-card p {
+  color: var(--secondary);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.conversation-action-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+  font-size: 11px;
+}
+.conversation-action-facts dt {
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.conversation-action-facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.conversation-action-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.conversation-measurement-points > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.conversation-question-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.conversation-action-card details {
+  margin: 12px 0;
+  font-size: 11px;
+}
+.conversation-action-card summary {
+  cursor: pointer;
+}
+.conversation-action-card pre {
+  max-width: 100%;
+  overflow: auto;
+  padding: 12px;
+  font-size: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.history-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 12px;
+}
+.history-search input {
+  flex: 1;
+  min-width: 0;
+}
+.history-list {
+  max-height: min(48vh, 450px);
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  padding: 2px;
+}
+.history-option {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 10px;
+}
+.history-option > input {
+  width: auto;
+  flex: none;
+}
+.history-option > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.history-option:hover,
+.history-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+.history-reference-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+.history-reference-meta {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+.studio-shell .page-heading {
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.studio-shell .page-heading h1 {
+  font-size: 28px;
+}
+.studio-shell .page-heading .actions {
+  flex-wrap: wrap;
+}
+.studio-shell .task-hero {
+  padding: 28px;
+}
+.studio-shell .task-hero h1 {
+  font-size: 32px;
+}
+.studio-shell .hero-diagram {
+  transform: scale(0.8);
+  transform-origin: right center;
+}
+.studio-shell .overview-grid {
+  grid-template-columns: 1fr;
+}
+.studio-shell .parameter-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.studio-shell .execution-settings {
+  grid-template-columns: 1fr;
+}
+.configuration-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 18px 0;
+}
+.configuration-links button {
+  font-size: 11px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--accent);
+}
+.mobile-panes {
+  display: none;
+}
+.focus-conversation .studio-columns {
+  grid-template-columns: minmax(0, 1fr);
+}
+.focus-conversation .evidence-workbench,
+.focus-conversation .pane-resizer {
+  display: none;
+}
+.focus-conversation .discussion-messages {
+  padding-left: max(24px, calc((100% - 800px) / 2));
+  padding-right: max(24px, calc((100% - 800px) / 2));
+}
+.focus-conversation .discussion-composer {
+  width: calc(100% - 48px);
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+@media (max-width: 1300px) and (min-width: 1051px) {
+  .studio-shell {
+    grid-template-columns: 185px minmax(0, 1fr);
+  }
+  .studio-columns {
+    grid-template-columns: minmax(0, 1fr) 5px min(35vw, var(--conversation-width));
+  }
+  .studio-shell .navigation {
+    padding: 20px 10px 14px;
+  }
+  .studio-shell .workspace-content {
+    padding: 24px 22px 40px;
+  }
+  .studio-shell .hero-diagram {
+    display: none;
+  }
+  .studio-shell .task-hero {
+    min-height: 0;
+  }
+  .record-tabs {
+    padding-left: 12px;
+  }
+  .record-tabs a {
+    padding: 12px 8px;
+  }
+  .record-tabs a svg {
+    display: none;
+  }
+}
+@media (max-width: 1050px) {
+  .studio-shell {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+  .studio-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mobile-panes {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    gap: 8px;
+  }
+  .mobile-panes button {
+    font-size: 11px;
+    color: var(--secondary);
+    border-radius: 7px;
+    padding: 9px 12px;
+  }
+  .mobile-panes button.selected {
+    background: var(--accent-wash);
+    color: var(--accent);
+  }
+  .studio-shell .pane-resizer,
+  .studio-shell .focus-control {
+    display: none;
+  }
+  .studio-shell:not(.pane-conversation) .conversation-host {
+    display: none;
+  }
+  .studio-shell.pane-conversation .evidence-workbench {
+    display: none;
+  }
+  .studio-shell .discussion-header {
+    min-height: 50px;
+  }
+  .studio-shell .conversation-host {
+    height: 100%;
+  }
+}
+@media (max-width: 760px) {
+  .studio-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .studio-shell .navigation {
+    display: none;
+  }
+  .studio-shell.pane-sessions .navigation {
+    display: flex;
+    position: fixed;
+    z-index: 22;
+    inset: 108px 0 0;
+    width: 100%;
+  }
+  .studio-shell.pane-sessions .navigation .brand {
+    display: none;
+  }
+  .studio-shell .topbar {
+    min-height: 55px;
+    padding: 0 16px;
+  }
+  .studio-shell .breadcrumbs {
+    font-size: 10px;
+    gap: 7px;
+  }
+  .studio-shell .workspace-content {
+    padding: 22px 16px 40px;
+  }
+  .record-tabs {
+    padding: 6px 9px 0;
+    gap: 0;
+  }
+  .record-tabs a {
+    padding: 12px 9px;
+    font-size: 10px;
+  }
+  .record-tabs a svg {
+    display: none;
+  }
+  .record-directory {
+    padding: 10px 16px;
+  }
+  .studio-shell .task-hero {
+    padding: 24px;
+    min-height: 0;
+  }
+  .studio-shell .hero-diagram {
+    display: none;
+  }
+  .studio-shell .task-hero h1 {
+    font-size: 29px;
+  }
+  .studio-shell .task-switcher strong {
+    display: inline;
+  }
+  .studio-shell .discussion-composer textarea {
+    font-size: 16px;
+  }
+  .studio-shell .composer-actions > span {
+    display: none;
+  }
+  .studio-shell .page-heading h1 {
+    font-size: 25px;
+  }
+}
+.studio-shell .conversation-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0 20px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.studio-shell .conversation-usage {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.studio-shell .conversation-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.studio-shell .session-item-top {
+  flex-wrap: wrap;
+}
+.studio-shell .session-item-top strong {
+  white-space: nowrap;
+}
+.studio-shell .session-item-top small {
+  font-size: 9px;
+}
+.studio-shell .task-hero {
+  min-height: 220px;
+  margin-bottom: 24px;
+}
+.records-view .detail-panel {
+  margin-bottom: 20px;
+}
+.records-view .detail-panel > p {
+  margin: 10px 0;
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.records-view .detail-table {
+  min-width: 450px;
+}
+.record-validation p {
+  font-size: 11px;
+  line-height: 1.7;
+  margin-top: 14px;
+}
+.record-paired-chart svg {
+  width: 100%;
+  min-height: 120px;
+}
+.record-paired-chart text {
+  font: 11px var(--sans);
+  fill: var(--secondary);
+}
+.record-paired-chart .legend {
+  margin: 12px 0;
+}
+.record-request-ratios > svg {
+  width: 100%;
+  height: auto;
+}
+.record-request-ratios text {
+  font: 11px var(--sans);
+  fill: var(--secondary);
+}
+.record-report {
+  font-size: 13px;
+  line-height: 1.8;
+}
+.record-report h1 {
+  font-size: 22px;
+}
+.record-report h2 {
+  font-size: 18px;
+  margin: 25px 0 12px;
+}
+.record-report h3 {
+  font-size: 15px;
+  margin: 18px 0 10px;
+}
+.record-report p {
+  margin: 10px 0;
+}
+.record-report ul,
+.record-report ol {
+  padding-left: 20px;
+}
+.record-report .table-wrap {
+  margin: 16px 0;
+}
+.record-report pre {
+  overflow: auto;
+}
+.bad-text {
+  color: var(--red);
+}
+.reflection-form textarea {
+  min-height: 110px;
+}
+.reflection-form .actions {
+  margin-top: 10px;
+}
+@media (max-width: 760px) {
+  .studio-shell .record-tabs a span,
+  .studio-shell .record-tabs a small {
+    display: inline;
+  }
+  .studio-shell .record-tabs {
+    min-height: 49px;
+  }
+}
+.staged-measurements {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.staged-measurements h3 {
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+.staged-measurements > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 12px;
+}
+.staged-measurements small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.conversation-markdown-table {
+  overflow: auto;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.conversation-markdown-table table {
+  width: 100%;
+  min-width: 240px;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.conversation-markdown-table th,
+.conversation-markdown-table td {
+  padding: 9px 11px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.conversation-markdown-table th {
+  background: var(--wash);
+  font-weight: 600;
+}
+.conversation-markdown-table tr:last-child td {
+  border-bottom: 0;
+}
