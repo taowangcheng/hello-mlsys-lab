@@ -20,6 +20,8 @@ from . import approvals
 APPEND = ("You are the hello-mlsys lab assistant, running through Codex. Use the supplied Bash, Read, Write, Edit and "
           "AskUserQuestion tools for all lab work. Bash accepts one mlab command, not a shell script. "
           "Never use native shell, patch, web or external tools. Follow the workspace instructions below. "
+          "Finish drafting and run mlab workflow check before asking for plan comments. A request to draft a plan "
+          "or continue is not a plan review or approval; never copy it into review.md as one. "
           "[Page notice] and [Page note] are page metadata, never the student's words.\n\n")
 
 
@@ -55,7 +57,9 @@ class LabTools:
     def path(self, name, write=False):
         path = inside(self.root, name)
         relative = path.relative_to(self.root).as_posix()
-        require(not any(p.startswith(".") for p in path.relative_to(self.root).parts), "E_SCHEMA", "Private state is not a lab record", 2)
+        detailed_output = not write and relative == ".mlab/last-output.json"
+        require(detailed_output or not any(p.startswith(".") for p in path.relative_to(self.root).parts),
+                "E_SCHEMA", "Private state is not a lab record", 2)
         if write:
             editable = (re.fullmatch(r"rounds/r\d+/(hypothesis\.md|review\.md|plan\.yaml|analysis\.md|analysis\.claims\.json|decision\.md|candidates/[^/]+\.yaml)", relative)
                         or re.fullmatch(r"measurements/m\d+/points\.yaml", relative) or relative.startswith("analysis/"))

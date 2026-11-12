@@ -35,6 +35,8 @@ The protocol's dynamic tools and external-token mode are experimental. The integ
 
 Codex receives `Bash`, `Read`, `Write`, `Edit` and `AskUserQuestion` as host-executed dynamic tools. Bash accepts one `mlab` command in the current workspace and executes an argument vector without a shell. Approval, decision, unlock and conclusion commands wait for the same confirmation cards used by the page. Refusals return to the model verbatim; stopping a turn cancels pending cards. File writes are limited to editable lab records; private state, task definitions and frozen evidence cannot be changed through these tools.
 
+The `Read` tool can read `.mlab/last-output.json`, the detailed result artifact returned by long CLI responses. Other private state remains inaccessible. `mlab align` includes `config_diff` even when empty, so the agent can distinguish no recorded mismatch from missing information.
+
 The Codex thread ID is saved in `.mlab/web/agent.json` and resumed after reconnecting. `.mlab/web/codex.jsonl` records prompts, visible replies, lab tool calls/results and usage, excluding authentication and private reasoning. Tokens are accumulated from differences in the thread's cumulative usage. App Server does not report a USD cost here, so the page shows that cost is unavailable instead of displaying a zero-dollar claim.
 
 The `llm` simulator also uses an isolated Codex App Server with GPT-6 Luna by default, with no tools and an ephemeral conversation. Explicit `MLAB_LLM_*` API settings can still select a separate estimator. All these estimates remain mock observations.

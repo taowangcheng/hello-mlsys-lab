@@ -153,13 +153,20 @@ def test_approved_command_runs_only_after_the_card_is_confirmed(workspace_path):
     asyncio.run(check())
 
 
-def test_tools_use_real_cli_and_protect_records(workspace_path, tmp_path):
+def test_tools_use_real_cli_and_protect_records(workspace_path, tmp_path, capsys):
+    from mlab.cli import emit
     initialize(workspace_path, "9.2", "fixture")
     async def check():
         runtime = make_runtime(workspace_path)
         tools = LabTools(runtime)
         output, failed = await tools.execute("Bash", {"command": "mlab workflow new"})
         assert not failed and json.loads(output)["ok"]
+        emit({"detail": "evidence " * 300}, directory=workspace_path)
+        detail = json.loads(capsys.readouterr().out)["result_path"]
+        output, failed = await tools.execute("Read", {"file_path": detail})
+        assert not failed and json.loads(output)["detail"] == "evidence " * 300
+        assert (await tools.execute("Write", {"file_path": detail, "content": "changed"}))[1]
+        assert (await tools.execute("Read", {"file_path": ".mlab/config.json"}))[1]
         for command in ["mlab next; mlab conclude", "mlab --workspace /tmp next", "mlab demo --out /tmp/demo", "cat task/task.yaml"]:
             assert (await tools.execute("Bash", {"command": command}))[1]
         for name in ["task/task.yaml", "rounds/r001/state.yaml", ".mlab/config.json", "../outside.md"]:

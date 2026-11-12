@@ -76,6 +76,7 @@ def test_measurement_comparison_and_conclusion(workspace_path):
         aligned = lab.align()
         assert snapshot(lab.root) == before
         rows = {r["candidate"]: r for r in aligned["rows"]}
+        assert all(row["config_diff"] == [] for row in rows.values())
         assert rows["c20"]["verdict_flip"] and rows["c20"]["beyond_noise"] and rows["c20"]["shift"] == "all"
         assert rows["low_concurrency"]["beyond_noise"] and not rows["low_concurrency"]["verdict_flip"]
         assert rows["c20"]["gap_pct"] > rows["low_concurrency"]["gap_pct"] > 5

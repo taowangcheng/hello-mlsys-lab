@@ -27,8 +27,11 @@
     "evidence": [
       "real CLI App Server initialization and thread creation with five dynamic tools, isolated state and ephemeral authentication",
       "offline JSONL protocol tests for approval, question answers, resume, usage, interruption, process failure and tool boundaries",
-      "default workspace, terminal launcher and mock-estimator cache checks"
+      "default workspace, terminal launcher and mock-estimator cache checks",
+      "real GPT-6 Luna completion with isolated state and no credential file",
+      "two-round Chinese web classroom recording with real GPT-6 Luna, page forms and confirmation cards: mock_only, r002/c16, hardware stand-in budget 6/8"
     ],
-    "limitations": "A live GPT-6 Luna completion and a new browser recording are still unverified: the execution environment blocks local TCP and outgoing model access. Offline protocol tests do not establish real-model teaching quality."
+    "verified_on": "2026-11-12",
+    "limitations": "Recorded classroom evidence uses the fixture and hardware stand-in, not real GPU measurements. App Server dynamic tools remain experimental; these observations do not guarantee other versions or all teaching scenarios. USD cost is not reported."
   }
 }

@@ -1077,8 +1077,9 @@ class Lab:
         return {"measurement": m["id"], "metric": data["metric"], "rank_flip": data["rank_flip"], "pending": data["pending"],
                 "rows": [{"run": r["run_id"], "candidate": r["candidate"], "workload": r["workload"], "sim": r["simulated"], "hw": r["hardware"],
                           "gap_pct": r["gap_pct"], "beyond_noise": r["beyond_noise"], "shift": r["shift"], "verdict_flip": r["verdict_flip"],
-                          **({"config_diff": r["config_diff"]} if r["config_diff"] else {})} for r in data["rows"]],
-                "how_to_read": "shift=all: most requests off in one direction; shift=tail: only the slowest ones. "
+                          "config_diff": r["config_diff"]} for r in data["rows"]],
+                "how_to_read": "config_diff=[]: no recorded setting mismatch. shift=all: most requests off in one direction; "
+                               "shift=tail: only the slowest ones. "
                                f"Per-request ratios and intervals: mlab show {m['id']}."}
 
     def measure_unlock(self):
