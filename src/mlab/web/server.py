@@ -224,7 +224,7 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
     async def form(request, kind=None, extra=None):
         runtime = runtime_of(request)
         kind = kind or request.path_params["kind"]
-        body = {**await body_of(request), **(extra or {})}
+        body = {**await body_of(request), **(extra or {}), "lang": runtime.lang}
         if runtime.busy():
             if not body.get("interrupt"):
                 return failure("E_AGENT_BUSY", "The agent is working. Wait for it to finish, or stop the agent and submit.")

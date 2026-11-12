@@ -62,7 +62,9 @@ def classify(command):
 
 
 def short(text, limit=160):
-    line = " ".join((text or "").split())
+    """A record's text on one line for a card, without its Markdown headings."""
+    body = "\n".join(line for line in (text or "").splitlines() if not line.lstrip().startswith("#"))
+    line = " ".join(body.split())
     return line if len(line) <= limit else line[:limit - 1] + "…"
 
 

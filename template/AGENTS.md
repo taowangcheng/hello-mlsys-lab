@@ -92,7 +92,9 @@ analysis/.
 
 A task is one exploration: rounds r001, r002, … and measurements m001, … in one timeline, with one hardware
 budget. `mlab conclude` (the student confirms) computes the conclusion for the selected configuration from all of
-the task's evidence: mock_only, simulation_validated, hardware_validated or unresolved. `--candidate r002/c16`
+the task's evidence: mock_only, simulation_validated, hardware_validated or unresolved. The LLM simulator, the
+fixture and the hardware stand-in give mock evidence, so mock_only is the highest level they can reach; the
+output's `reason` says why. `--candidate r002/c16`
 concludes on another configuration, for example when hardware ruled out the selected one. The student may keep
 exploring and submit again; the latest submission counts. Then run `mlab report`.
 

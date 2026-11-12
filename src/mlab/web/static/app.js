@@ -126,6 +126,16 @@ function textBlock(text, empty = "Not written yet") {
   return text && String(text).trim() ? el("div", { class: "text", text }) : el("p", { class: "missing", text: t(empty) });
 }
 
+// "(none given)" is what the records say for an empty optional answer; the page shows it as not given.
+function given(text) {
+  return String(text || "").trim() === "(none given)" ? "" : text;
+}
+
+// A record's text without its Markdown headings, e.g. the "## Decision" an agent may put on top.
+function withoutHeadings(text) {
+  return String(text || "").split("\n").filter((line) => !/^\s*#/.test(line)).join("\n").trim();
+}
+
 // A card or preview fact from the server: a sentence, or a list of them shown one per line.
 function factValue(value) {
   return Array.isArray(value) ? el("div", {}, value.map((line) => el("div", { text: tm(line) }))) : tm(value);
@@ -827,7 +837,7 @@ function hypothesisForm(round) {
 
 function roundHypothesis(round, form) {
   if (form === "hypothesis") return hypothesisForm(round);
-  return [section(t("Hypothesis"), "student", textBlock(round.hypothesis.claim)), section(t("Alternative explanation"), "student", textBlock(round.hypothesis.alternative, "Not given")),
+  return [section(t("Hypothesis"), "student", textBlock(round.hypothesis.claim)), section(t("Alternative explanation"), "student", textBlock(given(round.hypothesis.alternative), "Not given")),
           section(t("Falsification condition"), "student", textBlock(round.hypothesis.falsifier))];
 }
 
@@ -903,7 +913,7 @@ function roundDecision(round, form) {
     section(t("Falsification condition"), "student", textBlock(round.hypothesis.falsifier)),
     round.previous_decision ? section(t("Previous decision ({id})", { id: round.previous_decision.id }), "student", textBlock(round.previous_decision.text)) : null,
     form === "decision" && !(round.decision.text || "").trim() ? null : section(t(round.decision.confirmed ? "Decision (confirmed)" : "Decision"), "student",
-      textBlock(round.decision.text, "No decision yet"),
+      textBlock(withoutHeadings(round.decision.text), "No decision yet"),
       round.decision.selected ? el("p", { class: "note", text: t("Selected candidate: {candidate}", { candidate: round.decision.selected }) }) : null),
     form === "decision" ? decisionForm(round) : null,
     reuseButtons(round)];
@@ -1280,7 +1290,7 @@ function message(entry) {
     return el("div", { class: "msg student" }, entry.text,
       entry.refs?.length ? el("div", { class: "refs" }, entry.refs.map((ref) => el("a", { href: link(ref), text: `@${ref}` }))) : null);
   }
-  if (entry.role === "agent") return el("div", { class: "msg agent" }, inline(entry.text));
+  if (entry.role === "agent") return el("div", { class: "msg agent" }, markdown(entry.text));
   if (entry.role === "tool") {
     return el("details", { class: `tool ${entry.is_error ? "error" : ""}` }, el("summary", { text: toolLine(entry) }),
       entry.result ? el("pre", { text: entry.result }) : el("p", { class: "note", text: t("Running…") }));

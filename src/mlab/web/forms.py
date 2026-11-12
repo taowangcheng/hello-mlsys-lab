@@ -11,6 +11,7 @@ from ..core import student
 from ..core.io import LabError, require
 from ..core.reporting import build_report
 from ..core.workspace import Lab
+from . import i18n
 
 NOTICE = "[Page notice]"
 THEN = {"notify", "confirm", "save"}
@@ -57,7 +58,7 @@ def hypothesis(lab, body):
 
 def review(lab, body):
     entries = body.get("entries") or []
-    out = student.write_review(lab, entries, body.get("general", ""))
+    out = student.write_review(lab, entries, body.get("general", ""), tr=i18n.translator(body.get("lang")))
     if body.get("then") == "confirm":
         w = lab.workflow()
         def approve():
@@ -127,6 +128,7 @@ def conclude(lab, body):
     out = lab.conclude(body.get("candidate") or None)
     out["report"] = build_report(lab)["result_path"]
     return out, (f"Conclusion submitted on the page: {out['selection']}, {out['conclusion']}; report updated.\n"
+                 f"Basis computed by mlab: {out['reason']}\n"
                  "Exploration can continue; a later submission replaces this one.")
 
 

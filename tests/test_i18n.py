@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 from starlette.testclient import TestClient
 from mlab.core.io import ROOT, atomic, load
+from mlab.core import student
 from mlab.core.student import SOURCES
 from mlab.core.workspace import Lab, initialize
 from mlab.web import approvals, i18n, labels, views, watcher
@@ -126,6 +127,19 @@ def test_cards_and_the_report_in_chinese(workspace_path):
     assert chinese.startswith("# " + ZH["Report: {task} {title}"].format(task="9.2", title=title))
     assert f"### {ZH['Comments on the plan']}" in chinese and f"#### {ZH['What result would prove me wrong']}" in chinese
     assert english.startswith("# Report: 9.2 ") and not CJK.search(english)
+
+
+
+def test_words_the_review_form_adds_follow_the_page_language(workspace_path):
+    """The verdicts and the stamp are the form's words, so they follow the page; the reasons stay as the student wrote them."""
+    lab = ready(workspace_path)
+    try:
+        student.write_review(lab, [{"candidate": "baseline", "verdict": "keep", "reason": "the control"}], "fine", tr=i18n.translator("zh"))
+        review = (lab.folder() / "review.md").read_text(encoding="utf-8")
+    finally:
+        lab.close()
+    assert ZH["- {candidate}: {verdict}. {reason}"].format(candidate="baseline", verdict=ZH["keep"], reason="the control") in review
+    assert ZH["- Overall: {text}"].format(text="fine") in review and review.startswith("## Comments on the plan")
 
 
 class Recorder:

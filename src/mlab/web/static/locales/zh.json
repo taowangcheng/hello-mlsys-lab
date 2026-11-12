@@ -643,5 +643,11 @@
  "Read {path}": "读取 {path}",
  "Edit {path}": "编辑 {path}",
  "Write {path}": "写入 {path}",
- "Question: {text}": "提问：{text}"
+ "Question: {text}": "提问：{text}",
+ "keep": "保留",
+ "change": "修改",
+ "drop": "去掉",
+ "- {candidate}: {verdict}. {reason}": "- {candidate}：{verdict}。{reason}",
+ "- Overall: {text}": "- 总体意见：{text}",
+ "({at}, {source})": "（{at}，{source}）"
 }

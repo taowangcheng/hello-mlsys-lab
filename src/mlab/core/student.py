@@ -77,8 +77,12 @@ def put_section(text, keyword, heading, block, append=True):
     return "\n".join(lines[:index + 1] + ["", merged.strip(), ""] + lines[end:]).rstrip() + "\n"
 
 
-def stamp(source):
-    return f"({local()}, {SOURCES.get(source, source)})"
+def english(template, /, **params):
+    return template.format(**params) if params else template
+
+
+def stamp(source, tr=english):
+    return tr("({at}, {source})", at=local(), source=tr(SOURCES.get(source, source)))
 
 
 def draft_round(lab):
@@ -115,8 +119,9 @@ def candidate_ids(lab, w):
     return ids
 
 
-def write_review(lab, entries, general="", source="web-form"):
-    """entries: [{candidate, verdict: keep|change|drop, reason}]; at least one entry or a general comment."""
+def write_review(lab, entries, general="", source="web-form", tr=english):
+    """entries: [{candidate, verdict: keep|change|drop, reason}]; at least one entry or a general comment.
+    tr puts the words the form adds (verdicts, the stamp) in the page's language; the student's own words stay as written."""
     w = draft_round(lab)
     known = candidate_ids(lab, w)
     lines = []
@@ -124,13 +129,13 @@ def write_review(lab, entries, general="", source="web-form"):
         require(entry.get("candidate") in known, "E_SCHEMA", f"The plan has no candidate {entry.get('candidate')}", 2)
         require(entry.get("verdict") in VERDICTS, "E_SCHEMA", "Mark each candidate keep, change or drop", 2)
         reason = (entry.get("reason") or "").strip()
-        lines.append(f"- {entry['candidate']}: {VERDICTS[entry['verdict']]}. {reason}".rstrip())
+        lines.append(tr("- {candidate}: {verdict}. {reason}", candidate=entry["candidate"], verdict=tr(VERDICTS[entry["verdict"]]), reason=reason).rstrip())
     if (general or "").strip():
-        lines.append(f"- Overall: {general.strip()}")
+        lines.append(tr("- Overall: {text}", text=general.strip()))
     require(lines, "E_SCHEMA", "Comment on at least one candidate, or write an overall comment", 2)
     path = lab.folder(w) / "review.md"
     current = path.read_text(encoding="utf-8") if path.exists() else ""
-    atomic(path, put_section(current, "Comments on the plan", "## Comments on the plan", stamp(source) + "\n" + "\n".join(lines)), text=True)
+    atomic(path, put_section(current, "Comments on the plan", "## Comments on the plan", stamp(source, tr) + "\n" + "\n".join(lines)), text=True)
     require(comments(path.read_text(encoding="utf-8")), "E_SCHEMA", "The comments did not reach review.md", 2)
     log_student(lab.root, "\n".join(lines), source=source, kind="review", workflow=w["id"])
     keep_all = bool(entries) and all(entry["verdict"] == "keep" for entry in entries) and set(known) <= {e["candidate"] for e in entries}
