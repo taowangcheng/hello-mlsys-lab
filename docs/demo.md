@@ -2,6 +2,46 @@
 
 The default page keeps navigation on the left, the task or evidence in the center, and conversation on the right. Students ask questions, work through explanations, decide what to try, request simulations or sandbox measurements, and revisit evidence while talking. The examples below are possible investigations, not a required sequence. Performance results use the synthetic fixture and hardware stand-in.
 
+## Extended exploration recording
+
+`record-exploration-demo.mjs` records a Chinese walkthrough of each task using the real SoC model. Task 9.2 includes a conceptual question, conversation-requested simulations, inline `@` references, request inspection, a student-created concurrency variant, a confirmed sandbox comparison, deeper evidence reading, repeat and holdout validation, student notes, a submitted conclusion, a saved report, and a clean new conversation followed by reopening the earlier one. Tasks 9.1 and 9.3 include their own questions, comparisons, measurements, validation and reports.
+
+Start a fresh isolated course; the launcher asks for the API key without echoing it:
+
+```bash
+scripts/start-soc.sh workspaces/exploration-demo-2026-11-13/course --port 8878 --no-browser --no-opening
+```
+
+In another terminal, from the repository root:
+
+```bash
+export PATH="$PWD/.venv/web-toolchain/node_modules/.bin:$PATH"
+export PLAYWRIGHT_BROWSERS_PATH="$PWD/.venv/playwright"
+export MLAB_REVIEW_DIR="$PWD/workspaces/exploration-demo-2026-11-13/videos"
+node frontend/scripts/record-exploration-demo.mjs
+```
+
+Optional positional task IDs record only those tasks. `MLAB_REVIEW_URL` overrides the local server address. Run tasks sequentially to respect the shared SoC inference limit. Task 9.2 consumes six sandbox runs; tasks 9.1 and 9.3 consume three and four respectively. Starting another conversation does not restore the task budget, so a new complete take needs a fresh course and output directory. The script performs mutations through visible page controls and uses only GET requests for verification. It checks configuration changes, inline references, measurement points and counts, successful execution, final validation, session isolation and browser errors. A model may propose several confirmation cards for the requested points; the recorder verifies each card and the combined count before treating the request as complete. Unrequested points are never confirmed. Failed takes remain marked failed and cannot be packaged as complete demonstrations.
+
+Convert each completed recording without changing its speed or removing waits:
+
+```bash
+for task in 9.2 9.1 9.3; do
+  ffmpeg -nostdin -y -i "$MLAB_REVIEW_DIR/task-$task/walkthrough.webm" \
+    -c:v libx264 -preset fast -crf 20 -pix_fmt yuv420p -movflags +faststart \
+    "$MLAB_REVIEW_DIR/task-$task/walkthrough.mp4"
+done
+node frontend/scripts/build-exploration-demo.mjs --zip
+```
+
+Open `workspaces/exploration-demo-2026-11-13/index.html` for the chapter player. It includes MP4 and original WebM downloads, screenshots, unchanged conversations, confirmation cards and execution evidence. The player defaults to 1x; optional subtitles show chapter titles. `exploration-demo.zip` contains only explicitly allowed public artifacts, never course state, credentials, private runtime logs or unfinished raw captures. Extract the archive before opening its index. The model replies are real, while the fixture simulations and stand-in sandbox measurements remain synthetic performance evidence.
+
+The November 13 task 9.2 demonstration joins three original segments. The first segment stopped at a pending confirmation card because the initial recorder expected one combined card; the model instead prepared separate valid cards. The resumed segment checks and confirms both requests, then completes validation, the report and session restoration. An additional discussion checks the model's earlier claims about stability, the most restrictive workload and mandatory steps. Task 9.3 also includes a final discussion about repeatability and comparisons between different DAGs; its four measurements use two batches to respect the three-run batch limit. The chapter lists identify every join, and the archive preserves the original segments. No segment is sped up and assistant replies are unchanged, including the initial claims and later corrections.
+
+Recovery is supported only at task 9.2's first pending sandbox confirmation, before any hardware run has started. Preserve the earlier video as `part-01.webm`; pass its `ffprobe` duration as `MLAB_DEMO_OFFSET_SECONDS` and the existing session as `MLAB_DEMO_RESUME_SESSION`. The recorder writes `part-02.webm` and adds chapter times at the supplied offset. Concatenate those segments with FFmpeg's concat demuxer and `-c copy` into `walkthrough.webm` before running the conversion and packaging commands above. The final evidence must pass all checks before the combined recording is marked complete.
+
+`MLAB_DEMO_RESUME_STAGE=review` records the additional evidence discussion for the completed 9.2 or 9.3 session. These prompts refer to the November 13 fixture run IDs and values; inspect and adapt them before using another data set. For a previously continuous recording, preserve `walkthrough.webm` as `part-01.webm` first. Set the offset to the total duration of all preceding segments. The discussion must create no additional execution records. The player also distinguishes saved reports and demonstration conclusions from claims validated on real hardware.
+
 ## Course page demo
 
 From the repository root, after `scripts/setup.sh`:
