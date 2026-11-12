@@ -144,11 +144,10 @@ for (const scenario of scenarios) {
     expect(opened.ok).toBe(true);
     const session = opened.session;
     await page.goto(`/#/${scenario.task}/overview`);
-    await expect(
-      page.getByRole('button', { name: 'Start an experiment', exact: true }),
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Configure a run', exact: true })).toBeVisible();
     await photograph(page, directory, '01-task-overview');
-    await page.getByRole('button', { name: 'Start an experiment', exact: true }).click();
+    await page.getByRole('button', { name: 'Configure a run', exact: true }).click();
+    await page.locator('.editor-title > summary').click();
     await page.getByRole('textbox', { name: 'Experiment name', exact: true }).fill(scenario.title);
     await page
       .getByRole('textbox', { name: 'What do you want to find out?', exact: true })
@@ -298,15 +297,17 @@ for (const scenario of scenarios) {
     expect(report.written).toBe(true);
     await page.goto(`/#/${scenario.task}/runs`);
     await page.locator('.runs-table .row-link').filter({ hasText: chosenRun.id }).click();
-    await page.getByRole('button', { name: 'Use this configuration', exact: true }).click();
+    await page.getByRole('button', { name: 'Modify and run again', exact: true }).click();
     await expect(
       page.getByRole('textbox', { name: 'Configuration name', exact: true }),
     ).toHaveValue(scenario.chosen);
-    await expect(page.getByText('Based on an earlier experiment', { exact: false })).toBeVisible();
+    await expect(page.getByText('Based on a previous run', { exact: false })).toBeVisible();
     await photograph(page, directory, '10-reuse-earlier-configuration');
     evidence = await (await request.get(`/api/workbench/tasks/${scenario.task}`)).json();
     expect(evidence.conclusions.at(-1).conclusion).toBe('mock_only');
-    expect(evidence.experiments.at(-1).source).toBe(`${session}/r001`);
+    expect(evidence.experiments.at(-1).source).toBe(chosenRun.key);
+    expect(evidence.experiments.at(-1).seeds).toEqual([chosenRun.seed]);
+    expect(evidence.experiments.at(-1).workloads).toEqual([chosenRun.workload]);
     expect(evidence.budget.used).toBe(scenario.hardware);
     await writeFile(
       resolve(directory, 'evidence.json'),

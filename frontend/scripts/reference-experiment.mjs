@@ -57,6 +57,7 @@ export async function addReferenceExperiment({
   verifyCandidates([state.templates.find((c) => c.id === 'tp2_bf16')], reference.candidates);
   if (reference.editable) {
     await page.goto(`${base}/#/9.3/plans/${encodeURIComponent(reference.key)}`);
+    await page.locator('.editor-title > summary').click();
     await page
       .getByRole('textbox', { name: 'What do you expect?', exact: true })
       .fill(

@@ -287,15 +287,20 @@ test('conversation can run a simulation and confirm or cancel sandbox measuremen
   await expect(operations).toContainText('Prepare an experiment plan');
   await expect(operations).toContainText('Submit a simulation');
   await expect(operations).not.toContainText('Activity');
-  await expect(page.getByRole('link', { name: 'Experiment plans', exact: true })).toBeVisible();
+  await expect(
+    page.locator('.record-tabs').getByRole('link', { name: 'Experiment plans', exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator('.manual-setup > summary')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Run history', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Chinese', exact: true }).click();
   await expect(page.locator('.conversation-activity summary').first()).toHaveText(
     chinese['Simulation submitted'],
   );
   await expect(
-    page.getByRole('link', { name: chinese['Experiment plans'], exact: true }),
-  ).toBeVisible();
+    page
+      .locator('.record-tabs')
+      .getByRole('link', { name: chinese['Experiment plans'], exact: true }),
+  ).toHaveCount(0);
   await expect(page.getByRole('link', { name: chinese['Run history'], exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'EN', exact: true }).click();
   await screenshot(page, 'chat-simulation-result');
@@ -595,5 +600,150 @@ test('operation summaries show recovered success and stay active for queued ques
   await expect(pending).toContainText('In progress');
   await expect(pending).not.toContainText('No result recorded');
   await expect(recovered.locator('summary')).toHaveText('Simulation submitted');
+  expect(errors).toEqual([]);
+});
+
+test('conversation is the entry point and reusing a run keeps only its selected settings', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+  const errors = monitor(page);
+  const opened = await post(request, '/api/sessions', { task: '9.2' });
+  const endpoint = `/api/workbench/sessions/${opened.session}`;
+  const view = () => request.get(endpoint).then((response) => response.json());
+  await page.goto(`/#/${opened.session}/overview`);
+  const composer = page.getByRole('textbox', { name: 'Message', exact: true });
+  await composer.fill('How should I interpret a latency limit?');
+  await page.getByRole('button', { name: 'Discuss the task', exact: true }).click();
+  await expect(composer).toBeFocused();
+  await expect(composer).toHaveValue('How should I interpret a latency limit?');
+  expect((await view()).experiments).toHaveLength(0);
+  await expect(page.locator('.record-tabs a')).toHaveCount(5);
+  await page.getByRole('link', { name: 'Run history', exact: true }).click();
+  await page.getByRole('button', { name: 'Ask the assistant', exact: true }).click();
+  await expect(composer).toBeFocused();
+  expect((await view()).experiments).toHaveLength(0);
+
+  // Manual setup remains available, but naming a plan is never a prerequisite.
+  await page.locator('.manual-setup > summary').click();
+  await page
+    .locator('.manual-setup')
+    .getByRole('button', { name: 'Configure a run', exact: true })
+    .click();
+  await expect(page.getByRole('heading', { name: 'Run configuration', exact: true })).toBeVisible();
+  await expect(page.locator('.editor-title')).not.toHaveAttribute('open');
+  await expect(page.getByLabel('Experiment name', { exact: true })).not.toBeVisible();
+  await page.getByLabel('Maximum concurrency', { exact: true }).fill('16');
+  await page.getByRole('button', { name: 'Run simulations', exact: true }).click();
+  await page.getByRole('button', { name: 'Start simulations', exact: true }).click();
+  await expect
+    .poll(async () => (await view()).runs.filter((run: any) => run.status === 'succeeded').length)
+    .toBe(1);
+  await screenshot(page, 'run-history-primary-entry');
+
+  const initial = await view();
+  const workload = initial.overview.holdouts[0];
+  const candidates = [16, 20].map((concurrency) => {
+    const candidate = structuredClone(
+      initial.templates.find((item: any) => item.id === 'baseline'),
+    );
+    candidate.id = `reuse_c${concurrency}`;
+    candidate.strategy.serving.max_concurrency = concurrency;
+    return candidate;
+  });
+  const experiment = await post(request, `${endpoint}/create`, {
+    candidates,
+    seeds: [42, 43],
+    workloads: ['development', workload],
+  });
+  await post(request, `${endpoint}/simulate`, {
+    workflow: experiment.id,
+    revision: experiment.revision,
+    confirm: true,
+  });
+  await expect
+    .poll(
+      async () =>
+        (await view()).runs.filter(
+          (run: any) => run.owner === experiment.id && run.status === 'succeeded',
+        ).length,
+    )
+    .toBe(8);
+  const original = (await view()).runs.find(
+    (run: any) =>
+      run.owner === experiment.id &&
+      run.candidate === 'reuse_c20' &&
+      run.seed === 43 &&
+      run.workload === workload,
+  );
+  const recordUrl = `/api/sessions/${opened.session}/records/${original.id}`;
+  const before = await (await request.get(recordUrl)).json();
+  await page.goto(`/#/${opened.session}/runs/${encodeURIComponent(original.key)}`);
+  await page.getByRole('button', { name: 'View configuration', exact: true }).click();
+  await expect(page.locator('.configuration-json')).toContainText('"max_concurrency": 20');
+  await screenshot(page, 'run-configuration-and-conversation');
+  await page.getByRole('button', { name: 'Measure this configuration', exact: true }).click();
+  const measurement = page.getByRole('dialog');
+  await expect(measurement.getByRole('checkbox', { checked: true })).toHaveCount(1);
+  await expect(measurement.getByRole('checkbox', { name: /^reuse_c20/ })).toBeChecked();
+  await expect(measurement.getByRole('combobox', { name: 'Workload', exact: true })).toHaveValue(
+    workload,
+  );
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'Modify and run again', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Run configuration', exact: true })).toBeVisible();
+  await expect(page.locator('.candidate-item')).toHaveCount(1);
+  await expect(page.getByLabel('Configuration name', { exact: true })).toHaveValue('reuse_c20');
+  await expect(page.getByLabel('Maximum concurrency', { exact: true })).toHaveValue('20');
+  await expect(page.getByLabel('Starting seed', { exact: true })).toHaveValue('43');
+  await expect(page.getByLabel('Repetitions', { exact: true })).toHaveValue('1');
+  await expect(page.locator('.workload-options input:checked')).toHaveCount(1);
+  await expect(page.locator('.editor-title')).not.toHaveAttribute('open');
+  const copied = (await view()).experiments.at(-1);
+  expect(copied.source).toBe(original.key);
+  expect(copied.seeds).toEqual([43]);
+  expect(copied.workloads).toEqual([workload]);
+  expect(copied.candidates[0].id).toBe(original.candidate);
+  await page.getByLabel('Maximum concurrency', { exact: true }).fill('12');
+  await page.locator('.workspace-content').evaluate((element) => element.scrollTo(0, 0));
+  await screenshot(page, 'modify-one-run-without-a-plan-form');
+  await page.getByRole('button', { name: 'Run simulations', exact: true }).click();
+  await page.getByRole('button', { name: 'Start simulations', exact: true }).click();
+  await expect
+    .poll(
+      async () =>
+        (await view()).runs.filter(
+          (run: any) => run.owner === copied.id && run.status === 'succeeded',
+        ).length,
+    )
+    .toBe(1);
+  const modified = (await view()).runs.find((run: any) => run.owner === copied.id);
+  const changed = await (
+    await request.get(`/api/sessions/${opened.session}/records/${modified.id}`)
+  ).json();
+  const expectedStrategy = structuredClone(before.strategy);
+  expectedStrategy.serving.max_concurrency = 12;
+  expect(changed.strategy).toEqual(expectedStrategy);
+  const after = await (await request.get(recordUrl)).json();
+  expect(after.strategy).toEqual(before.strategy);
+  expect(after.metrics).toEqual(before.metrics);
+
+  await page.locator('.manual-setup > summary').click();
+  await screenshot(page, 'manual-setup-secondary-menu');
+  await page.getByRole('link', { name: 'Saved experiment plans', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Saved experiment plans', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('.experiment-card')).toHaveCount(3);
+  await expect(composer).toHaveValue('How should I interpret a latency limit?');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Workbench', exact: true }).click();
+  await page.getByRole('link', { name: 'Run history', exact: true }).click();
+  await page.getByRole('button', { name: 'Ask the assistant', exact: true }).click();
+  await expect(composer).toBeVisible();
+  await expect(composer).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });

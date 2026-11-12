@@ -216,6 +216,10 @@ def run_view(lab, run_id):
         raise LabError("E_SCHEMA", f"unknown run {run_id}", 2)
     view = run_summary(lab, run)
     view.update(kind="run", owner=run.get("workflow") or run.get("measurement"), config=config_name(lab, run))
+    spec = load(lab.root / run["folder"] / "spec.json")
+    if hashed(spec) != run["spec_hash"]:
+        raise LabError("E_FROZEN_CHANGED", "run spec changed")
+    view.update(strategy=spec["strategy"], seed=spec["execution"]["seed"], repeat=spec["execution"]["repeat"])
     if run["status"] not in TERMINAL or not run.get("result_hash"):
         return {**view, "progress": run.get("progress")}
     result, spec = lab.result(run_id)

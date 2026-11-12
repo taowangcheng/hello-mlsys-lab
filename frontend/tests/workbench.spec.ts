@@ -10,7 +10,12 @@ test('a student controls experiments, measurements, history and evidence discuss
     if (message.type() === 'error') errors.push(message.text());
   });
   await page.goto('/#/9.2/runs');
-  await page.getByRole('button', { name: 'New experiment plan', exact: true }).click();
+  await page.locator('.manual-setup > summary').click();
+  await page
+    .locator('.manual-setup')
+    .getByRole('button', { name: 'Configure a run', exact: true })
+    .click();
+  await page.locator('.editor-title > summary').click();
   await page.getByLabel('Experiment name', { exact: true }).fill('Concurrency near the SLA');
   await page
     .getByRole('textbox', { name: 'What do you want to find out?', exact: true })
@@ -86,13 +91,15 @@ test('a student controls experiments, measurements, history and evidence discuss
   await page.screenshot({ path: '../workspaces/ui-refactor-check/runs.png', fullPage: true });
   await page.getByRole('button', { name: /c20 hw_0001/ }).click();
   await expect(page.getByText('Matching simulation', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Use this configuration', exact: true }).click();
+  await page.getByRole('button', { name: 'Modify and run again', exact: true }).click();
+  await page.locator('.editor-title > summary').click();
   await expect(page.getByLabel('Maximum concurrency')).toHaveValue('20');
-  await expect(page.getByText('Based on an earlier experiment', { exact: false })).toBeVisible();
+  await expect(page.getByText('Based on a previous run', { exact: false })).toBeVisible();
   await page
     .getByRole('textbox', { name: 'What do you expect?', exact: true })
     .fill('An unsaved idea should survive a reload.');
   await page.reload();
+  await page.locator('.editor-title > summary').click();
   await expect(page.getByRole('textbox', { name: 'What do you expect?', exact: true })).toHaveValue(
     'An unsaved idea should survive a reload.',
   );
@@ -123,7 +130,12 @@ test('dependency workloads compare completion time and critical path without dup
     if (message.type() === 'error') errors.push(message.text());
   });
   await page.goto('/#/9.3/runs');
-  await page.getByRole('button', { name: 'New experiment plan', exact: true }).click();
+  await page.locator('.manual-setup > summary').click();
+  await page
+    .locator('.manual-setup')
+    .getByRole('button', { name: 'Configure a run', exact: true })
+    .click();
+  await page.locator('.editor-title > summary').click();
   await page.getByLabel('Experiment name', { exact: true }).fill('Dependency workload controls');
   await page.getByRole('button', { name: 'Add a variant', exact: true }).click();
   await page.getByLabel('Configuration name', { exact: true }).fill('dag_control');
@@ -158,7 +170,7 @@ test('the workbench supports Chinese, dark mode and narrow screens', async ({ pa
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(
-    page.getByRole('button', { name: words['Start an experiment'], exact: true }),
+    page.getByRole('button', { name: words['Configure a run'], exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -167,7 +179,7 @@ test('the workbench supports Chinese, dark mode and narrow screens', async ({ pa
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(
-    page.getByRole('button', { name: words['Start an experiment'], exact: true }),
+    page.getByRole('button', { name: words['Configure a run'], exact: true }),
   ).toBeVisible();
   expect(errors).toEqual([]);
 });

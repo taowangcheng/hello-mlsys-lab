@@ -147,7 +147,7 @@ try {
         throw Error('Not enough task budget remains; start a fresh review course');
       await page.goto(`${base}/#/${task}/overview`);
       await expect(
-        page.getByRole('button', { name: 'Start an experiment', exact: true }),
+        page.getByRole('button', { name: 'Configure a run', exact: true }),
       ).toBeVisible();
       await screenshot('01-overview');
       await speak(spec.prompt, '02-agent-proposal');
@@ -165,6 +165,7 @@ try {
       if (state.runs.some((r) => r.session === session))
         throw Error('An experiment ran before the student confirmed it');
       await page.goto(`${base}/#/${task}/plans/${encodeURIComponent(experiment.key)}`);
+      await page.locator('.editor-title > summary').click();
       await page
         .getByRole('textbox', { name: 'What do you expect?', exact: true })
         .fill(

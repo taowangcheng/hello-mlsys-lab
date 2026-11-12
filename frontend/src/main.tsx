@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Moon,
   Plus,
+  SlidersHorizontal,
   Sun,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -38,6 +39,7 @@ import {
   time,
   type Data,
   type Experiment,
+  type Run,
   type Workspace,
 } from './api';
 import { Badge, Button, Empty, ErrorLine, Tradeoff } from './ui';
@@ -50,7 +52,6 @@ import './nonce';
 
 const sections = [
   ['overview', 'Task overview', LayoutDashboard],
-  ['plans', 'Experiment plans', Layers],
   ['runs', 'Run history', Activity],
   ['compare', 'Compare', GitCompare],
   ['report', 'Report', FileText],
@@ -66,6 +67,8 @@ function App() {
   const [locale, setLocale] = useState(language);
   const [dark, setDark] = useState(stored('mlab-dark', false));
   const [pane, setPane] = useState('workbench');
+  const [focusRequest, setFocusRequest] = useState(0);
+  const manualSetup = useRef<HTMLDetailsElement>(null);
   const [focused, setFocused] = useState(false);
   const [chatWidth, setChatWidth] = useState(stored('mlab-chat-width', 430));
   const [refs, setRefs] = useState<string[]>([]);
@@ -73,10 +76,20 @@ function App() {
   const [measurement, setMeasurement] = useState<{
     initial?: Experiment;
     measurement?: Data;
+    point?: { candidate: string; workload: string };
   } | null>(null);
   const contentRef = useRef<HTMLElement>(null);
   const positions = useRef<Record<string, number>>({});
   const [directory, setDirectory] = useState(false);
+  const draftCount = workspace?.experiments.filter((item) => item.editable).length || 0;
+  useEffect(() => {
+    const close = (event: PointerEvent) => {
+      if (manualSetup.current && !manualSetup.current.contains(event.target as Node))
+        manualSetup.current.open = false;
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, []);
   useEffect(() => {
     const update = () => setLocation(route());
     window.addEventListener('hashchange', update);
@@ -159,6 +172,9 @@ function App() {
   }, [location.task, location.session]);
   const viewKey = `${location.session}/${location.page}/${location.key}`;
   useEffect(() => {
+    if (manualSetup.current) manualSetup.current.open = false;
+  }, [viewKey]);
+  useEffect(() => {
     if (location.session) {
       store(`mlab-location-${location.session}`, { page: location.page, key: location.key });
       if (course) {
@@ -206,13 +222,20 @@ function App() {
       setWorking(false);
     }
   }
-  async function create(source?: Experiment, candidate?: string) {
+  async function create(source?: Experiment, selectedRun?: Run) {
     if (!workspace) return;
     setWorking(true);
     setError('');
     try {
+      const snapshot = selectedRun
+        ? await api(`/api/sessions/${selectedRun.session}/records/${selectedRun.id}`)
+        : null;
       const candidates = source
-        ? source.candidates.filter((item) => !candidate || item.id === candidate)
+        ? source.candidates
+            .filter((item) => !selectedRun || item.id === selectedRun.candidate)
+            .map((item) =>
+              selectedRun ? { ...structuredClone(item), strategy: snapshot.strategy } : item,
+            )
         : [
             workspace.templates.find(
               (item) =>
@@ -226,13 +249,15 @@ function App() {
             ) || workspace.templates[0],
           ];
       const value = await act(workspace.session, 'create', {
-        title: source ? `${source.title} · ${t('Variant')}` : 'Untitled experiment',
-        question: source?.question || '',
+        title: source
+          ? `${selectedRun?.candidate || source.title} · ${t('Variant')}`
+          : candidates[0].id,
+        question: selectedRun ? '' : source?.question || '',
         expectation: '',
         candidates,
-        seeds: source?.seeds || [42],
-        workloads: source?.workloads || ['development'],
-        source: source?.key,
+        seeds: selectedRun ? [snapshot.seed] : source?.seeds || [42],
+        workloads: selectedRun ? [selectedRun.workload] : source?.workloads || ['development'],
+        source: selectedRun?.key || source?.key,
       });
       await reload();
       if (route().session === workspace.session) nav(workspace.session, 'plans', value.key);
@@ -242,9 +267,13 @@ function App() {
       setWorking(false);
     }
   }
+  function openConversation() {
+    setPane('conversation');
+    setFocusRequest((value) => value + 1);
+  }
   function discuss(keys: string[]) {
     setRefs(keys);
-    setPane('conversation');
+    openConversation();
   }
   function openReference(key: string) {
     if (!workspace || !key.startsWith(workspace.session + '/')) return;
@@ -316,8 +345,18 @@ function App() {
           key={run.key}
           run={run}
           workspace={workspace}
-          onClone={create}
-          onMeasure={(item) => setMeasurement({ initial: item })}
+          onClone={(selectedRun) => {
+            const source = workspace.experiments.find((item) =>
+              selectedRun.config?.startsWith(item.key + '/'),
+            );
+            if (source) create(source, selectedRun);
+          }}
+          onMeasure={(item, selectedRun) =>
+            setMeasurement({
+              initial: item,
+              point: { candidate: selectedRun.candidate, workload: selectedRun.workload },
+            })
+          }
           onDiscuss={discuss}
           onCompare={addCompare}
           reload={reload}
@@ -346,7 +385,9 @@ function App() {
         />
       );
     else if (['overview', 'conversation'].includes(location.page))
-      content = <Overview workspace={workspace} create={() => create()} />;
+      content = (
+        <Overview workspace={workspace} onDiscuss={openConversation} create={() => create()} />
+      );
     else
       content = (
         <RunTable
@@ -355,6 +396,7 @@ function App() {
           setSelected={setSelected}
           onMeasure={() => setMeasurement({})}
           onCreate={() => create()}
+          onDiscuss={openConversation}
         />
       );
   }
@@ -553,7 +595,18 @@ function App() {
                 <a
                   key={key}
                   href={`#/${location.session || location.task}/${key}`}
-                  className={location.page === key ? 'selected' : ''}
+                  className={
+                    location.page === key ||
+                    (key === 'runs' && ['plans', 'config', 'measurements'].includes(location.page))
+                      ? 'selected'
+                      : ''
+                  }
+                  aria-current={
+                    location.page === key ||
+                    (key === 'runs' && ['plans', 'config', 'measurements'].includes(location.page))
+                      ? 'page'
+                      : undefined
+                  }
                   aria-label={t(text)}
                 >
                   <Icon size={15} />
@@ -572,10 +625,50 @@ function App() {
                   <Layers size={14} />
                   {t('Record directory')}
                   <span>
-                    {workspace.experiments.length} / {workspace.runs.length}
+                    {workspace.runs.length === 1
+                      ? t('1 run')
+                      : t('{count} runs', { count: workspace.runs.length })}
                   </span>
                   <ChevronRight size={13} />
                 </button>
+                <details
+                  className="manual-setup"
+                  ref={manualSetup}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.currentTarget.open = false;
+                      event.currentTarget.querySelector('summary')?.focus();
+                    }
+                  }}
+                >
+                  <summary aria-label={t('Manual setup')}>
+                    <SlidersHorizontal size={13} />
+                    {t('Manual setup')}
+                    {draftCount > 0 && (
+                      <small>
+                        {draftCount === 1
+                          ? t('1 draft')
+                          : t('{count} drafts', { count: draftCount })}
+                      </small>
+                    )}
+                  </summary>
+                  <div className="manual-setup-content">
+                    <p>
+                      {t(
+                        'Set up configurations yourself, or return to a saved plan. You can also arrange everything in conversation.',
+                      )}
+                    </p>
+                    <Button busy={working} onClick={() => create()}>
+                      <Plus size={14} />
+                      {t('Configure a run')}
+                    </Button>
+                    <a href={`#/${workspace.session}/plans`}>
+                      <Layers size={14} />
+                      {t('Saved experiment plans')}
+                      <ArrowUpRight size={13} />
+                    </a>
+                  </div>
+                </details>
                 {directory && (
                   <div className="record-directory-items">
                     {workspace.experiments.map((item) => (
@@ -678,6 +771,7 @@ function App() {
                 refs={refs}
                 setRefs={setRefs}
                 mode="panel"
+                focusRequest={focusRequest}
                 onNavigate={openReference}
                 onRefresh={reload}
               />
@@ -714,8 +808,13 @@ function Experiments({
       <div className="page-heading">
         <div>
           <span className="eyebrow">{t('IDEAS INTO EVIDENCE')}</span>
-          <h1>{t('Experiment plans')}</h1>
-          <p>{t('Choose configurations, workloads and seeds for your experiment.')}</p>
+          <button className="text-button" onClick={() => nav(workspace.session, 'runs')}>
+            {t('Back to run history')}
+          </button>
+          <h1>{t('Saved experiment plans')}</h1>
+          <p>
+            {t('Optional saved setups for comparing configurations or repeating a batch of runs.')}
+          </p>
         </div>
         <Button className="primary" onClick={() => create()}>
           <Plus size={16} />
@@ -902,7 +1001,15 @@ function unitFor(workspace: Workspace) {
   return workspace.overview.key_metrics[0].includes('_ms') ? 'ms' : 's';
 }
 
-function Overview({ workspace, create }: { workspace: Workspace; create: () => void }) {
+function Overview({
+  workspace,
+  create,
+  onDiscuss,
+}: {
+  workspace: Workspace;
+  create: () => void;
+  onDiscuss: () => void;
+}) {
   return (
     <>
       <div className="task-hero">
@@ -912,10 +1019,16 @@ function Overview({ workspace, create }: { workspace: Workspace; create: () => v
           </span>
           <h1>{t(workspace.overview.title)}</h1>
           <p>{t('Design a system, test your assumptions, and follow the evidence.')}</p>
-          <Button className="primary" onClick={create}>
-            {t('Start an experiment')}
-            <ArrowRight size={17} />
-          </Button>
+          <div className="task-entry-actions">
+            <Button className="primary" onClick={onDiscuss}>
+              <MessageSquare size={16} />
+              {t('Discuss the task')}
+            </Button>
+            <Button className="ghost" onClick={create}>
+              {t('Configure a run')}
+              <ArrowRight size={15} />
+            </Button>
+          </div>
         </div>
         <div className="hero-diagram" aria-hidden="true">
           <span className="diagram-core">

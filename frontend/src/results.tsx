@@ -48,12 +48,14 @@ export function RunTable({
   setSelected,
   onMeasure,
   onCreate,
+  onDiscuss,
 }: {
   workspace: Workspace;
   selected: string[];
   setSelected: (keys: string[]) => void;
   onMeasure: () => void;
   onCreate: () => void;
+  onDiscuss: () => void;
 }) {
   const filterKey = `mlab-filters-${workspace.session}`;
   const savedFilters = stored<Data>(filterKey, {});
@@ -214,24 +216,31 @@ export function RunTable({
             <Cpu size={15} />
             {t('Arrange measurement')}
           </Button>
-          <Button className="primary" onClick={onCreate}>
-            <FlaskConical size={15} />
-            {t('New experiment plan')}
-          </Button>
+          {workspace.runs.length > 0 && (
+            <Button className="primary" onClick={onDiscuss}>
+              <MessageSquare size={15} />
+              {t('Ask the assistant')}
+            </Button>
+          )}
         </div>
       </div>
       {!workspace.runs.length ? (
         <Empty
-          title={t('What would you like to test?')}
+          title={t('No runs yet')}
           action={
-            <Button className="primary" onClick={onCreate}>
-              {t('Design your first experiment')}
-              <ArrowUpRight size={16} />
-            </Button>
+            <div className="actions">
+              <Button className="primary" onClick={onDiscuss}>
+                <MessageSquare size={16} />
+                {t('Ask the assistant')}
+              </Button>
+              <Button className="ghost" onClick={onCreate}>
+                {t('Configure a run')}
+              </Button>
+            </div>
           }
         >
           {t(
-            'Start with a configuration, change a variable, and see what happens. You decide when to simulate and what to measure.',
+            'Ask a question or request a simulation in conversation. Results will appear here as you explore.',
           )}
         </Empty>
       ) : (
@@ -396,8 +405,8 @@ export function RunDetail({
 }: {
   run: Run;
   workspace: Workspace;
-  onClone: (experiment: Experiment, candidate?: string) => void;
-  onMeasure: (experiment: Experiment) => void;
+  onClone: (run: Run) => void;
+  onMeasure: (experiment: Experiment, run: Run) => void;
   onDiscuss: (keys: string[]) => void;
   onCompare: (key: string) => void;
   reload: () => Promise<void>;
@@ -459,16 +468,19 @@ export function RunDetail({
           </p>
         </div>
         <div className="actions">
+          <Button onClick={() => setTab('configuration')} disabled={!data?.strategy}>
+            {t('View configuration')}
+          </Button>
           {origin && (
-            <Button onClick={() => onClone(origin, run.candidate)}>
+            <Button onClick={() => onClone(run)} disabled={!data?.strategy}>
               <Copy size={15} />
-              {t('Use this configuration')}
+              {t('Modify and run again')}
             </Button>
           )}
           {origin && (
-            <Button onClick={() => onMeasure(origin)}>
+            <Button onClick={() => onMeasure(origin, run)}>
               <Cpu size={15} />
-              {t('Measure')}
+              {t('Measure this configuration')}
             </Button>
           )}
           <Button onClick={() => onDiscuss([run.key])}>

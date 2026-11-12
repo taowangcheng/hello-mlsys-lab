@@ -829,3 +829,33 @@ def test_legacy_sdk_cannot_start_from_the_workbench_but_direct_controls_work(wor
     with pytest.raises(LabError, match="Codex"):
         server.agent_factory("sdk")(runtime)
     assert not calls
+
+
+def test_saved_run_settings_remain_available_without_a_completed_result(workspace_path, monkeypatch):
+    from mlab.backends.local import LocalBackend
+    from mlab.web import views
+    monkeypatch.setattr(LocalBackend, "submit", lambda *args, **kwargs: None)
+    course, root = setup(workspace_path)
+    held_out = exploration.session_view(root)["overview"]["holdouts"][0]
+    experiment = draft(course, root, seeds=[42, 43], workloads=["development", held_out])
+    submitted = simulate(root, experiment)
+    lab = Lab(root)
+    try:
+        run = next(lab.store.get("run", identifier) for identifier in submitted["runs"]
+                   if lab.store.get("run", identifier).get("holdout") == held_out
+                   and load(root / lab.store.get("run", identifier)["folder"] / "spec.json")["execution"]["seed"] == 43)
+        path = root / run["folder"] / "spec.json"
+        spec = load(path)
+        for status in ("queued", "cancelled", "failed"):
+            run["status"] = status
+            lab.store.put("run", run["id"], run)
+            lab.store.commit()
+            record = views.run_view(lab, run["id"])
+            assert record["seed"] == 43 and record["strategy"] == spec["strategy"]
+            assert record["status"] == status and "metrics" not in record
+        spec["execution"]["seed"] = 999
+        path.write_text(json.dumps(spec))
+        with pytest.raises(LabError, match="run spec changed"):
+            views.run_view(lab, run["id"])
+    finally:
+        lab.close()

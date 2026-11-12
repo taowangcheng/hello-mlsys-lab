@@ -3211,3 +3211,86 @@ tr:last-child td {
 .conversation-activity-step > .message-citations:empty {
   display: none;
 }
+
+/* Keep manual planning available without making it a primary navigation step. */
+.record-directory {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.record-directory-items {
+  flex-basis: 100%;
+}
+.manual-setup {
+  margin-left: auto;
+  position: relative;
+}
+.manual-setup > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  cursor: pointer;
+  color: var(--secondary);
+  list-style: none;
+}
+.manual-setup > summary::-webkit-details-marker {
+  display: none;
+}
+.manual-setup > summary::after {
+  content: '⌄';
+}
+.manual-setup > summary small {
+  font-size: 10px;
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 1px 5px;
+  background: var(--accent-wash);
+}
+.manual-setup-content {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  width: min(320px, calc(100vw - 64px));
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 30px #182a211a;
+  display: grid;
+  gap: 12px;
+}
+.manual-setup-content p {
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.manual-setup-content a {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--accent);
+  padding: 7px 0;
+}
+.task-entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+details.editor-title {
+  padding: 16px 22px;
+}
+.editor-title > summary {
+  cursor: pointer;
+  color: var(--secondary);
+  font-size: 12px;
+}
+.editor-title > label {
+  margin-top: 18px;
+}
+.editor-page > .origin-note {
+  margin: 0 0 20px;
+}

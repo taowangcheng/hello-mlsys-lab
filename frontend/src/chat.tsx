@@ -417,6 +417,7 @@ export function Chat({
   refs,
   setRefs,
   mode = 'panel',
+  focusRequest = 0,
   onClose,
   onNavigate,
   onRefresh,
@@ -425,6 +426,7 @@ export function Chat({
   refs: string[];
   setRefs: (keys: string[]) => void;
   mode?: 'page' | 'panel';
+  focusRequest?: number;
   onClose?: () => void;
   onNavigate: (key: string) => void;
   onRefresh?: () => void;
@@ -450,6 +452,11 @@ export function Chat({
   const active = useRef(true);
   const scroll = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!focusRequest) return;
+    const frame = requestAnimationFrame(() => composer.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [focusRequest]);
   const follow = useRef(true);
   const draftKey = `mlab-chat-${workspace.task}-${session}`;
   const refsKey = `${draftKey}-refs`;

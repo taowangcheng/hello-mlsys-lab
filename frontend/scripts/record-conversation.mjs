@@ -350,7 +350,7 @@ try {
       await page.getByRole('button', { name: 'New conversation', exact: true }).click();
       await expect(page.locator('.discussion-message')).toHaveCount(0);
       await expect(
-        page.getByRole('button', { name: 'Start an experiment', exact: true }),
+        page.getByRole('button', { name: 'Configure a run', exact: true }),
       ).toBeVisible();
       await screenshot('11-clean-new-conversation');
       await page

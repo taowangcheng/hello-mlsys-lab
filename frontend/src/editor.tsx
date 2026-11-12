@@ -138,11 +138,11 @@ export function Editor({
     <div className="editor-page">
       <div className="page-heading">
         <div>
-          <button className="text-button" onClick={() => nav(workspace.task, 'plans')}>
+          <button className="text-button" onClick={() => nav(workspace.session, 'runs')}>
             <ArrowLeft size={14} />
-            {t('All experiment plans')}
+            {t('Back to run history')}
           </button>
-          <h1>{t('Design an experiment')}</h1>
+          <h1>{t('Run configuration')}</h1>
           <p>{t('Choose what to change, then decide where to run it.')}</p>
         </div>
         <div className="actions">
@@ -176,7 +176,8 @@ export function Editor({
           {t('Save as new experiment')}
         </Button>
       )}
-      <div className="editor-title">
+      <details className="editor-title">
+        <summary>{t('Name and notes (optional)')}</summary>
         <label>
           {t('Experiment name')}
           <input
@@ -218,19 +219,27 @@ export function Editor({
             />
           </label>
         </div>
-        {draft.source && (
-          <p className="origin-note">
-            {t('Based on an earlier experiment')}{' '}
-            <button
-              className="text-button"
-              onClick={() => nav(workspace.task, 'plans', draft.source)}
-            >
-              {draft.source}
-              <ArrowRight size={12} />
-            </button>
-          </p>
-        )}
-      </div>
+      </details>
+      {draft.source && (
+        <p className="origin-note">
+          {t(
+            /\/(sim|hw)_/.test(draft.source) ? 'Based on a previous run' : 'Based on a saved plan',
+          )}{' '}
+          <button
+            className="text-button"
+            onClick={() =>
+              nav(
+                workspace.session,
+                /\/(sim|hw)_/.test(draft.source) ? 'runs' : 'plans',
+                draft.source,
+              )
+            }
+          >
+            {draft.source.split('/').slice(1).join('/')}
+            <ArrowRight size={12} />
+          </button>
+        </p>
+      )}
       <div className="configuration-layout">
         <aside className="candidate-list">
           <div className="section-label">
@@ -543,12 +552,14 @@ export function Measurement({
   workspace,
   initial,
   measurement,
+  point,
   onClose,
   reload,
 }: {
   workspace: Workspace;
   initial?: Experiment;
   measurement?: Data;
+  point?: { candidate: string; workload: string };
   onClose: () => void;
   reload: () => Promise<void>;
 }) {
@@ -556,9 +567,9 @@ export function Measurement({
   const [key, setKey] = useState(initial?.key || options.at(-1)?.key || '');
   const source = options.find((item) => item.key === key);
   const [selected, setSelected] = useState<string[]>(
-    initial?.candidates.slice(0, 2).map((item) => item.id) || [],
+    point ? [point.candidate] : initial?.candidates.slice(0, 2).map((item) => item.id) || [],
   );
-  const [workload, setWorkload] = useState('development');
+  const [workload, setWorkload] = useState(point?.workload || 'development');
   const [repetitions, setRepetitions] = useState(1);
   const [reason, setReason] = useState('');
   const [staged, setStaged] = useState<Data[]>([]);
