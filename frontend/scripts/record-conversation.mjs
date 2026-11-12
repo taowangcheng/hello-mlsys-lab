@@ -255,7 +255,7 @@ try {
         throw Error('The simulations did not match the requested two development runs');
       const selected = simulations.find((run) => run.candidate === spec.selected);
       if (!selected) throw Error('The selected configuration has no simulation result');
-      await page.getByRole('link', { name: 'Runs', exact: true }).click();
+      await page.getByRole('link', { name: 'Run history', exact: true }).click();
       await page.getByLabel('Select visible results').check();
       await page.getByRole('button', { name: 'Compare results', exact: true }).click();
       await expect(page.locator('.comparison-table')).toBeVisible();
@@ -325,7 +325,7 @@ try {
       if (state.budget.used !== initialBudget.used + 1)
         throw Error('The measurement spent an unexpected amount of budget');
       await screenshot('07-measurement-discussion');
-      await page.getByRole('link', { name: 'Runs', exact: true }).click();
+      await page.getByRole('link', { name: 'Run history', exact: true }).click();
       await expect(page.locator('.runs-table')).toBeVisible();
       await screenshot('08-execution-history');
       await page.getByRole('button', { name: 'Record directory', exact: false }).click();

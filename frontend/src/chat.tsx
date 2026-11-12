@@ -42,7 +42,7 @@ function references(workspace: Workspace): Reference[] {
     items.push({
       key: experiment.key,
       title: `${experiment.id} · ${experiment.title}`,
-      kind: t('Experiment'),
+      kind: t('Experiment plan'),
       detail: experiment.workloads.map(label).join(', '),
       search: `${experiment.key} ${experiment.title} ${experiment.candidates.map((item) => item.id).join(' ')}`,
     });
@@ -357,15 +357,58 @@ function MessageMarkdown({ text }: { text: string }) {
     </>
   );
 }
-function activityLabel(entry: Data) {
-  const names: Record<string, string> = {
-    Read: 'Reading task materials',
-    Edit: 'Updating an experiment draft',
-    Write: 'Updating an experiment draft',
-    Explore: 'Working with experiment records',
-    AskUserQuestion: 'Preparing a question',
+function operationLabels(entry: Data): [string, string, string] {
+  const labels: Record<string, [string, string, string]> = {
+    list: [
+      'Review experiment records',
+      'Reviewing experiment records…',
+      'Experiment records reviewed',
+    ],
+    show: ['Read a result', 'Reading a result…', 'Result reviewed'],
+    draft: [
+      'Prepare an experiment plan',
+      'Preparing an experiment plan…',
+      'Experiment plan prepared',
+    ],
+    simulate: ['Submit a simulation', 'Starting the simulation…', 'Simulation submitted'],
+    measure: [
+      'Arrange a sandbox measurement',
+      'Preparing the measurement…',
+      'Measurement submitted',
+    ],
+    wait: ['Check run progress', 'Waiting for results…', 'Run progress updated'],
+    cancel: ['Stop a run', 'Requesting the run to stop…', 'Stop requested'],
+    Read: [
+      'Read supporting material',
+      'Reading supporting material…',
+      'Supporting material reviewed',
+    ],
+    Edit: ['Update an experiment plan', 'Updating an experiment plan…', 'Experiment plan updated'],
+    Write: ['Update an experiment plan', 'Updating an experiment plan…', 'Experiment plan updated'],
+    AskUserQuestion: ['Prepare a question', 'Preparing a question…', 'Question prepared'],
   };
-  return t(names[entry.tool] || 'Checking the experiment');
+  return (
+    labels[entry.tool === 'Explore' ? entry.action : entry.tool] || [
+      'Operation details',
+      'Working on your request',
+      'View operation details',
+    ]
+  );
+}
+function operationSummary(entries: Data[], active: boolean) {
+  const latest = [...entries].reverse();
+  const current = latest[0];
+  if (!('result' in current))
+    return active ? t(operationLabels(current)[1]) : t('No result recorded');
+  const entry =
+    latest.find(
+      (entry) =>
+        entry.is_error ||
+        ['draft', 'simulate', 'measure', 'cancel'].includes(entry.action) ||
+        ['Edit', 'Write'].includes(entry.tool),
+    ) || current;
+  if (entry.is_error) return `${t(operationLabels(entry)[0])} · ${t('Did not complete')}`;
+  return t(operationLabels(entry)[2]);
 }
 const busyStatuses = ['running', 'connecting', 'waiting_approval', 'waiting_answer'];
 
@@ -645,6 +688,14 @@ export function Chat({
     )
       visible.push(message);
   }
+  const operationActive = (index: number) => {
+    const later = visible.slice(index + 1);
+    return (
+      busy &&
+      !later.some((entry) => ['agent', 'error'].includes(entry.role)) &&
+      later.filter((entry) => entry.role === 'student').length <= (agent.queued || 0)
+    );
+  };
   const statusLabels: Record<string, string> = {
     offline: 'Ready to chat',
     idle: 'Ready',
@@ -749,26 +800,22 @@ export function Chat({
             </div>
           </div>
         )}
-        {visible.map((message) =>
+        {visible.map((message, index) =>
           message.role === 'activity' ? (
             <details className="conversation-activity" key={message.id}>
-              <summary>
-                {message.entries.some((entry: Data) => !('result' in entry))
-                  ? t('Working on the experiment…')
-                  : message.entries.length === 1
-                    ? t('Activity · 1 step')
-                    : t('Activity · {count} steps', { count: message.entries.length })}
-              </summary>
+              <summary>{operationSummary(message.entries, operationActive(index))}</summary>
               {message.entries.map((entry: Data) => (
                 <div className="conversation-activity-step" key={entry.id}>
-                  <strong>{activityLabel(entry)}</strong>
+                  <strong>{t(operationLabels(entry)[0])}</strong>
                   <span>
                     {t(
                       entry.is_error
                         ? 'Did not complete'
                         : 'result' in entry
-                          ? 'Completed'
-                          : 'Running…',
+                          ? 'Processed'
+                          : operationActive(index)
+                            ? 'In progress'
+                            : 'No result recorded',
                     )}
                   </span>
                   <div className="message-citations">

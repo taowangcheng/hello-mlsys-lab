@@ -140,7 +140,7 @@ export function Editor({
         <div>
           <button className="text-button" onClick={() => nav(workspace.task, 'plans')}>
             <ArrowLeft size={14} />
-            {t('All experiments')}
+            {t('All experiment plans')}
           </button>
           <h1>{t('Design an experiment')}</h1>
           <p>{t('Choose what to change, then decide where to run it.')}</p>
@@ -685,7 +685,7 @@ export function Measurement({
       ) : !preview ? (
         <div className="measurement-form">
           <label>
-            {t('Experiment')}
+            {t('Experiment plan')}
             <select
               value={key}
               onChange={(event) => {

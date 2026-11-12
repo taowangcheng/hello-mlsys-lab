@@ -3189,3 +3189,25 @@ tr:last-child td {
 .conversation-markdown-table tr:last-child td {
   border-bottom: 0;
 }
+
+.conversation-activity-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  padding: 8px 0;
+}
+.conversation-activity-step > strong {
+  font-weight: 500;
+  color: var(--ink);
+}
+.conversation-activity-step > span {
+  margin-left: auto;
+  color: var(--muted);
+}
+.conversation-activity-step > .message-citations {
+  flex-basis: 100%;
+}
+.conversation-activity-step > .message-citations:empty {
+  display: none;
+}

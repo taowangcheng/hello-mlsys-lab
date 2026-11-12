@@ -256,7 +256,12 @@ class TaskRuntime:
                     refs.append(reference)
             self.add("agent", text, refs=refs)
         elif kind == "tool":
-            entry = self.add("tool", tool_summary(event["name"], event.get("input") or {}), tool=event["name"])
+            data = event.get("input") or {}
+            action = data.get("action") if isinstance(data, dict) else None
+            extra = {}
+            if event["name"] == "Explore" and isinstance(action, str) and action in {"list", "show", "draft", "simulate", "measure", "wait", "cancel"}:
+                extra["action"] = action
+            entry = self.add("tool", tool_summary(event["name"], data), tool=event["name"], **extra)
             if event.get("id"):
                 self.tools[event["id"]] = entry["id"]
         elif kind == "tool_result" and event.get("id") in self.tools:

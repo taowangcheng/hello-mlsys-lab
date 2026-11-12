@@ -50,8 +50,8 @@ import './nonce';
 
 const sections = [
   ['overview', 'Task overview', LayoutDashboard],
-  ['plans', 'Experiments', Layers],
-  ['runs', 'Runs', Activity],
+  ['plans', 'Experiment plans', Layers],
+  ['runs', 'Run history', Activity],
   ['compare', 'Compare', GitCompare],
   ['report', 'Report', FileText],
   ['notes', 'Notes & conclusions', BookOpen],
@@ -714,17 +714,17 @@ function Experiments({
       <div className="page-heading">
         <div>
           <span className="eyebrow">{t('IDEAS INTO EVIDENCE')}</span>
-          <h1>{t('Experiments')}</h1>
-          <p>{t('Keep several ideas open. Run them when you are ready.')}</p>
+          <h1>{t('Experiment plans')}</h1>
+          <p>{t('Choose configurations, workloads and seeds for your experiment.')}</p>
         </div>
         <Button className="primary" onClick={() => create()}>
           <Plus size={16} />
-          {t('New experiment')}
+          {t('New experiment plan')}
         </Button>
       </div>
       <div className="segmented compact">
         {[
-          ['all', 'All experiments'],
+          ['all', 'All experiment plans'],
           ['draft', 'Drafts'],
           ['run', 'Executed'],
         ].map(([key, text]) => (
@@ -742,7 +742,7 @@ function Experiments({
           title={t('A place for your next idea')}
           action={
             <Button onClick={() => create()}>
-              {t('New experiment')}
+              {t('New experiment plan')}
               <Plus size={15} />
             </Button>
           }
@@ -815,7 +815,7 @@ function ExperimentDetail({
       <div className="page-heading">
         <div>
           <button className="text-button" onClick={() => nav(workspace.task, 'plans')}>
-            {t('All experiments')}
+            {t('All experiment plans')}
           </button>
           <h1>{experiment.title}</h1>
           <p>{experiment.question}</p>

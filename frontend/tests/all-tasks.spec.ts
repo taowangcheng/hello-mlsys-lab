@@ -237,7 +237,7 @@ for (const scenario of scenarios) {
     await page.getByRole('button', { name: 'Compare results', exact: true }).click();
     await expect(page.locator('.comparison-table')).toContainText(scenario.difference);
     await photograph(page, directory, '05-configuration-comparison');
-    await page.getByRole('link', { name: 'Runs', exact: true }).click();
+    await page.getByRole('link', { name: 'Run history', exact: true }).click();
     let measured = 0;
     for (const workload of ['development', ...scenario.workloads]) {
       const repeats = workload === 'development' ? 2 : 1;

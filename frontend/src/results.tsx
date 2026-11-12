@@ -200,9 +200,11 @@ export function RunTable({
         <div>
           <span className="eyebrow">{t('YOUR LAB')}</span>
           <h1>
-            {t('Runs')} <span className="heading-count">{workspace.runs.length}</span>
+            {t('Run history')} <span className="heading-count">{workspace.runs.length}</span>
           </h1>
-          <p>{t('Every attempt is evidence. Find it, compare it, build on it.')}</p>
+          <p>
+            {t('Each entry is one simulation or sandbox execution, with its status and results.')}
+          </p>
         </div>
         <div className="actions">
           <Button
@@ -214,7 +216,7 @@ export function RunTable({
           </Button>
           <Button className="primary" onClick={onCreate}>
             <FlaskConical size={15} />
-            {t('New experiment')}
+            {t('New experiment plan')}
           </Button>
         </div>
       </div>
@@ -598,7 +600,7 @@ export function RunDetail({
                     : data.evidence_level || 'Pending',
                 )}
               </dd>
-              <dt>{t('Experiment')}</dt>
+              <dt>{t('Experiment plan')}</dt>
               <dd>
                 {origin ? (
                   <button

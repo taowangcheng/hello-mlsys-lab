@@ -10,7 +10,7 @@ test('a student controls experiments, measurements, history and evidence discuss
     if (message.type() === 'error') errors.push(message.text());
   });
   await page.goto('/#/9.2/runs');
-  await page.getByRole('button', { name: 'New experiment', exact: true }).click();
+  await page.getByRole('button', { name: 'New experiment plan', exact: true }).click();
   await page.getByLabel('Experiment name', { exact: true }).fill('Concurrency near the SLA');
   await page
     .getByRole('textbox', { name: 'What do you want to find out?', exact: true })
@@ -65,7 +65,7 @@ test('a student controls experiments, measurements, history and evidence discuss
   await page.getByLabel('Message', { exact: true }).fill('What could explain the difference?');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.locator('.discussion-message.agent')).toContainText('offline preview');
-  await page.getByRole('link', { name: 'Runs', exact: true }).click();
+  await page.getByRole('link', { name: 'Run history', exact: true }).click();
   await page.getByRole('button', { name: 'Arrange measurement', exact: true }).click();
   await page.getByRole('dialog').getByRole('checkbox').nth(1).check();
   await page
@@ -123,7 +123,7 @@ test('dependency workloads compare completion time and critical path without dup
     if (message.type() === 'error') errors.push(message.text());
   });
   await page.goto('/#/9.3/runs');
-  await page.getByRole('button', { name: 'New experiment', exact: true }).click();
+  await page.getByRole('button', { name: 'New experiment plan', exact: true }).click();
   await page.getByLabel('Experiment name', { exact: true }).fill('Dependency workload controls');
   await page.getByRole('button', { name: 'Add a variant', exact: true }).click();
   await page.getByLabel('Configuration name', { exact: true }).fill('dag_control');
@@ -234,21 +234,21 @@ test('one measurement can include configurations from different experiments', as
   await page.getByRole('button', { name: 'Arrange measurement', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog
-    .getByRole('combobox', { name: 'Experiment', exact: true })
+    .getByRole('combobox', { name: 'Experiment plan', exact: true })
     .selectOption(experiments[0].key);
   await dialog.getByRole('checkbox').check();
   await dialog
     .getByRole('button', { name: 'Add these points and choose more', exact: true })
     .click();
   await dialog
-    .getByRole('combobox', { name: 'Experiment', exact: true })
+    .getByRole('combobox', { name: 'Experiment plan', exact: true })
     .selectOption(experiments[1].key);
   await dialog.getByRole('checkbox').check();
   await dialog
     .getByRole('button', { name: 'Add these points and choose more', exact: true })
     .click();
   await dialog
-    .getByRole('combobox', { name: 'Experiment', exact: true })
+    .getByRole('combobox', { name: 'Experiment plan', exact: true })
     .selectOption(unrelated.key);
   await dialog.getByRole('button', { name: 'Review measurement', exact: true }).click();
   await expect(dialog.locator('.prediction-line')).toHaveCount(2);

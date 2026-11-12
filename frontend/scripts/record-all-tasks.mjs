@@ -218,7 +218,7 @@ try {
         await page.getByRole('button', { name: 'Arrange measurement', exact: true }).click();
         await page
           .getByRole('dialog')
-          .getByRole('combobox', { name: 'Experiment', exact: true })
+          .getByRole('combobox', { name: 'Experiment plan', exact: true })
           .selectOption(experiment.key);
         await page
           .locator('.check-list label')

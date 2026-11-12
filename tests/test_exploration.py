@@ -484,6 +484,30 @@ def test_structured_variants_cannot_change_task_rules_or_bypass_parameter_valida
     assert not exploration.task_view(course, "9.2")["experiments"]
 
 
+def test_exploration_activity_persists_only_allowed_actions_in_chat_history(workspace_path):
+    _, root = setup(workspace_path)
+    runtime = TaskRuntime(root.name, root, Bus(), None, opening=False)
+    actions = ["list", "show", "draft", "simulate", "measure", "wait", "cancel"]
+    invalid = ["delete", ["simulate"], {"action": "measure"}, None]
+    for index, action in enumerate(actions + invalid):
+        runtime.event({"type": "tool", "id": str(index), "name": "Explore", "action": "PRIVATE_OUTER_ACTION",
+                       "input": {"action": action, "draft_json": "PRIVATE_DRAFT", "unexpected": "PRIVATE_FIELD"}})
+    runtime.event({"type": "tool_result", "id": "0", "text": "Task available", "is_error": False})
+    runtime.event({"type": "tool", "name": "Read",
+                   "input": {"action": "show", "file_path": "task/task.yaml", "unexpected": "PRIVATE_FIELD"}})
+
+    # Recreate the runtime through the API to verify that the safe activity survives disk persistence.
+    with TestClient(create_app(workspace_path, "fake", opening=False)) as web:
+        history = web.get(f"/api/sessions/{root.name}/chat").json()
+    assert history["ok"]
+    entries = history["entries"]
+    assert [entry.get("action") for entry in entries] == actions + [None] * (len(invalid) + 1)
+    assert entries[0]["result"] == "Task available" and entries[0]["action"] == "list"
+    assert all(set(entry) <= {"id", "at", "role", "text", "tool", "action", "result", "is_error"} for entry in entries)
+    assert "PRIVATE_" not in json.dumps(entries)
+    assert "PRIVATE_" not in runtime.chat.path.read_text()
+
+
 def test_codex_switches_to_exploration_tools_and_creates_an_editable_proposal(workspace_path):
     from test_codex import make_runtime, until
     course, root = setup(workspace_path)

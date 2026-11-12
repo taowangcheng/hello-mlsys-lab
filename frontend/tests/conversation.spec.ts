@@ -1,11 +1,13 @@
 import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 type ReviewServer = { url: string; directory: string };
 const artifacts = resolve('../workspaces/conversation-review');
+const chinese = JSON.parse(readFileSync(resolve('../src/mlab/web/static/locales/zh.json'), 'utf8'));
 const test = base.extend<{}, { conversationServer: ReviewServer }>({
   conversationServer: [
     async ({}, use) => {
@@ -279,7 +281,23 @@ test('conversation can run a simulation and confirm or cancel sandbox measuremen
     )
     .toBe(1);
   await expect(page.locator('.discussion-message.agent').last()).toContainText('sim_0001');
-  await expect(page.locator('.conversation-activity').first()).toBeVisible();
+  const operations = page.locator('.conversation-activity').first();
+  await expect(operations.locator('summary')).toHaveText('Simulation submitted');
+  await operations.locator('summary').click();
+  await expect(operations).toContainText('Prepare an experiment plan');
+  await expect(operations).toContainText('Submit a simulation');
+  await expect(operations).not.toContainText('Activity');
+  await expect(page.getByRole('link', { name: 'Experiment plans', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Run history', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Chinese', exact: true }).click();
+  await expect(page.locator('.conversation-activity summary').first()).toHaveText(
+    chinese['Simulation submitted'],
+  );
+  await expect(
+    page.getByRole('link', { name: chinese['Experiment plans'], exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: chinese['Run history'], exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'EN', exact: true }).click();
   await screenshot(page, 'chat-simulation-result');
   await send(page, 'Run a sandbox measurement for this experiment.');
   let card = page.locator('.conversation-action-card.pending');
@@ -490,5 +508,92 @@ test('streaming replies, interrupt choice and Markdown tables render in the conv
   await expect(page.locator('.conversation-markdown-table table')).toContainText('123 ms');
   await expect(page.locator('.conversation-markdown-table strong')).toHaveText('123 ms');
   await expect(page.locator('.streaming')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('operation summaries show recovered success and stay active for queued questions', async ({
+  page,
+  request,
+}) => {
+  const errors = monitor(page);
+  const opened = await post(request, '/api/sessions', { task: '9.2' });
+  const entries: Record<string, unknown>[] = [
+    { id: 'm000001', role: 'student', text: 'Prepare a plan and run its simulation.' },
+    {
+      id: 'm000002',
+      role: 'tool',
+      tool: 'Explore',
+      action: 'draft',
+      text: 'Explore',
+      result: 'A configuration needs correction.',
+      is_error: true,
+    },
+    {
+      id: 'm000003',
+      role: 'tool',
+      tool: 'Explore',
+      action: 'draft',
+      text: 'Explore',
+      result: 'The corrected plan is ready.',
+      is_error: false,
+    },
+    {
+      id: 'm000004',
+      role: 'tool',
+      tool: 'Explore',
+      action: 'simulate',
+      text: 'Explore',
+      result: 'The simulation was submitted.',
+      is_error: false,
+    },
+    { id: 'm000005', role: 'agent', text: 'The corrected plan has been submitted for simulation.' },
+  ];
+  let agent = { status: 'idle', queued: 0, usage: {} };
+  let queuedPhase = false;
+  let queuedDelivered = false;
+  await page.route(`**/api/sessions/${opened.session}/chat?*`, async (route) => {
+    await route.fulfill({ json: { ok: true, entries, agent } });
+  });
+  await page.route('**/api/events*', async (route) => {
+    const events = [];
+    if (queuedPhase && !queuedDelivered) {
+      queuedDelivered = true;
+      const incoming = [
+        { id: 'm000006', role: 'student', text: 'Run the next simulation.' },
+        { id: 'm000007', role: 'tool', tool: 'Explore', action: 'simulate', text: 'Explore' },
+        {
+          id: 'm000008',
+          role: 'student',
+          text: 'Also explain the latency constraint when you finish.',
+        },
+      ];
+      entries.push(...incoming);
+      agent = { status: 'running', queued: 1, usage: {} };
+      for (const entry of incoming)
+        events.push({ type: 'chat.append', session: opened.session, data: { entry } });
+      events.push({ type: 'agent.status', session: opened.session, data: agent });
+    }
+    await route.fulfill({ json: { ok: true, last: queuedDelivered ? 4 : 0, events } });
+  });
+  await page.goto(`/#/${opened.session}/overview`);
+  const recovered = page.locator('.conversation-activity').first();
+  await expect(recovered.locator('summary')).toHaveText('Simulation submitted');
+  await recovered.locator('summary').click();
+  await expect(recovered.locator('.conversation-activity-step').first()).toContainText(
+    'Did not complete',
+  );
+  await expect(recovered.locator('.conversation-activity-step').last()).toContainText('Processed');
+  queuedPhase = true;
+  await expect(page.locator('.conversation-activity')).toHaveCount(2);
+  await expect(page.locator('.discussion-message.student').last()).toContainText(
+    'Also explain the latency constraint',
+  );
+  await expect(page.locator('.conversation-agent-bar')).toContainText('1 message queued');
+  const pending = page.locator('.conversation-activity').last();
+  await expect(pending.locator('summary')).toHaveText('Starting the simulation…');
+  await pending.locator('summary').click();
+  await expect(pending).toContainText('In progress');
+  await expect(pending).not.toContainText('No result recorded');
+  await expect(recovered.locator('summary')).toHaveText('Simulation submitted');
   expect(errors).toEqual([]);
 });
