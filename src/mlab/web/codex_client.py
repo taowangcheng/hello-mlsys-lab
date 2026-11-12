@@ -18,7 +18,7 @@ from ..codex import AppServer, MODEL
 from ..agent_env import load_profile
 from ..core.io import LabError, atomic, hashed, inside, require, tool_path
 from ..soclaas import InferenceCancelled
-from . import approvals
+from . import approvals, reading
 
 APPEND = ("You are the hello-mlsys lab assistant, running through Codex. Use the supplied Bash, Read, Write, Edit and "
           "AskUserQuestion tools for all lab work. Bash accepts one mlab command, not a shell script. "
@@ -61,6 +61,12 @@ EXPLORATION = ("You are the hello-mlsys experiment assistant. The student contro
     "Each candidate must retain schema, id, infra, rationale and strategy, including all required deployment fields. "
     "Supply only one of template_ids, variants or draft_json. The examples and available workloads are already in the list response. "
     "Use Explore(action='show', reference='session/record') for existing records in the active session only. "
+    "Evidence previews may have _reading.complete=false. Their _reading.omitted entries contain exact Read arguments in next. "
+    "When an answer depends on omitted text or list items, call Read with those arguments before making claims. "
+    "Read returns text, complete and next for a page; follow next until the relevant evidence is available. Offsets count Unicode characters, not tokens or bytes. "
+    "For a list, Read selects its complete JSON array and pages its serialization; json_pointer can select an individual item or field. "
+    "Evidence snapshot files preserve the cited version. Explore show fetches the current record when fresh status is needed. "
+    "Never assume a preview is the entire record or claim to have inspected unread pages. "
     "To inspect another conversation the student must switch to it. No Bash command is needed to create or execute a draft. "
     "If deeper inspection is needed, supported commands include 'mlab task show', 'mlab history' and 'mlab run show sim_0001'. "
     "There is no shell, 'mlab list', 'mlab workloads', or 'mlab experiment' command. "
@@ -114,8 +120,15 @@ TOOLS = [
           "draft_json": {"type": "string", "description": "For custom drafts only: valid JSON object with title, question, candidates, seeds, workloads. Each candidate retains schema, id, infra, rationale, strategy from list.templates. Do not also supply template_ids."}}, ["action"]),
     tool("Bash", "Run a single mlab command in this workspace. Commands that need a decision open a confirmation card.",
          {"command": STRING}, ["command"]),
-    tool("Read", "Read a workspace text file. Paths are relative to the workspace; no shell commands are needed.",
-         {"file_path": STRING}, ["file_path"]),
+    tool("Read", "Read a workspace file or evidence snapshot. Small files return text; larger files or explicit paging return "
+         "JSON with text, complete, total_chars and next. Follow next verbatim for another page. "
+         "All offsets count Unicode characters in the selected text or serialized JSON value, not array items. "
+         "A json_pointer such as /runs/30 or /analysis selects a value before paging.",
+         {"file_path": STRING,
+          "json_pointer": {"type": "string", "description": "Optional RFC 6901 pointer into a JSON file; empty selects the entire value."},
+          "offset": {"type": "integer", "minimum": 0, "description": "Zero-based character offset; default 0."},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 20000, "description": "Characters per page; default 12000."},
+          "version": {"type": "string", "description": "Copy from next to detect a file changing between pages."}}, ["file_path"]),
     tool("Write", "Write an editable lab record or candidate file. Never modify frozen evidence or page-submitted words.",
          {"file_path": STRING, "content": STRING}, ["file_path", "content"]),
     tool("Edit", "Replace one exact occurrence in an editable record. Read the file first.",
@@ -249,7 +262,8 @@ class LabTools:
     def path(self, name, write=False):
         path = inside(self.root, name)
         relative = path.relative_to(self.root).as_posix()
-        detailed_output = not write and relative == ".mlab/last-output.json"
+        detailed_output = not write and (relative == ".mlab/last-output.json"
+                                        or re.fullmatch(r"\.mlab/evidence/[a-f0-9]{64}\.(json|txt)", relative))
         require(detailed_output or not any(p.startswith(".") for p in path.relative_to(self.root).parts),
                 "E_SCHEMA", "Private state is not a lab record", 2)
         if write:
@@ -283,12 +297,10 @@ class LabTools:
                     result = await self.explore_execution(data)
                 elif data["action"] == "show":
                     target, reference = await asyncio.to_thread(exploration.reference_target, self.root, data["reference"])
-                    result = await asyncio.to_thread(read, target, views.record, reference)
+                    result = await asyncio.to_thread(read, target, views.evidence_record, reference)
                     self.runtime.remember_references([data["reference"]])
                 else:
                     result = await asyncio.to_thread(exploration.session_view, self.root)
-                    result["runs"] = result["runs"][-30:]
-                    result["experiments"] = result["experiments"][-20:]
                     result = {"task": result["task"], "templates": result["templates"],
                               "draft_help": {"unchanged_examples": {"action": "draft", "template_ids": [result["templates"][0]["id"]], "title": "Your experiment name"},
                                              "controlled_variants": "Use variants=[{template_id: an example ID, id: a new configuration ID, changes: [{field: a task parameter path, value: the new value as text}]}]. Deployment paths include an index, e.g. deployments.0.weight_precision.",
@@ -296,7 +308,7 @@ class LabTools:
                                              "workloads": ["development", *result["overview"]["holdouts"]],
                                              "note": "The draft remains editable. Use simulate on request; measure opens an in-chat confirmation. No CLI or file discovery is needed."},
                               **{key: value for key, value in result.items() if key not in {"task", "templates"}}}
-                return json.dumps(result, ensure_ascii=False)[:60000], False
+                return reading.encoded(await asyncio.to_thread(reading.preview, self.root, result)), False
             if exploratory and name in {"Write", "Edit", "AskUserQuestion"}:
                 return "Use Explore for experiment drafts and requested execution, and ask questions in ordinary chat. Only the student writes their observations and conclusions.", True
             if name == "AskUserQuestion":
@@ -330,7 +342,7 @@ class LabTools:
                     cwd=self.root, env=env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
                 try:
                     output, _ = await asyncio.wait_for(self.process.communicate(), 120)
-                    return output.decode(errors="replace")[:60000], self.process.returncode != 0
+                    return reading.text_output(self.root, output.decode(errors="replace")), self.process.returncode != 0
                 except asyncio.TimeoutError:
                     await self.interrupt()
                     return "The command timed out. Check mlab next before continuing.", True
@@ -340,7 +352,8 @@ class LabTools:
                 finally:
                     self.process = None
             if name == "Read":
-                return self.path(data["file_path"]).read_text(encoding="utf-8")[:60000], False
+                content = await asyncio.to_thread(self.path(data["file_path"]).read_text, encoding="utf-8")
+                return reading.read_text(content, data), False
             if name in {"Write", "Edit"}:
                 path = self.path(data["file_path"], write=True)
                 content = data.get("content", "")

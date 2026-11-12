@@ -442,3 +442,16 @@ def record(lab, identifier, lang=None):
 def references(text):
     """Record IDs a student wrote with @ in chat, in order, without repeats."""
     return list(dict.fromkeys(REFERENCE.findall(text or "")))
+
+
+def evidence_record(lab, identifier):
+    """Read complete evidence for the assistant, independently of display limits."""
+    value = record(lab, identifier)
+    if value.get("kind") == "run":
+        run = lab.store.get("run", value["id"])
+        folder = lab.root / run["folder"]
+        value.update(logs=text_of(folder / "logs.txt"), logs_truncated=False)
+        value["files"] = {name: (folder / name).relative_to(lab.root).as_posix()
+                          for name in ("spec.json", "result.json", "requests.jsonl", "manifest.json", "logs.txt")
+                          if (folder / name).is_file()}
+    return value

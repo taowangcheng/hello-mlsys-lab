@@ -251,15 +251,192 @@ test('a new conversation starts clean and switching back restores its evidence a
   );
   await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue(draft);
   await page.getByRole('textbox', { name: 'Message', exact: true }).fill(draft + ' @');
-  await expect(page.getByRole('dialog', { name: 'Add from history', exact: true })).toBeVisible();
+  await expect(page.getByRole('listbox', { name: 'Matching records', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.reload();
   await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue(
-    draft + ' ',
+    draft + ' @',
   );
   await expect(
     page.locator('.discussion-message.student .message-citations .citation'),
   ).toHaveCount(3);
+  expect(errors).toEqual([]);
+});
+
+test('inline references work at the caret, with keyboard selection and composition', async ({
+  page,
+  request,
+}) => {
+  const errors = monitor(page);
+  const opened = await post(request, '/api/sessions', { task: '9.2' });
+  const endpoint = `/api/workbench/sessions/${opened.session}`;
+  const workspace = await (await request.get(endpoint)).json();
+  const candidate = workspace.templates.find((item: any) => item.id === 'baseline');
+  const experiment = await post(request, `${endpoint}/create`, {
+    candidates: [16, 20].map((concurrency) => {
+      const item = structuredClone(candidate);
+      item.id = `inline_c${concurrency}`;
+      item.strategy.serving.max_concurrency = concurrency;
+      return item;
+    }),
+    seeds: [42],
+    workloads: ['development'],
+  });
+  const launched = await post(request, `${endpoint}/simulate`, {
+    workflow: experiment.id,
+    revision: experiment.revision,
+    confirm: true,
+  });
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get(endpoint)).json()).runs.filter(
+          (run: any) => run.status === 'succeeded',
+        ).length,
+    )
+    .toBe(2);
+  await page.goto(`/#/${opened.session}/overview`);
+  const composer = page.getByRole('textbox', { name: 'Message', exact: true });
+  const menu = page.getByRole('listbox', { name: 'Matching records', exact: true });
+  const prefix = String.fromCodePoint(0x8bf7, 0x89e3, 0x91ca);
+  const suffix = ' and keep this part of the question.';
+  await composer.fill(prefix + suffix);
+  await composer.evaluate(
+    (element: HTMLTextAreaElement, position) => element.setSelectionRange(position, position),
+    prefix.length,
+  );
+  await composer.pressSequentially('@sim_');
+  await expect(menu.getByRole('option')).toHaveCount(2);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(composer).toBeFocused();
+  await screenshot(page, 'inline-reference-at-caret');
+  await composer.press('ArrowDown');
+  await composer.press('Enter');
+  const first = launched.runs[0];
+  const second = launched.runs[1];
+  await expect(composer).toHaveValue(`${prefix}@${first}${suffix}`);
+  await expect(page.locator('.discussion-context .reference-chip')).toHaveCount(1);
+  await expect(page.locator('.discussion-message.student')).toHaveCount(0);
+
+  // Editing an existing mention consumes its whole token, keeping the following prose.
+  await composer.evaluate(
+    (element: HTMLTextAreaElement, position) => element.setSelectionRange(position, position),
+    prefix.length + 5,
+  );
+  await expect(menu).toBeVisible();
+  await menu.getByRole('option').filter({ hasText: second }).click();
+  await expect(composer).toHaveValue(`${prefix}@${second}${suffix}`);
+  await expect(page.locator('.discussion-context .reference-chip')).toHaveCount(1);
+  await expect(page.locator('.discussion-context')).toContainText(second);
+  await composer.evaluate(
+    (element: HTMLTextAreaElement, positions) =>
+      element.setSelectionRange(positions[0], positions[1]),
+    [prefix.length, prefix.length + second.length + 1],
+  );
+  await composer.press('Backspace');
+  await expect(page.locator('.discussion-context .reference-chip')).toHaveCount(0);
+
+  await composer.fill('Question @over');
+  await expect(menu).toBeVisible();
+  await composer.press('Escape');
+  await expect(menu).not.toBeVisible();
+  await expect(composer).toHaveValue('Question @over');
+  await page.reload();
+  await expect(composer).toHaveValue('Question @over');
+  await composer.fill('person@example.com');
+  await expect(menu).not.toBeVisible();
+
+  await composer.fill('');
+  await composer.dispatchEvent('compositionstart');
+  await composer.fill(prefix + '@sim_');
+  await expect(menu).not.toBeVisible();
+  await composer.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true });
+  await expect(page.locator('.discussion-message.student')).toHaveCount(0);
+  await composer.dispatchEvent('compositionend');
+  await expect(menu).toBeVisible();
+  await composer.press('Tab');
+  await expect(composer).toBeFocused();
+  await expect(page.locator('.discussion-context .reference-chip')).toHaveCount(1);
+  await page
+    .locator('.discussion-context')
+    .getByRole('button', { name: /^Remove reference/ })
+    .click();
+  await expect(composer).not.toHaveValue(/@sim_/);
+  await expect(page.locator('.discussion-context .reference-chip')).toHaveCount(0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Conversation', exact: true }).click();
+  await composer.fill(prefix + '@sim_');
+  await expect(menu).toBeVisible();
+  const bounds = await page.locator('.mention-popover').boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
+  await screenshot(page, 'inline-reference-mobile');
+  await menu.getByRole('option').filter({ hasText: first }).click();
+  const message = await composer.inputValue();
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(page.locator('.discussion-message.student').last()).toContainText(message.trim());
+  const transcript = await (await request.get(`/api/sessions/${opened.session}/chat`)).json();
+  expect(
+    transcript.entries.find(
+      (entry: any) => entry.role === 'student' && entry.text === message.trim(),
+    ).refs,
+  ).toEqual([`${opened.session}/${first}`]);
+  expect(errors).toEqual([]);
+});
+
+test('inline and manually attached references share the twelve-record limit', async ({
+  page,
+  request,
+}) => {
+  const errors = monitor(page);
+  const opened = await post(request, '/api/sessions', { task: '9.2' });
+  const endpoint = `/api/workbench/sessions/${opened.session}`;
+  const workspace = await (await request.get(endpoint)).json();
+  await post(request, `${endpoint}/create`, {
+    candidates: Array.from({ length: 12 }, (_, index) => ({
+      ...structuredClone(workspace.templates[0]),
+      id: `choice_${index}`,
+    })),
+    seeds: [42],
+    workloads: ['development'],
+  });
+  await page.goto(`/#/${opened.session}/overview`);
+  await page.getByRole('button', { name: 'Add from history', exact: true }).click();
+  const configurations = page
+    .locator('.history-option')
+    .filter({ has: page.locator('.history-reference-meta', { hasText: /^Configuration/ }) });
+  for (const row of await configurations.all()) await row.getByRole('checkbox').check();
+  await page.getByRole('button', { name: 'Attach selected', exact: true }).click();
+  await expect(page.locator('.discussion-context .reference-chip')).toHaveCount(12);
+  const composer = page.getByRole('textbox', { name: 'Message', exact: true });
+  await composer.fill('Explain @over');
+  const option = page.getByRole('option', { name: /Task overview/ });
+  await expect(option).toHaveAttribute('aria-disabled', 'true');
+  await composer.press('Enter');
+  await expect(composer).toHaveValue('Explain @over');
+  await expect(page.locator('.discussion-message.student')).toHaveCount(0);
+  await composer.press('Tab');
+  await expect(composer).not.toBeFocused();
+  await expect(
+    page.getByRole('listbox', { name: 'Matching records', exact: true }),
+  ).not.toBeVisible();
+  await page
+    .locator('.discussion-context')
+    .getByRole('button', { name: /^Remove reference/ })
+    .first()
+    .click();
+  await composer.fill('Explain @ove');
+  await expect(option).toHaveAttribute('aria-disabled', 'false');
+  await composer.press('Enter');
+  await expect(page.locator('.discussion-context .reference-chip')).toHaveCount(12);
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(page.locator('.discussion-message.student')).toHaveCount(1);
+  const transcript = await (await request.get(`/api/sessions/${opened.session}/chat`)).json();
+  expect(transcript.entries.find((entry: any) => entry.role === 'student').refs).toHaveLength(12);
   expect(errors).toEqual([]);
 });
 

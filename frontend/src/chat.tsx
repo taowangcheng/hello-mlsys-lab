@@ -11,10 +11,27 @@ import {
   X,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { api, label, number, stored, store, t, unit, type Data, type Workspace } from './api';
+import {
+  api,
+  label,
+  language,
+  number,
+  stored,
+  store,
+  t,
+  unit,
+  type Data,
+  type Workspace,
+} from './api';
 import { Button, ErrorLine, Modal } from './ui';
+import {
+  MentionComposer,
+  inlineReferences,
+  matchesReference,
+  withoutReference,
+  type Reference,
+} from './mentions';
 
-type Reference = { key: string; title: string; kind: string; detail: string; search: string };
 function references(workspace: Workspace): Reference[] {
   const session = workspace.session;
   const experiments = workspace.experiments.filter((item) => item.session === session);
@@ -461,16 +478,15 @@ export function Chat({
   const draftKey = `mlab-chat-${workspace.task}-${session}`;
   const refsKey = `${draftKey}-refs`;
   const skipRefSave = useRef(false);
-  const allReferences = useMemo(() => references(workspace), [workspace]);
+  const locale = language;
+  const allReferences = useMemo(() => references(workspace), [workspace, locale]);
   const byKey = useMemo(
     () => new Map(allReferences.map((item) => [item.key, item])),
     [allReferences],
   );
-  const matches = allReferences.filter((item) =>
-    `${item.title} ${item.kind} ${item.detail} ${item.search}`
-      .toLowerCase()
-      .includes(search.trim().toLowerCase()),
-  );
+  const matches = allReferences.filter((item) => matchesReference(item, search));
+  const inline = inlineReferences(text, session).filter((key) => byKey.has(key));
+  const attached = [...new Set([...refs, ...inline])];
   const status = agent.status || 'offline';
   const busy = busyStatuses.includes(status);
   useEffect(() => {
@@ -586,7 +602,7 @@ export function Chat({
     store(draftKey, value);
   }
   function openPicker() {
-    setChosen(refs.filter((key) => byKey.has(key)));
+    setChosen(attached.filter((key) => byKey.has(key)));
     setSearch('');
     setPicker(true);
   }
@@ -620,7 +636,7 @@ export function Chat({
     try {
       await api(`/api/workbench/sessions/${session}/chat`, {
         text: text.trim(),
-        refs: refs.filter((key) => key.startsWith(`${session}/`)),
+        refs: attached.filter((key) => key.startsWith(`${session}/`)),
         mode: interruptFirst ? 'interrupt_then_send' : 'queue',
       });
       if (!active.current) return;
@@ -675,7 +691,10 @@ export function Chat({
         {removable && (
           <button
             aria-label={t('Remove reference {reference}', { reference: reference?.title || key })}
-            onClick={() => setRefs(refs.filter((item) => item !== key))}
+            onClick={() => {
+              setRefs(refs.filter((item) => item !== key));
+              draft(withoutReference(text, key, session));
+            }}
           >
             <X size={12} />
           </button>
@@ -874,33 +893,22 @@ export function Chat({
       </div>
       <div className="discussion-composer">
         <ErrorLine text={error || connectionError} />
-        {refs.length > 0 && (
+        {attached.length > 0 && (
           <div className="discussion-context">
             <span className="eyebrow">{t('ATTACHED TO YOUR NEXT MESSAGE')}</span>
             <div className="reference-chips">
-              {refs.filter((key) => byKey.has(key)).map((key) => citation(key, true))}
+              {attached.filter((key) => byKey.has(key)).map((key) => citation(key, true))}
             </div>
           </div>
         )}
-        <textarea
-          ref={composer}
-          aria-label={t('Message')}
-          rows={3}
-          placeholder={t('Ask a question, describe an experiment, or type @ to add a result…')}
+        <MentionComposer
+          inputRef={composer}
           value={text}
-          onChange={(event) => {
-            const value = event.target.value;
-            if (/(^|\s)@$/.test(value) && !text.endsWith('@')) {
-              draft(value.slice(0, -1));
-              openPicker();
-            } else draft(value);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-              event.preventDefault();
-              send();
-            }
-          }}
+          onChange={draft}
+          onSend={send}
+          options={allReferences}
+          selected={attached}
+          session={session}
         />
         {busy && (
           <div className="conversation-send-mode">
@@ -996,7 +1004,12 @@ export function Chat({
           <Button
             className="primary"
             onClick={() => {
-              setRefs(chosen);
+              draft(
+                inline
+                  .filter((key) => !chosen.includes(key))
+                  .reduce((value, key) => withoutReference(value, key, session), text),
+              );
+              setRefs(chosen.filter((key) => !inline.includes(key)));
               setPicker(false);
               composer.current?.focus();
             }}

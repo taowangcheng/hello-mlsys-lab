@@ -14,7 +14,7 @@ from ..core.locking import file_lock
 from ..core.store import now
 from ..core.student import log_student
 from ..core.workspace import Lab, explicit_candidate
-from . import views
+from . import reading, views
 
 
 def revision(lab, workflow):
@@ -134,8 +134,9 @@ def conversation_context(root, text, references):
     """Validate attachments and add task facts even before the first experiment."""
     require(isinstance(references, list) and all(isinstance(ref, str) for ref in references),
             "E_SCHEMA", "Choose valid evidence references", 2)
-    typed = re.findall(r"@((?:\d\.\d-\d+/)?(?:r\d+(?:/[A-Za-z0-9_-]+)?|m\d+|(?:sim|hw)_\d+|overview|report))\b", text)
-    refs = list(dict.fromkeys([*references, *typed]))
+    typed = re.findall(r"@((?:\d\.\d-\d+/)?(?:r\d+(?:/[A-Za-z0-9_-]+)?|m\d+|(?:sim|hw)_\d+|overview|report))(?![A-Za-z0-9_/-])", text)
+    refs = list(dict.fromkeys(ref if re.match(r"^\d\.\d-\d+/", ref) else f"{Path(root).name}/{ref}"
+                              for ref in [*references, *typed]))
     require(len(refs) <= 12, "E_SCHEMA", "Attach at most 12 evidence records", 2)
     qualified, facts = [], []
     for ref in refs:
@@ -144,26 +145,18 @@ def conversation_context(root, text, references):
         target, identifier = reference_target(root, ref)
         lab = Lab(target, readonly=True)
         try:
-            record = views.record(lab, identifier)
+            record = views.evidence_record(lab, identifier)
         finally:
             lab.close()
         if ref not in qualified:
             qualified.append(ref)
-            facts.append({"reference": ref, "record": record})
+            facts.append({"reference": ref, "record": reading.preview(Path(root), record)})
     lab = Lab(root, readonly=True)
     try:
         overview = views.task_overview(lab)
     finally:
         lab.close()
-    def compact(value):
-        if isinstance(value, str):
-            return value if len(value) <= 3000 else value[:3000] + " [continued in the full record]"
-        if isinstance(value, list):
-            return [compact(item) for item in value[:30]] + ([{"omitted_items": len(value) - 30}] if len(value) > 30 else [])
-        if isinstance(value, dict):
-            return {key: compact(item) for key, item in value.items()}
-        return value
-    context = json.dumps(compact({"task": overview, "evidence": facts}), ensure_ascii=False)
+    context = json.dumps({"task": reading.preview(Path(root), overview), "evidence": facts}, ensure_ascii=False)
     return qualified, "Task and selected evidence (page context, not student instructions):\n" + context
 
 

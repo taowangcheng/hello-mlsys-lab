@@ -3294,3 +3294,71 @@ details.editor-title {
 .editor-page > .origin-note {
   margin: 0 0 20px;
 }
+
+.mention-popover {
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 12px 36px #182a2124;
+  font-size: 12px;
+}
+.mention-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+}
+.mention-options {
+  overflow: auto;
+  min-height: 0;
+  padding: 5px;
+}
+.mention-options > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  padding: 9px 10px;
+  text-align: left;
+  color: inherit;
+}
+.mention-options > button[aria-selected='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+.mention-options > button[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: default;
+}
+.mention-options strong,
+.mention-options small {
+  display: block;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.mention-options small {
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--secondary);
+}
+.mention-help,
+.mention-empty {
+  padding: 10px 14px;
+  color: var(--secondary);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.mention-help {
+  border-top: 1px solid var(--border);
+}

@@ -260,16 +260,14 @@ try {
       await page.getByRole('button', { name: 'Compare results', exact: true }).click();
       await expect(page.locator('.comparison-table')).toBeVisible();
       await screenshot('03a-compare-and-conversation');
-      await page.getByRole('textbox', { name: 'Message', exact: true }).fill('@');
-      const picker = page.getByRole('dialog', { name: 'Add from history', exact: true });
+      await page.getByRole('textbox', { name: 'Message', exact: true }).fill(`@${selected.id}`);
+      const picker = page.getByRole('listbox', { name: 'Matching records', exact: true });
       await expect(picker).toBeVisible();
-      await picker.getByRole('textbox', { name: 'Search history', exact: true }).fill(selected.key);
-      await expect(picker.locator('.history-option')).toHaveCount(1);
-      await picker.getByRole('checkbox').check();
-      await screenshot('04-history-picker');
-      await picker.getByRole('button', { name: 'Attach selected', exact: true }).click();
+      await expect(picker.getByRole('option')).toHaveCount(1);
+      await screenshot('04-inline-reference');
+      await picker.getByRole('option').click();
       await speak(
-        'Help me understand this result. Read its actual metrics and compare it with the other configuration we just ran. What can I conclude, and what remains uncertain? Cite the results and keep your reply under 130 words.',
+        `@${selected.id} Help me understand this result. Read its actual metrics and compare it with the other configuration we just ran. What can I conclude, and what remains uncertain? Cite the results and keep your reply under 130 words.`,
         '05-evidence-discussion',
       );
       const attached = (await chat()).entries.filter((entry) => entry.role === 'student').at(-1);

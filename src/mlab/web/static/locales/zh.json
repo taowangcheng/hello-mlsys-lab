@@ -1146,5 +1146,10 @@
  "Name and notes (optional)": "名称与笔记（可选）",
  "Based on a previous run": "基于之前的运行",
  "Based on a saved plan": "基于已保存的方案",
- "Did not complete": "未完成"
+ "Did not complete": "未完成",
+ "Reference a record": "引用记录",
+ "Matching records": "匹配的记录",
+ "Attached": "已引用",
+ "Up to 12 records per message. Remove one to add another.": "每条消息最多引用 12 项，移除一项后可以继续添加。",
+ "↑ ↓ to choose · Enter or Tab to add · Esc to close": "↑ ↓ 选择 · Enter 或 Tab 添加 · Esc 收起"
 }
