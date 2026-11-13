@@ -1,5 +1,11 @@
 # Simulator API integration review
 
+**Current handoff: [minimal data contract](DATA_CONTRACT.zh-CN.md).** The immediate
+scope is one synchronous HTTP execution with exact input and complete output.
+Task redesign and the earlier asynchronous lifecycle proposal are deferred.
+Request/response schemas, unchanged task exports and explicit mock response
+shapes are included; they are design-time materials, not a registered backend.
+
 Status: **HTTP connectivity works; the three course tasks are not integrated.**
 Tested upstream version: **1.19.0**, commit
 [`fc6379ff66dd58362a06cb27ae0f1366347e5df9`](https://github.com/eyuansu62/mlsys-simulator/tree/fc6379ff66dd58362a06cb27ae0f1366347e5df9).
@@ -53,6 +59,9 @@ The current upstream HTTP service is a single-GPU form API. It generates its
 own homogeneous request cohort; it does not accept the lab's frozen trace.
 Its CLI/Python API supports substantially more functionality than its HTTP API.
 The required changes are summarized in [UPSTREAM_REQUESTS.md](UPSTREAM_REQUESTS.md).
+The saved HTTP evidence used the earlier examples at lab commit `c9df4ad`.
+Current examples clarify source hashing and the explicit simulation deadline;
+they have not been executed by a newly implemented upstream API.
 
 ## Reproduce the HTTP checks
 
@@ -84,7 +93,9 @@ task integration.
 ## Materials for the simulator team
 
 - [Requested changes and ownership](UPSTREAM_REQUESTS.md).
-- [Proposed HTTP contract](API_PROPOSAL.md), with endpoint names open for agreement.
+- [Minimal data contract](DATA_CONTRACT.zh-CN.md) and [English API summary](API_PROPOSAL.md).
+- [Request schema](schemas/request.schema.json), [response schema](schemas/response.schema.json),
+  and [response shapes](examples/RESPONSE_EXAMPLES.md).
 - [Task 9.1 input](examples/task-9.1.request.json): 6 exact sequential requests.
 - [Task 9.2 input](examples/task-9.2.request.json): 12 exact, mixed-length open-loop requests.
 - [Task 9.3 input](examples/task-9.3.request.json): 10 exact heterogeneous DAG nodes.

@@ -1,0 +1,130 @@
+{
+  "schema": "mlab.simulator.v1",
+  "client_request_id": "schema-example-only",
+  "input_sha256": "sha256:c1615e3c149385a79716151a58e3ee3f9952422ff6006e7721955a0e2069f381",
+  "status": "failed",
+  "failure_class": "oom",
+  "error": {
+    "code": "OUT_OF_MEMORY",
+    "message": "Illustrative failure",
+    "field": null
+  },
+  "evidence_level": "mock",
+  "backend": {
+    "name": "schema-example-only",
+    "version": "0"
+  },
+  "catalog_version": "EXAMPLE_ONLY",
+  "model_revisions": {
+    "example-model": "EXAMPLE_ONLY"
+  },
+  "calibration": {
+    "version": null,
+    "kind": "uncalibrated",
+    "in_domain": null,
+    "assumptions": [
+      "Illustrative timestamps only; no simulator or hardware was executed."
+    ]
+  },
+  "effective_config": {
+    "infra": {
+      "id": "example-infra",
+      "nodes": [
+        {
+          "id": "node0",
+          "devices": [
+            {
+              "id": "gpu0",
+              "hardware": "example-hardware"
+            }
+          ]
+        }
+      ]
+    },
+    "strategy": {
+      "deployments": [
+        {
+          "model": "example-model",
+          "weight_precision": "BF16",
+          "kv_precision": "BF16",
+          "context_tokens": 1024,
+          "devices": [
+            "gpu0"
+          ],
+          "replicas": 1,
+          "parallel": {
+            "kind": "none",
+            "degree": 1
+          }
+        }
+      ],
+      "serving": {
+        "max_concurrency": 1,
+        "gpu_memory_utilization": 0.8,
+        "kv_fraction": null,
+        "kv_budget_gib": null,
+        "chunked_prefill_tokens": null,
+        "continuous_batching": false
+      },
+      "cache": {},
+      "scheduling": {},
+      "speculative": false
+    }
+  },
+  "requests": [
+    {
+      "request_id": "parent",
+      "status": "failed",
+      "ready_ms": 0.0,
+      "first_token_ms": null,
+      "finished_ms": 10.0,
+      "output_tokens": 0,
+      "output_tokens_target": 2,
+      "started_ms": 0.0,
+      "service_ms": null,
+      "deployment_model": "example-model",
+      "replica_index": 0,
+      "device_ids": [
+        "gpu0"
+      ],
+      "failure_code": "OUT_OF_MEMORY",
+      "blocked_by": []
+    },
+    {
+      "request_id": "child",
+      "status": "blocked",
+      "ready_ms": null,
+      "first_token_ms": null,
+      "finished_ms": 10.0,
+      "output_tokens": 0,
+      "output_tokens_target": 2,
+      "started_ms": null,
+      "service_ms": null,
+      "deployment_model": null,
+      "replica_index": null,
+      "device_ids": [],
+      "failure_code": "DEPENDENCY_FAILED",
+      "blocked_by": [
+        "parent"
+      ]
+    }
+  ],
+  "per_device": [
+    {
+      "device_id": "gpu0",
+      "capacity_bytes": 17179869184,
+      "physical_peak_bytes": null,
+      "kv_peak_bytes": null,
+      "kv_pool_reserved_bytes": null
+    }
+  ],
+  "unsupported_fields": {
+    "per_device.physical_peak_bytes": "No resource measurement in a schema example.",
+    "per_device.kv_peak_bytes": "No resource measurement in a schema example.",
+    "per_device.kv_pool_reserved_bytes": "No resource measurement in a schema example.",
+    "requests.service_ms": "No service accounting in the illustrative failure."
+  },
+  "logs": [
+    "Protocol example only. These are not performance predictions."
+  ]
+}

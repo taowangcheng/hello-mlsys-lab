@@ -4,6 +4,10 @@ This note is for coordination between the simulator team and the learning-lab
 team. It records observed compatibility gaps, not a request to copy lab
 implementation details into the simulator. Endpoint spelling is negotiable.
 
+The current milestone is the [minimal data contract](DATA_CONTRACT.zh-CN.md):
+one synchronous HTTP request/response preserving the current tasks. The broader
+lifecycle below is follow-up work, not a prerequisite for initial integration.
+
 Baseline inspected: `mlsys-simulator` **1.19.0**, commit
 `fc6379ff66dd58362a06cb27ae0f1366347e5df9`. The checkout and upstream service were
 not modified. [HTTP evidence](evidence/http-report.json) accompanies the note.
@@ -89,6 +93,9 @@ available only with clear `uncalibrated` provenance; unknown calibrated-domain
 coverage must not be reported as in-domain.
 
 ## P1: expose capabilities and lifecycle for remote execution
+
+Defer the asynchronous operations until the first complete data exchange works.
+An agreed static catalog and a synchronous execution endpoint suffice initially.
 
 The current service binds only loopback, has one synchronous execution slot,
 rejects concurrent requests with `429 WEB_BUSY`, and uses a 20-second wall limit.

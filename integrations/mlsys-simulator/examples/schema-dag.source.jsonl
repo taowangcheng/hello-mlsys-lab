@@ -1,0 +1,2 @@
+{"request_id": "parent", "input_tokens": 16, "output_tokens_target": 2, "arrival_ms": 0}
+{"request_id": "child", "input_tokens": 32, "output_tokens_target": 2, "depends_on": ["parent"], "gap_after_deps_ms": 100}

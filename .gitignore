@@ -21,3 +21,5 @@ config/*.local.json
 .env.*
 node_modules/
 !.env.example
+!integrations/mlsys-simulator/schemas/
+!integrations/mlsys-simulator/schemas/*.json

@@ -129,7 +129,7 @@
         "controller_id": "c0"
       }
     ],
-    "requests_sha256": "sha256:044efd6eaaa421ebf3e6fabf8678ac46c27cb836a01a06af8c5a05a4d422c567"
+    "source_sha256": "sha256:cbec87df2b9853b84e5c7c67fe06f66f78a910423ef8d48ed162693ebf271058"
   },
   "infra": {
     "id": "w7900d_x4",
@@ -225,7 +225,8 @@
     "split": "development",
     "holdout": null,
     "initial_state": "empty",
-    "warmup": null
+    "warmup": null,
+    "max_simulated_ms": 300000
   },
   "catalog_version": "to-be-agreed",
   "client_request_id": "protocol-probe-task-9.3-baseline"

@@ -1,0 +1,17 @@
+{
+  "scope": "Data contract only; no task or production-backend changes",
+  "runtime_backend_registered": false,
+  "upstream_modified": false,
+  "real_task_integration_complete": false,
+  "validation": {
+    "command": ".venv/bin/python -m pytest -q tests/test_simulator_data_contract.py",
+    "passed": 24
+  },
+  "unchanged_task_request_counts": {
+    "9.1": 6,
+    "9.2": 12,
+    "9.3": 10
+  },
+  "response_examples": "Explicit mock schema fixtures; no performance evidence",
+  "next_step": "Agree catalog IDs and field semantics, then execute the exact task payloads through the simulator HTTP service"
+}

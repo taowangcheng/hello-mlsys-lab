@@ -1,0 +1,99 @@
+{
+  "schema": "mlab.simulator.v1",
+  "client_request_id": "schema-example-only",
+  "catalog_version": "EXAMPLE_ONLY",
+  "task": "schema-example",
+  "candidate_id": "example",
+  "workload": {
+    "mode": "dag",
+    "requests": [
+      {
+        "request_id": "parent",
+        "input_tokens": 16,
+        "output_tokens_target": 2,
+        "arrival_ms": 0.0,
+        "target_model": null,
+        "depends_on": [],
+        "gap_after_deps_ms": 0.0,
+        "category": null,
+        "prefix_group": null,
+        "controller_id": null,
+        "subagent_id": null
+      },
+      {
+        "request_id": "child",
+        "input_tokens": 32,
+        "output_tokens_target": 2,
+        "arrival_ms": null,
+        "target_model": null,
+        "depends_on": [
+          "parent"
+        ],
+        "gap_after_deps_ms": 100.0,
+        "category": null,
+        "prefix_group": null,
+        "controller_id": null,
+        "subagent_id": null
+      }
+    ],
+    "source_sha256": "sha256:84b00b34e7fd84bf2ce2c23023f0736e167acc6318048183def034cfbcf7b770"
+  },
+  "infra": {
+    "id": "example-infra",
+    "nodes": [
+      {
+        "id": "node0",
+        "devices": [
+          {
+            "id": "gpu0",
+            "hardware": "example-hardware"
+          }
+        ]
+      }
+    ]
+  },
+  "strategy": {
+    "deployments": [
+      {
+        "model": "example-model",
+        "weight_precision": "BF16",
+        "kv_precision": "BF16",
+        "context_tokens": 1024,
+        "devices": [
+          "gpu0"
+        ],
+        "replicas": 1,
+        "parallel": {
+          "kind": "none",
+          "degree": 1
+        }
+      }
+    ],
+    "serving": {
+      "max_concurrency": 1,
+      "gpu_memory_utilization": 0.8,
+      "kv_fraction": null,
+      "kv_budget_gib": null,
+      "chunked_prefill_tokens": null,
+      "continuous_batching": false
+    },
+    "cache": {},
+    "scheduling": {},
+    "speculative": false
+  },
+  "evaluation": {
+    "constraints": [],
+    "duration_s": 1.0,
+    "timeout_s": 30.0,
+    "goodput_policy": "both_thresholds_required"
+  },
+  "execution": {
+    "seed": 42,
+    "repeat": 0,
+    "split": "development",
+    "holdout": null,
+    "initial_state": "empty",
+    "warmup": null,
+    "max_simulated_ms": 1000.0
+  }
+}

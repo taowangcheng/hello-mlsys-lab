@@ -42,7 +42,7 @@
         "category": "qa_with_context"
       }
     ],
-    "requests_sha256": "sha256:04970e6c1f34e1a8647b98106ad1b0fc0bcd3549526cecd7ec94b0df4052432b"
+    "source_sha256": "sha256:c572d1617b82ed5628a7112546b85fc4ea3d088ad3e1e3ec6245a5855e407319"
   },
   "infra": {
     "id": "rx9070xt_x1",
@@ -123,7 +123,8 @@
     "split": "development",
     "holdout": null,
     "initial_state": "empty",
-    "warmup": null
+    "warmup": null,
+    "max_simulated_ms": 300000
   },
   "catalog_version": "to-be-agreed",
   "client_request_id": "protocol-probe-task-9.1-baseline"
