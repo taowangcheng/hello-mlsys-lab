@@ -1,0 +1,159 @@
+{
+  "purpose": "HTTP protocol compatibility probe; no course task execution is claimed",
+  "upstream": {
+    "repository": "https://github.com/eyuansu62/mlsys-simulator",
+    "commit": "fc6379ff66dd58362a06cb27ae0f1366347e5df9",
+    "version": "1.19.0",
+    "tested_interface": "Existing loopback HTTP form API",
+    "integration_status": "Protocol negotiation required; not a registered lab backend"
+  },
+  "version_verified_over_http": false,
+  "version_note": "The declared checkout is recorded separately; the current HTTP API does not expose a software version.",
+  "base_url": "http://127.0.0.1:8877",
+  "transport_connected": true,
+  "analytical_smoke_completed": true,
+  "deterministic_repeat": true,
+  "native_result_sha256": "sha256:9e36bdc062166ef54345ca2e2058727f56dde63e7a6f32c672b14586b5538777",
+  "native_requests_sha256": "sha256:a993e0bdd8f0e73696de903efabedca5de4310aa5087c596ba54ecee17d323b7",
+  "concurrent_http_statuses": [
+    200,
+    429
+  ],
+  "task_integration": {
+    "9.1": {
+      "status": "blocked",
+      "http_status": 422,
+      "error": {
+        "code": "INVALID_WEB_CONFIG",
+        "message": "configuration must be an object; allowed fields: hardware, memory, model, model_id, strategy, workload"
+      }
+    },
+    "9.2": {
+      "status": "blocked",
+      "http_status": 422,
+      "error": {
+        "code": "INVALID_WEB_CONFIG",
+        "message": "configuration must be an object; allowed fields: hardware, memory, model, model_id, strategy, workload"
+      }
+    },
+    "9.3": {
+      "status": "blocked",
+      "http_status": 422,
+      "error": {
+        "code": "INVALID_WEB_CONFIG",
+        "message": "configuration must be an object; allowed fields: hardware, memory, model, model_id, strategy, workload"
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "presets",
+      "status": 200,
+      "error": null
+    },
+    {
+      "name": "analytical-smoke",
+      "status": 200,
+      "error": null
+    },
+    {
+      "name": "analytical-repeat",
+      "status": 200,
+      "error": null
+    },
+    {
+      "name": "capabilities-endpoint",
+      "status": 404,
+      "error": {
+        "code": "NOT_FOUND",
+        "message": "Unknown endpoint"
+      }
+    },
+    {
+      "name": "runs-endpoint",
+      "status": 404,
+      "error": {
+        "code": "NOT_FOUND",
+        "message": "Unknown endpoint"
+      }
+    },
+    {
+      "name": "sequential-arrival",
+      "status": 422,
+      "error": {
+        "code": "INVALID_WEB_CONFIG",
+        "message": "workload.arrival must be periodic, poisson or burst"
+      }
+    },
+    {
+      "name": "exact-request-list",
+      "status": 422,
+      "error": {
+        "code": "INVALID_WEB_CONFIG",
+        "message": "workload must be an object; allowed fields: arrival, input_tokens, output_tokens, rate_rps, requests, seed"
+      }
+    },
+    {
+      "name": "model-id-with-precision",
+      "status": 422,
+      "error": {
+        "code": "INVALID_WEB_CONFIG",
+        "message": "strategy must be an object; allowed fields: chunked_prefill, max_batch_size, max_batch_tokens, mixed_batching, prefill_chunk_tokens, scheduler"
+      }
+    },
+    {
+      "name": "multi-replica",
+      "status": 422,
+      "error": {
+        "code": "INVALID_WEB_CONFIG",
+        "message": "strategy must be an object; allowed fields: chunked_prefill, max_batch_size, max_batch_tokens, mixed_batching, prefill_chunk_tokens, scheduler"
+      }
+    },
+    {
+      "name": "dag-nodes",
+      "status": 422,
+      "error": {
+        "code": "INVALID_WEB_CONFIG",
+        "message": "configuration must be an object; allowed fields: hardware, memory, model, model_id, strategy, workload"
+      }
+    },
+    {
+      "name": "task-9.1-contract",
+      "status": 422,
+      "error": {
+        "code": "INVALID_WEB_CONFIG",
+        "message": "configuration must be an object; allowed fields: hardware, memory, model, model_id, strategy, workload"
+      }
+    },
+    {
+      "name": "task-9.2-contract",
+      "status": 422,
+      "error": {
+        "code": "INVALID_WEB_CONFIG",
+        "message": "configuration must be an object; allowed fields: hardware, memory, model, model_id, strategy, workload"
+      }
+    },
+    {
+      "name": "task-9.3-contract",
+      "status": 422,
+      "error": {
+        "code": "INVALID_WEB_CONFIG",
+        "message": "configuration must be an object; allowed fields: hardware, memory, model, model_id, strategy, workload"
+      }
+    },
+    {
+      "name": "concurrent-1",
+      "status": 429,
+      "error": {
+        "code": "WEB_BUSY",
+        "message": "A simulation is already running; try again after it finishes"
+      }
+    },
+    {
+      "name": "concurrent-2",
+      "status": 200,
+      "error": null
+    }
+  ],
+  "full_evidence_directory": "workspaces/simulator-api-probe-2026-11-13-final"
+}

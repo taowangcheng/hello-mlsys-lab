@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/eyuansu62/mlsys-simulator",
+  "commit": "fc6379ff66dd58362a06cb27ae0f1366347e5df9",
+  "version": "1.19.0",
+  "tested_interface": "Existing loopback HTTP form API",
+  "integration_status": "Protocol negotiation required; not a registered lab backend"
+}

@@ -1,0 +1,20 @@
+{
+  "version": "1.19.0",
+  "purpose": "Public core API schema reproduction only",
+  "absolute_release_control": {
+    "parent_completion_ms": 1000.0,
+    "child_release_ms": 100.0,
+    "child_ready_ms": 1000.0,
+    "relative_gap_requirement_ready_ms": 1100.0
+  },
+  "native_critical_path_definition": "observed_latest_parent_chain_including_resource_and_release_wait",
+  "native_request_has_service_ms": false,
+  "relative_gap_field": {
+    "code": "INVALID_CONFIG",
+    "message": "dag.nodes[1]: unknown fields: gap_after_deps_ms"
+  },
+  "fixed_sequential_stream": {
+    "code": "INVALID_LOAD_VALIDATION",
+    "message": "finite closed-loop study requires ['cohort', 'concurrency_grid', 'input_lengths', 'max_run_ms', 'output_tokens', 'replications', 'requests_per_run', 'schema_version', 'seed', 'study_id', 'think_ms', 'timeout_ms']; optional keys: ['prompt_token_id']"
+  }
+}
