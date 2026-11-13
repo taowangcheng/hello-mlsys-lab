@@ -4,6 +4,10 @@ This note is for coordination between the simulator team and the learning-lab
 team. It records observed compatibility gaps, not a request to copy lab
 implementation details into the simulator. Endpoint spelling is negotiable.
 
+The [handoff index](README.md) collects the current contract, examples and
+acceptance steps. The observations below apply to the pinned revision, not to
+uninspected newer releases.
+
 The current milestone is the [minimal data contract](DATA_CONTRACT.zh-CN.md):
 one synchronous HTTP request/response preserving the current tasks. The broader
 lifecycle below is follow-up work, not a prerequisite for initial integration.
@@ -69,8 +73,9 @@ replays should be needed.
 
 ## P0: keep model/hardware resolution on the service
 
-Please return supported model IDs, hardware/infra IDs, precisions, mechanisms
-and a catalog revision from a capabilities endpoint. The service owns model
+Please agree supported model IDs, hardware/infra IDs, precisions, mechanisms
+and a catalog revision. A static document is sufficient for the first milestone;
+a capabilities endpoint can follow later. The service owns model
 geometry, memory planning, calibration and nominal hardware rates. The agent
 must not supply hidden size, layer counts, FLOP rates, fit coefficients or private
 engine configuration in order to run an experiment.
@@ -164,4 +169,5 @@ traces, or patch the simulator to make a demonstration pass.
 
 The immediate next joint milestone is **one unchanged 9.2 workload over HTTP**
 with agreed model IDs and complete records. Then validate 9.1 sequential release
-and 9.3 multi-pool DAG timing, including failure and cancellation cases.
+and 9.3 multi-pool DAG timing, including failure propagation and the simulation
+deadline. Cancellation cases belong to the later lifecycle milestone.

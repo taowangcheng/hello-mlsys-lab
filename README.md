@@ -12,7 +12,7 @@ Experiments can use simulation or hardware measurement. Simulation has no total 
 | Workbench design, build and browser checks | [Frontend guide](docs/web-frontend.md) |
 | Course page API | [docs/web-api.md](docs/web-api.md) |
 | Backend interface and artifact formats | [docs/contract-v0.1.md](docs/contract-v0.1.md) |
-| External simulator API review and coordination | [Integration findings](integrations/mlsys-simulator/README.md) · [Forwardable Chinese note](integrations/mlsys-simulator/REQUESTS.zh-CN.md) |
+| External simulator API handoff: contract, examples and acceptance | [Simulator team start page](integrations/mlsys-simulator/README.md) |
 | Scope of the v0.1 implementation (fast flywheel only, the student reports numeric predictions) | [Initial implementation notes](docs/implementation-v0.1.md) |
 | Item-by-item check of v0.1 against the plan and the contract | [Conformance check record](docs/conformance-v0.1.md) |
 | v0.1 architecture, student interaction, startup and recovery | [Initial agent architecture](docs/initial-agent-architecture.md) |
