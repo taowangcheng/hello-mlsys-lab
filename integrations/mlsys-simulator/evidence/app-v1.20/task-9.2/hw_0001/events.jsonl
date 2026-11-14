@@ -1,0 +1,12 @@
+{"request_id": "r001", "ready_ms": 0.0, "finished_ms": 1031.2420095822117}
+{"request_id": "r002", "ready_ms": 200.0, "finished_ms": 1224.0650594303204}
+{"request_id": "r003", "ready_ms": 400.0, "finished_ms": 3893.6501631426354}
+{"request_id": "r004", "ready_ms": 600.0, "finished_ms": 1626.5249773419735}
+{"request_id": "r005", "ready_ms": 1000.0, "finished_ms": 2034.2053356926183}
+{"request_id": "r006", "ready_ms": 1010.0, "finished_ms": 2044.8977066111563}
+{"request_id": "r007", "ready_ms": 1020.0, "finished_ms": 4771.374682761374}
+{"request_id": "r008", "ready_ms": 1030.0, "finished_ms": 2049.004179215133}
+{"request_id": "r009", "ready_ms": 1040.0, "finished_ms": 4765.970807664591}
+{"request_id": "r010", "ready_ms": 1050.0, "finished_ms": 2080.4962986025876}
+{"request_id": "r011", "ready_ms": 2000.0, "finished_ms": 3018.5025046679084}
+{"request_id": "r012", "ready_ms": 2200.0, "finished_ms": 3267.3994787629463}

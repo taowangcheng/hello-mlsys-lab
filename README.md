@@ -6,6 +6,8 @@ The page keeps task and session navigation on the left, task information and evi
 
 Experiments can use simulation or hardware measurement. Simulation has no total run budget, but each batch has a size limit. Measurements share a task budget and currently use a stand-in until the AMD sandbox is connected. The fixture, LLM simulator and stand-in all produce demonstration numbers.
 
+The `mlsys` backend connects to MLSys Simulator 1.20.0 through its public HTTP API. The explicit `protocol-v1.20` session profile runs all three task workloads with supported Qwen3 BF16 configurations on RX9070XT; it does not replace the original course baselines. Simulation is uncalibrated, model quality is not evaluated, and sandbox measurements remain synthetic. Modeled memory or request failures remain visible and can be checked on the sandbox after student confirmation. See the [application integration and recordings](integrations/mlsys-simulator/APP_INTEGRATION.zh-CN.md).
+
 | To read about | Go to |
 | --- | --- |
 | Implementation design and plan | [docs/plan.md](docs/plan.md) (Chinese copy: [docs/plan.zh-CN.md](docs/plan.zh-CN.md)) |

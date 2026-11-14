@@ -1,0 +1,105 @@
+{
+  "schema": "mlab.v1",
+  "run_id": "hw_0003",
+  "task": "9.1",
+  "candidate_id": "bf16_1_7b",
+  "spec_hash": "sha256:bf6213adab324266627daededc6ccc9e2274923011a1ae27ef6dbc356e59e8f6",
+  "backend": {
+    "name": "standin",
+    "version": "0.1.0-standin.1",
+    "service_source": "standin",
+    "model": "standin"
+  },
+  "status": "succeeded",
+  "verdict": "not_evaluated",
+  "evidence_level": "mock",
+  "failure_class": null,
+  "constraints": [
+    {
+      "metric": "vram_peak_gib",
+      "op": "<=",
+      "value": 14.0,
+      "status": "draft",
+      "source": "Project plan Ch 9.1",
+      "note": "The document says \"14 GB\"; treated as GiB for now",
+      "observed": 5.266496753692627,
+      "met": true
+    },
+    {
+      "metric": "ttft_ms.p50",
+      "op": "<=",
+      "value": 500.0,
+      "status": "draft",
+      "source": "Project plan Ch 9.1",
+      "note": "The document names no percentile; Ch 4 takes the median of repeated runs, so p50 for now",
+      "observed": 204.36078298494374,
+      "met": true
+    },
+    {
+      "metric": "decode_tok_s",
+      "op": ">=",
+      "value": 20.0,
+      "status": "draft",
+      "source": "Project plan Ch 9.1",
+      "note": null,
+      "observed": 134.05735902720474,
+      "met": true
+    }
+  ],
+  "metrics": {
+    "ttft_ms": {
+      "p50": 204.36078298494374,
+      "p95": 235.68554097338438,
+      "p99": 235.74077689589777
+    },
+    "tpot_ms": {
+      "p50": 7.459493512751258,
+      "p95": 7.459493512751259,
+      "p99": 7.459493512751259
+    },
+    "e2e_ms": {
+      "p50": 1629.1240439204344,
+      "p95": 2137.856386724955,
+      "p99": 2137.9116226474684
+    },
+    "completion_rate": 1.0,
+    "throughput_tok_s": 3.84,
+    "goodput_tok_s": null,
+    "decode_tok_s": 134.05735902720474,
+    "makespan_s": 9.77131400569608,
+    "critical_path_s": 2.1379254316280965,
+    "vram_peak_gib": 5.266496753692627,
+    "kv_peak_gib": 0.9,
+    "tightest_constraint": {
+      "metric": "ttft_ms.p50",
+      "utilization": 0.40872156596988746,
+      "met": true
+    },
+    "energy_j_per_req": null
+  },
+  "unsupported_metrics": {
+    "energy_j_per_req": "No value: unsupported model, missing threshold or unsuccessful run; see status/coverage.",
+    "goodput_tok_s": "No value: unsupported model, missing threshold or unsuccessful run; see status/coverage."
+  },
+  "quality": {
+    "status": "not_evaluated",
+    "passes_floor": null,
+    "source": "quality_table:9.1",
+    "table_status": "not_evaluated",
+    "note": "hand-written draft table, not measured quality"
+  },
+  "coverage": {
+    "in_domain": true,
+    "extrapolated": [],
+    "assumptions": [
+      "Hardware stand-in: the numbers are made up, not measured on real hardware.",
+      "The stand-in adds run noise, parameter error, a missing mechanism and configuration differences by fixed rules.",
+      "Goodput is null: required TTFT/TPOT thresholds are not declared."
+    ]
+  },
+  "requests": {
+    "total": 6,
+    "completed": 6,
+    "failed": 0
+  }
+}

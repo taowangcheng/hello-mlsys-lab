@@ -1157,5 +1157,16 @@
  "Changes kept in this tab": "修改保留在当前页面",
  "Reconnected with your earlier discussion and records.": "已重新连接，可以继续之前的讨论并查看记录。",
  "Showing the first 2,000 characters.": "当前显示前 2,000 个字符。",
- "Download complete log": "下载完整日志"
+ "Download complete log": "下载完整日志",
+  "Integration exercise: Qwen3 BF16 models on RX9070XT. These configurations differ from the original course baselines. Simulation is uncalibrated; sandbox measurements use demonstration data.": "本次联调使用 Qwen3 BF16 模型和 RX9070XT，与原课程基线配置不同。模拟结果尚未经过实机校准；沙盒部分仍使用演示数据。",
+  "simulator_api": "模拟器正在运行",
+  "Latest completion chain": "最晚完成的依赖链",
+  "This request is on the latest completion chain.": "该请求位于最晚完成的依赖链上。",
+  "Includes waiting; not independent service time.": "包含等待时间，不能作为独立服务时间。",
+  "Time to first token includes queueing and prefill. The second segment shows subsequent token generation.": "首字延迟包含排队和预填充；后一段表示后续 token 的生成过程。",
+  "Simulation did not complete ({reason}). You can still confirm a sandbox check.": "模拟未完成（{reason}）。你仍可确认沙盒执行，检查该配置的表现。",
+  "request_failure": "部分或全部请求未完成",
+  "Incomplete": "未完成",
+  "Paired shift": "配对请求偏移",
+  "Paired shifts use fixed thresholds; they do not establish statistical significance or simulator accuracy.": "配对请求偏移按固定阈值判断，不能说明差异具有统计显著性，也不能证明模拟器准确度。"
 }

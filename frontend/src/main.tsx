@@ -348,6 +348,7 @@ function App() {
           }
           onDiscuss={discuss}
           onCompare={addCompare}
+          onComparePair={setSelected}
           reload={reload}
         />
       );
@@ -1043,6 +1044,11 @@ function Overview({
           </span>
         </div>
       </div>
+      {workspace.overview.profile && (
+        <div className="data-notice" role="note">
+          {t(workspace.overview.profile.notice)}
+        </div>
+      )}
       <div className="overview-grid">
         <section className="detail-panel">
           <span className="eyebrow">{t('THE TARGET')}</span>
@@ -1086,9 +1092,11 @@ function Overview({
         </section>
       </div>
       <div className="data-notice">
-        {t(
-          'This workspace uses demonstration data. Results illustrate the experiment process and do not establish real hardware performance.',
-        )}
+        {workspace.overview.profile
+          ? t(workspace.overview.notice)
+          : t(
+              'This workspace uses demonstration data. Results illustrate the experiment process and do not establish real hardware performance.',
+            )}
       </div>
       <details className="detail-panel task-guide">
         <summary>{t('Read the task guide')}</summary>

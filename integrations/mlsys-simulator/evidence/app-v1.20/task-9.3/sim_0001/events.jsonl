@@ -1,0 +1,10 @@
+{"request_id": "plan", "ready_ms": 0.0, "finished_ms": 13766.146629350395}
+{"request_id": "sub1", "ready_ms": 13866.146629350395, "finished_ms": 20577.24392801608}
+{"request_id": "sub2", "ready_ms": 13866.146629350395, "finished_ms": 20577.24392801608}
+{"request_id": "sub3", "ready_ms": 13866.146629350395, "finished_ms": 19363.38367841608}
+{"request_id": "sub4", "ready_ms": 13866.146629350395, "finished_ms": 19363.38367841608}
+{"request_id": "ctrl1", "ready_ms": 20777.24392801608, "finished_ms": 28632.607798330413}
+{"request_id": "ctrl2", "ready_ms": 19563.38367841608, "finished_ms": 27779.517235930412}
+{"request_id": "sub5", "ready_ms": 28732.607798330413, "finished_ms": 33375.37070408532}
+{"request_id": "sub6", "ready_ms": 28732.607798330413, "finished_ms": 33375.37070408532}
+{"request_id": "synth", "ready_ms": 33675.37070408532, "finished_ms": 69898.0456524669}

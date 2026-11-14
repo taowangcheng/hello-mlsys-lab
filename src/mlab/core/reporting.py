@@ -47,6 +47,7 @@ def verify(folder, record, files):
 def report_data(lab):
     """Everything in the task's report, verified against the frozen records. Reads only."""
     iterations, measurements, runs = [], [], []
+    profile = load(lab.root / "task/profile.json") if (lab.root / "task/profile.json").exists() else None
     for workflow in lab.store.all("workflow"):
         folder = lab.folder(workflow)
         verify(folder, workflow, [("approval.json", "approval_hash"), ("frozen_plan.json", "frozen_hash"),
@@ -95,7 +96,8 @@ def report_data(lab):
             "hardware_budget": lab.hardware_budget(), "iterations": iterations, "measurements": measurements,
             "runs": runs, "student_messages": messages,
             "student_notes": [note for note in lab.store.all("note") if note.get("author") == "student"],
-            "notice": NOTICE, "warning": "Small synthetic samples do not establish reliable p99 or real hardware improvements."}
+            "profile": profile, "notice": profile["notice"] if profile else NOTICE,
+            "warning": "Small synthetic samples do not establish reliable p99 or real hardware improvements."}
     return data
 
 
@@ -134,7 +136,7 @@ def render_report(lab, data, tr=english, translate=same):
     def yes(flag):
         return tr("yes") if flag else tr("no")
 
-    lines = ["# " + tr("Report: {task} {title}", task=data["task"], title=tr(lab.task["title"])), "", tr(NOTICE), "",
+    lines = ["# " + tr("Report: {task} {title}", task=data["task"], title=tr(lab.task["title"])), "", tr(data["notice"]), "",
              tr("The sample is small: it supports no reliable p99 conclusion and shows no improvement on real hardware."), "",
              row(tr("Item"), tr("Details")), "| --- | --- |",
              row(tr("Conclusion"), data["conclusion"] or tr("not submitted yet")),
@@ -160,14 +162,15 @@ def render_report(lab, data, tr=english, translate=same):
         alignment = measurement["alignment"]
         if alignment and alignment["rows"]:
             lines += ["", "### " + tr("Simulation vs. hardware ({metric})", metric=alignment["metric"]), "",
-                      row(tr("Hardware run"), tr("Candidate"), tr("Workload"), tr("Simulated"), tr("Hardware"), tr("Gap"), tr("Beyond noise"),
+                      row(tr("Hardware run"), tr("Candidate"), tr("Workload"), tr("Simulated"), tr("Hardware"), tr("Gap"), tr("Paired shift"),
                           tr("Verdict flipped"), tr("Configuration differences")),
                       "| --- | --- | --- | ---: | ---: | ---: | --- | --- | --- |"]
             for item in alignment["rows"]:
                 gap = f"{item['gap_pct']:+.1f}%" if item["gap_pct"] is not None else "-"
                 lines.append(row(item["run_id"], item["candidate"], item["workload"], number(item["simulated"]), number(item["hardware"]), gap,
                                  yes(item["beyond_noise"]), yes(item["verdict_flip"]), "; ".join(item["config_diff"]) or "-"))
-            lines += ["", tr("Order: simulated {sim}; hardware {hw}.", sim=" < ".join(alignment["ranking"]["simulated"]) or "-",
+            lines += ["", tr("Paired shifts use fixed thresholds; they do not establish statistical significance or simulator accuracy."),
+                         "", tr("Order: simulated {sim}; hardware {hw}.", sim=" < ".join(alignment["ranking"]["simulated"]) or "-",
                              hw=" < ".join(alignment["ranking"]["hardware"]) or "-")]
         lines += [""]
     columns = list(dict.fromkeys(filter(None, [lab.task["key_metrics"][0], lab.task["objective"].get("metric")])))

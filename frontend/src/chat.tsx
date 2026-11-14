@@ -178,6 +178,14 @@ function ExecutionCard({
                     {t('Simulation')}: {number(point.simulated)} {unit(summary.metric || '')}
                   </span>
                 )}
+                {point.sim_status && point.sim_status !== 'succeeded' && (
+                  <span className="data-notice">
+                    {t(
+                      'Simulation did not complete ({reason}). You can still confirm a sandbox check.',
+                      { reason: t(point.sim_failure_class || point.sim_status) },
+                    )}
+                  </span>
+                )}
               </div>
             ))}
           </div>

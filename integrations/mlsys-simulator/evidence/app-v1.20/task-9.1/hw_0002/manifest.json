@@ -1,0 +1,154 @@
+{
+  "schema": "mlab.v1",
+  "spec": {
+    "schema": "mlab.v1",
+    "task": "9.1",
+    "candidate_id": "bf16_1_7b",
+    "workload": {
+      "mode": "sequential",
+      "requests": {
+        "path": "workloads/assistant_prompts.requests.jsonl",
+        "sha256": "sha256:c572d1617b82ed5628a7112546b85fc4ea3d088ad3e1e3ec6245a5855e407319"
+      }
+    },
+    "infra": {
+      "id": "rx9070xt_x1",
+      "nodes": [
+        {
+          "id": "node0",
+          "devices": [
+            {
+              "id": "gpu0",
+              "hardware": "rx9070xt"
+            }
+          ]
+        }
+      ]
+    },
+    "strategy": {
+      "deployments": [
+        {
+          "model": "llm-1.7b",
+          "weight_precision": "BF16",
+          "kv_precision": "BF16",
+          "context_tokens": 8192,
+          "devices": [
+            "gpu0"
+          ],
+          "replicas": 1,
+          "parallel": {
+            "kind": "none",
+            "degree": 1
+          }
+        }
+      ],
+      "serving": {
+        "max_concurrency": 1,
+        "gpu_memory_utilization": 0.8,
+        "kv_fraction": null,
+        "kv_budget_gib": null,
+        "chunked_prefill_tokens": null,
+        "continuous_batching": false
+      },
+      "cache": {},
+      "scheduling": {},
+      "speculative": false
+    },
+    "evaluation": {
+      "constraints": [
+        {
+          "metric": "vram_peak_gib",
+          "op": "<=",
+          "value": 14.0,
+          "status": "draft",
+          "source": "Project plan Ch 9.1",
+          "note": "The document says \"14 GB\"; treated as GiB for now"
+        },
+        {
+          "metric": "ttft_ms.p50",
+          "op": "<=",
+          "value": 500.0,
+          "status": "draft",
+          "source": "Project plan Ch 9.1",
+          "note": "The document names no percentile; Ch 4 takes the median of repeated runs, so p50 for now"
+        },
+        {
+          "metric": "decode_tok_s",
+          "op": ">=",
+          "value": 20.0,
+          "status": "draft",
+          "source": "Project plan Ch 9.1",
+          "note": null
+        }
+      ],
+      "duration_s": 300.0,
+      "timeout_s": 1800,
+      "goodput_policy": "both_thresholds_required"
+    },
+    "execution": {
+      "seed": 42,
+      "repeat": 1,
+      "split": "repeat",
+      "holdout": null,
+      "initial_state": "empty",
+      "warmup": null
+    }
+  },
+  "spec_hash": "sha256:e37701dbb97557414c0aca87b456c713718bdd3882111cd75fe18b80c3a391ce",
+  "seed": 42,
+  "role": "hardware",
+  "backend": {
+    "name": "standin",
+    "version": "0.1.0-standin.1",
+    "service_source": "standin",
+    "model": "standin"
+  },
+  "versions": {
+    "mlab": "0.2.0",
+    "metrics": "linear-v1"
+  },
+  "provenance": {
+    "source": "hardware stand-in with designed discrepancies"
+  },
+  "environment": {
+    "kind": "hardware stand-in, not real hardware",
+    "gpu": "Radeon RX 9070 XT",
+    "driver": "stand-in",
+    "rocm": "stand-in",
+    "framework": "stand-in",
+    "image": "stand-in"
+  },
+  "effective_config": {
+    "serving": {
+      "max_concurrency": 1,
+      "gpu_memory_utilization": 0.8,
+      "kv_fraction": null,
+      "kv_budget_gib": null,
+      "chunked_prefill_tokens": null,
+      "continuous_batching": false
+    },
+    "deployments": [
+      {
+        "model": "llm-1.7b",
+        "weight_precision": "BF16",
+        "kv_precision": "BF16",
+        "context_tokens": 8192,
+        "devices": [
+          "gpu0"
+        ],
+        "replicas": 1,
+        "parallel": {
+          "kind": "none",
+          "degree": 1
+        }
+      }
+    ]
+  },
+  "sha256": {
+    "spec.json": "sha256:0cb1450fd5136faabf3e6a19e84aa5a5f806f9f785b14d6b0bfdc213a3a5f8ed",
+    "result.json": "sha256:8529c2b2185e82ce27938267eca8105e0cd3979094a2947377250415e8fed958",
+    "requests.jsonl": "sha256:2654d680b21e5d166f5ef8686b6b7bc3a7fce2b644a7023cd8bf007a47f22759",
+    "events.jsonl": "sha256:233e0f2da76ddf40b918d0eab11ef2d0c16c8d3020caf66eca51b45eeab666d8",
+    "logs.txt": "sha256:b301ed92f231962e70dde625ffd4dc50d2cc3edef2c3b3a9d7a051cce98b1847"
+  }
+}

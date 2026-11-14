@@ -28,10 +28,12 @@ def parser():
     init = commands.add_parser("init")
     init.add_argument("directory")
     init.add_argument("--task", choices=["9.1", "9.2", "9.3"], default="9.2")
-    init.add_argument("--simulator", "--backend", dest="simulator", choices=["llm", "fixture"], default="llm",
+    init.add_argument("--simulator", "--backend", dest="simulator", choices=["llm", "fixture", "mlsys"], default="llm",
                       help="Fast flywheel backend (--backend is the older name)")
     init.add_argument("--hardware", choices=["standin"], default="standin", help="Slow flywheel backend")
     init.add_argument("--provider")
+    init.add_argument("--simulator-profile", choices=["protocol-v1.20"])
+    init.add_argument("--simulator-url")
     init.add_argument("--mode", choices=["guided", "open"], default="guided", help="open lets advanced students skip hypothesis-first")
     nxt = commands.add_parser("next")
     nxt.add_argument("--hook", action="store_true")
@@ -85,7 +87,9 @@ def parser():
     demo.add_argument("--task", choices=["9.1", "9.2", "9.3"], default="9.2")
     web = commands.add_parser("web", help="Serve the course page: one agent per task, on 127.0.0.1")
     web.add_argument("directory", nargs="?", default="mlsys-course", help="Course directory; created if missing. Each session started on the page is a workspace in it")
-    web.add_argument("--simulator", choices=["llm", "fixture"], default="llm")
+    web.add_argument("--simulator", choices=["llm", "fixture", "mlsys"], default="llm")
+    web.add_argument("--simulator-profile", choices=["protocol-v1.20"])
+    web.add_argument("--simulator-url")
     web.add_argument("--provider", help="Model profile under agent/profiles (default: codex-luna)")
     web.add_argument("--agent", choices=["codex", "sdk", "fake"], default="codex", help="codex: isolated Codex; fake: offline; sdk: legacy Claude")
     web.add_argument("--port", type=int, default=8765)
@@ -378,7 +382,8 @@ def main(argv=None):
     try:
         args = parser().parse_args(argv)
         if args.command == "init":
-            output = initialize(args.directory, args.task, args.simulator, args.provider, args.hardware, args.mode)
+            output = initialize(args.directory, args.task, args.simulator, args.provider, args.hardware, args.mode,
+                                args.simulator_profile, args.simulator_url)
         elif args.command == "doctor":
             output = doctor(args.web, args.agent)
         elif args.command == "hook":
@@ -393,7 +398,7 @@ def main(argv=None):
         elif args.command == "web":
             from ..web.server import serve
             return serve(args.directory, args.simulator, args.provider, args.agent, args.port, not args.no_browser,
-                         not args.no_opening, args.auto_continue)
+                         not args.no_opening, args.auto_continue, args.simulator_profile, args.simulator_url)
         elif args.command == "generate-workload":
             from ..core.workspace import TASKS
             from ..core.workloads import generate, write_workload

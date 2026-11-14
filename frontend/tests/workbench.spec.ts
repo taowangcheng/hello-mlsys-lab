@@ -95,6 +95,11 @@ test('a student controls experiments, measurements, history and evidence discuss
   await page.screenshot({ path: '../workspaces/ui-refactor-check/runs.png', fullPage: true });
   await page.getByRole('button', { name: /c20 hw_0001/ }).click();
   await expect(page.getByText('Matching simulation', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Compare this pair', exact: true }).click();
+  await expect(page.locator('.comparison-table thead th')).toHaveCount(3);
+  await expect(page.locator('.comparison-table')).not.toContainText('baseline ·');
+  await page.getByRole('link', { name: 'Run history', exact: true }).click();
+  await page.getByRole('button', { name: /c20 hw_0001/ }).click();
   await page.getByRole('button', { name: 'Modify and run again', exact: true }).click();
   await page.locator('.editor-title > summary').click();
   await expect(page.getByLabel('Maximum concurrency')).toHaveValue('20');

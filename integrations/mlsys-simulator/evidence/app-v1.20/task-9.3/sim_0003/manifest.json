@@ -1,0 +1,217 @@
+{
+  "schema": "mlab.v1",
+  "spec": {
+    "schema": "mlab.v1",
+    "task": "9.3",
+    "candidate_id": "replica_3",
+    "workload": {
+      "mode": "dag",
+      "requests": {
+        "path": "holdouts/one_dimension_change.requests.jsonl",
+        "sha256": "sha256:3c297650eb0ab4cc622048cb31414c3bc7605b2bc8f4b809e928b9016ff52267"
+      }
+    },
+    "infra": {
+      "id": "rx9070xt_x4",
+      "nodes": [
+        {
+          "id": "node0",
+          "devices": [
+            {
+              "id": "gpu0",
+              "hardware": "rx9070xt"
+            },
+            {
+              "id": "gpu1",
+              "hardware": "rx9070xt"
+            },
+            {
+              "id": "gpu2",
+              "hardware": "rx9070xt"
+            },
+            {
+              "id": "gpu3",
+              "hardware": "rx9070xt"
+            }
+          ]
+        }
+      ]
+    },
+    "strategy": {
+      "deployments": [
+        {
+          "model": "llm-4b",
+          "weight_precision": "BF16",
+          "kv_precision": "BF16",
+          "context_tokens": 32768,
+          "devices": [
+            "gpu0"
+          ],
+          "replicas": 1,
+          "parallel": {
+            "kind": "none",
+            "degree": 1
+          }
+        },
+        {
+          "model": "llm-0.6b",
+          "weight_precision": "BF16",
+          "kv_precision": "BF16",
+          "context_tokens": 16384,
+          "devices": [
+            "gpu1",
+            "gpu2",
+            "gpu3"
+          ],
+          "replicas": 3,
+          "parallel": {
+            "kind": "none",
+            "degree": 1
+          }
+        }
+      ],
+      "serving": {
+        "max_concurrency": 8,
+        "gpu_memory_utilization": 0.8,
+        "kv_fraction": null,
+        "kv_budget_gib": null,
+        "chunked_prefill_tokens": null,
+        "continuous_batching": true
+      },
+      "cache": {},
+      "scheduling": {
+        "priority": "fifo"
+      },
+      "speculative": false
+    },
+    "evaluation": {
+      "constraints": [
+        {
+          "metric": "completion_rate",
+          "op": ">=",
+          "value": 1.0,
+          "status": "draft",
+          "source": "Project plan Ch 9.3",
+          "note": "All requests must complete; otherwise wall-clock time is meaningless"
+        }
+      ],
+      "duration_s": 300.0,
+      "timeout_s": 1800,
+      "goodput_policy": "both_thresholds_required"
+    },
+    "execution": {
+      "seed": 42,
+      "repeat": 0,
+      "split": "holdout",
+      "holdout": "one_dimension_change",
+      "holdout_change": {
+        "field": "serving.max_concurrency",
+        "before": 16,
+        "after": 8,
+        "source": "frozen task holdout protocol: halve concurrency (1 becomes 2)"
+      },
+      "initial_state": "empty",
+      "warmup": null
+    }
+  },
+  "spec_hash": "sha256:8bb20222232d4456fbd3105d78f045fc6057c3e21bc6c18ee8bb86f79e9b3bef",
+  "seed": 42,
+  "role": "simulator",
+  "backend": {
+    "name": "mlsys-simulator",
+    "version": "1.20.0",
+    "service_source": "http",
+    "model": "mlsys",
+    "adapter_version": "0.1.0-http.1"
+  },
+  "versions": {
+    "mlab": "0.2.0",
+    "metrics": "linear-v1"
+  },
+  "provenance": {
+    "source": "external simulator HTTP API",
+    "endpoint": "http://127.0.0.1:8877",
+    "model_aliases": {
+      "llm-0.6b": "qwen3-0.6b",
+      "llm-1.7b": "qwen3-1.7b",
+      "llm-4b": "qwen3-4b"
+    },
+    "expected_version": "1.20.0",
+    "input_sha256": "sha256:5d08463afc2322e0683020513a2fbcd23783a81eb844e795f5154d0ae3e58541",
+    "calibration": {
+      "version": "agent-analytical-v1",
+      "kind": "uncalibrated",
+      "in_domain": null,
+      "assumptions": [
+        "Model geometry and device rates are declared inputs, not GPU measurements.",
+        "No measured Profile or inter-device communication topology is selected."
+      ]
+    },
+    "catalog_version": "mlsys-agent-catalog-v1",
+    "model_revisions": {
+      "qwen3-4b": "course-7df2dae493eb-geometry",
+      "qwen3-0.6b": "course-7df2dae493eb-geometry"
+    },
+    "native_failure_class": null,
+    "unsupported_fields": {
+      "requests.service_ms": "No independently defined per-request service-only observation; queue/dependency waits are not service time."
+    }
+  },
+  "effective_config": {
+    "deployments": [
+      {
+        "model": "llm-4b",
+        "weight_precision": "BF16",
+        "kv_precision": "BF16",
+        "context_tokens": 32768,
+        "devices": [
+          "gpu0"
+        ],
+        "replicas": 1,
+        "parallel": {
+          "kind": "none",
+          "degree": 1
+        }
+      },
+      {
+        "model": "llm-0.6b",
+        "weight_precision": "BF16",
+        "kv_precision": "BF16",
+        "context_tokens": 16384,
+        "devices": [
+          "gpu1",
+          "gpu2",
+          "gpu3"
+        ],
+        "replicas": 3,
+        "parallel": {
+          "kind": "none",
+          "degree": 1
+        }
+      }
+    ],
+    "serving": {
+      "max_concurrency": 8,
+      "gpu_memory_utilization": 0.8,
+      "kv_fraction": null,
+      "kv_budget_gib": null,
+      "chunked_prefill_tokens": null,
+      "continuous_batching": true
+    },
+    "cache": {},
+    "scheduling": {
+      "priority": "fifo"
+    },
+    "speculative": false
+  },
+  "sha256": {
+    "spec.json": "sha256:dbae52250ad9fc66eb63b9f12bf10bcc8b05af9343f65137333dae5e4d3d3b83",
+    "result.json": "sha256:3fdaff7f1742d48f20a043f0a454cce3090dedffa92cf321dde5d930bc5ffdf6",
+    "requests.jsonl": "sha256:3d92141382386188763d04fbc96421dc038206f1286d2d644a04488d94b86b74",
+    "events.jsonl": "sha256:988ca3a46d14ed7bd55da4c657e53b335ea4e9759cba371f329e22c2aa71449f",
+    "logs.txt": "sha256:31dc8254b4c09353bd7d9d491aaeb13fabbd36fa7986a4c538042f3eb2aed4c5",
+    "simulator-request.json": "sha256:5d08463afc2322e0683020513a2fbcd23783a81eb844e795f5154d0ae3e58541",
+    "simulator-response.json": "sha256:e9e07fe8fe36190e2dee4d68fa0b1db62daeded36fefe58966eca6a7ae977e0c",
+    "simulator-exchange.json": "sha256:3bd032445f906c6727ccd80e7aedce15366d6b3bbc7b544d11ac8667ac3ef45c"
+  }
+}

@@ -3178,6 +3178,9 @@ tr:last-child td {
 }
 .conversation-markdown-table th,
 .conversation-markdown-table td {
+  min-width: 100px;
+  overflow-wrap: normal;
+  word-break: normal;
   padding: 9px 11px;
   text-align: left;
   border-bottom: 1px solid var(--border);

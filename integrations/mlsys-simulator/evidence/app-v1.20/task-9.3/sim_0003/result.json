@@ -1,0 +1,110 @@
+{
+  "schema": "mlab.v1",
+  "run_id": "sim_0003",
+  "task": "9.3",
+  "candidate_id": "replica_3",
+  "spec_hash": "sha256:8bb20222232d4456fbd3105d78f045fc6057c3e21bc6c18ee8bb86f79e9b3bef",
+  "backend": {
+    "name": "mlsys-simulator",
+    "version": "1.20.0",
+    "service_source": "http",
+    "model": "mlsys",
+    "adapter_version": "0.1.0-http.1"
+  },
+  "status": "succeeded",
+  "verdict": "not_evaluated",
+  "evidence_level": "simulated",
+  "failure_class": null,
+  "constraints": [
+    {
+      "metric": "completion_rate",
+      "op": ">=",
+      "value": 1.0,
+      "status": "draft",
+      "source": "Project plan Ch 9.3",
+      "note": "All requests must complete; otherwise wall-clock time is meaningless",
+      "observed": 1.0,
+      "met": true
+    }
+  ],
+  "metrics": {
+    "ttft_ms": {
+      "p50": 207.2707147305846,
+      "p95": 1360.8525098512926,
+      "p99": 1992.1084901154895
+    },
+    "tpot_ms": {
+      "p50": 8.292538126027399,
+      "p95": 32.18732873357145,
+      "p99": 33.08282446671429
+    },
+    "e2e_ms": {
+      "p50": 4052.885472269785,
+      "p95": 26117.2372048175,
+      "p99": 34201.58739966874
+    },
+    "completion_rate": 1.0,
+    "throughput_tok_s": 16.213333333333335,
+    "goodput_tok_s": null,
+    "decode_tok_s": 120.72175479381843,
+    "makespan_s": 66.66434558778582,
+    "critical_path_s": null,
+    "vram_peak_gib": 12.500975608825684,
+    "kv_peak_gib": 2.390625,
+    "per_device": [
+      {
+        "device_id": "gpu0",
+        "capacity_bytes": 17179869184,
+        "physical_peak_bytes": 13422820352,
+        "kv_peak_bytes": 2566914048,
+        "kv_pool_reserved_bytes": 5159780352
+      },
+      {
+        "device_id": "gpu1",
+        "capacity_bytes": 17179869184,
+        "physical_peak_bytes": 13419806720,
+        "kv_peak_bytes": 1497366528,
+        "kv_pool_reserved_bytes": 12013797376
+      },
+      {
+        "device_id": "gpu2",
+        "capacity_bytes": 17179869184,
+        "physical_peak_bytes": 13415612416,
+        "kv_peak_bytes": 998244352,
+        "kv_pool_reserved_bytes": 12013797376
+      },
+      {
+        "device_id": "gpu3",
+        "capacity_bytes": 17179869184,
+        "physical_peak_bytes": 13411418112,
+        "kv_peak_bytes": 513802240,
+        "kv_pool_reserved_bytes": 12013797376
+      }
+    ]
+  },
+  "unsupported_metrics": {
+    "critical_path_s": "No independently defined per-request service-only observation; queue/dependency waits are not service time.",
+    "goodput_tok_s": "No value: unsupported model, missing threshold or unsuccessful run; see status/coverage."
+  },
+  "quality": {
+    "status": "not_evaluated",
+    "passes_floor": null,
+    "source": "quality_table:9.3",
+    "table_status": "not_evaluated",
+    "note": "No quality evaluation for these model identities."
+  },
+  "coverage": {
+    "in_domain": null,
+    "assumptions": [
+      "Model geometry and device rates are declared inputs, not GPU measurements.",
+      "No measured Profile or inter-device communication topology is selected.",
+      "Goodput is null: required TTFT/TPOT thresholds are not declared.",
+      "Critical path is null: independent service-time observations are unavailable."
+    ]
+  },
+  "requests": {
+    "total": 10,
+    "completed": 10,
+    "failed": 0
+  }
+}

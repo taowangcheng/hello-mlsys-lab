@@ -1,0 +1,118 @@
+{
+  "schema": "mlab.v1",
+  "run_id": "sim_0001",
+  "task": "9.1",
+  "candidate_id": "bf16_0_6b",
+  "spec_hash": "sha256:8803ccce7312917bde7a4cd45f88dfe23c689e7eacaae43c78c1181092da3592",
+  "backend": {
+    "name": "mlsys-simulator",
+    "version": "1.20.0",
+    "service_source": "http",
+    "model": "mlsys",
+    "adapter_version": "0.1.0-http.1"
+  },
+  "status": "succeeded",
+  "verdict": "not_evaluated",
+  "evidence_level": "simulated",
+  "failure_class": null,
+  "constraints": [
+    {
+      "metric": "vram_peak_gib",
+      "op": "<=",
+      "value": 14.0,
+      "status": "draft",
+      "source": "Project plan Ch 9.1",
+      "note": "The document says \"14 GB\"; treated as GiB for now",
+      "observed": 12.4903564453125,
+      "met": true
+    },
+    {
+      "metric": "ttft_ms.p50",
+      "op": "<=",
+      "value": 500.0,
+      "status": "draft",
+      "source": "Project plan Ch 9.1",
+      "note": "The document names no percentile; Ch 4 takes the median of repeated runs, so p50 for now",
+      "observed": 11.034486005333406,
+      "met": true
+    },
+    {
+      "metric": "decode_tok_s",
+      "op": ">=",
+      "value": 20.0,
+      "status": "draft",
+      "source": "Project plan Ch 9.1",
+      "note": null,
+      "observed": 230.49918712826536,
+      "met": true
+    }
+  ],
+  "metrics": {
+    "ttft_ms": {
+      "p50": 11.034486005333406,
+      "p95": 58.73894935483065,
+      "p99": 66.43540309185627
+    },
+    "tpot_ms": {
+      "p50": 4.3403496000000015,
+      "p95": 5.326666399999995,
+      "p99": 5.473467039999994
+    },
+    "e2e_ms": {
+      "p50": 702.3004133835482,
+      "p95": 1131.1727635101543,
+      "p99": 1141.8520671140109
+    },
+    "completion_rate": 1.0,
+    "throughput_tok_s": 3.4133333333333336,
+    "goodput_tok_s": null,
+    "decode_tok_s": 230.49918712826536,
+    "makespan_s": 4.6834195379777634,
+    "critical_path_s": null,
+    "vram_peak_gib": 12.4903564453125,
+    "kv_peak_gib": 0.451171875,
+    "per_device": [
+      {
+        "device_id": "gpu0",
+        "capacity_bytes": 17179869184,
+        "physical_peak_bytes": 13411418112,
+        "kv_peak_bytes": 484442112,
+        "kv_pool_reserved_bytes": 12013797376
+      }
+    ],
+    "tightest_constraint": {
+      "metric": "vram_peak_gib",
+      "utilization": 0.8921683175223214,
+      "met": true
+    },
+    "energy_j_per_req": null
+  },
+  "unsupported_metrics": {
+    "critical_path_s": "No independently defined per-request service-only observation; queue/dependency waits are not service time.",
+    "energy_j_per_req": "No value: unsupported model, missing threshold or unsuccessful run; see status/coverage.",
+    "goodput_tok_s": "No value: unsupported model, missing threshold or unsuccessful run; see status/coverage."
+  },
+  "quality": {
+    "status": "not_evaluated",
+    "passes_floor": null,
+    "source": "quality_table:9.1",
+    "table_status": "not_evaluated",
+    "note": "hand-written draft table, not measured quality"
+  },
+  "coverage": {
+    "in_domain": null,
+    "assumptions": [
+      "Model geometry and device rates are declared inputs, not GPU measurements.",
+      "No measured Profile or inter-device communication topology is selected.",
+      "Goodput is null: required TTFT/TPOT thresholds are not declared.",
+      "Critical path is null: independent service-time observations are unavailable.",
+      "Goodput is null: required TTFT/TPOT thresholds are not declared.",
+      "Critical path is null: independent service-time observations are unavailable."
+    ]
+  },
+  "requests": {
+    "total": 6,
+    "completed": 6,
+    "failed": 0
+  }
+}

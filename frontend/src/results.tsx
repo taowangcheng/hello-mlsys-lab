@@ -402,6 +402,7 @@ export function RunDetail({
   onMeasure,
   onDiscuss,
   onCompare,
+  onComparePair,
   reload,
 }: {
   run: Run;
@@ -410,6 +411,7 @@ export function RunDetail({
   onMeasure: (experiment: Experiment, run: Run) => void;
   onDiscuss: (keys: string[]) => void;
   onCompare: (key: string) => void;
+  onComparePair: (keys: string[]) => void;
   reload: () => Promise<void>;
 }) {
   const [data, setData] = useState<Data | null>(null);
@@ -591,8 +593,7 @@ export function RunDetail({
                 <Button
                   className="small"
                   onClick={() => {
-                    onCompare(`${run.session}/${data.paired.sim_run}`);
-                    onCompare(run.key);
+                    onComparePair([`${run.session}/${data.paired.sim_run}`, run.key]);
                     nav(workspace.task, 'compare');
                   }}
                 >
@@ -673,7 +674,7 @@ export function RunDetail({
           <h2>{t('Request timeline')}</h2>
           <p>
             {t(
-              'Waiting time and generation time for each request. Select the slow requests to investigate the tail.',
+              'Time to first token includes queueing and prefill. The second segment shows subsequent token generation.',
             )}
           </p>
           {requests?.rows?.length ? (
@@ -737,7 +738,9 @@ export function RunDetail({
                       {t('Depends on')}: {selectedRequest.depends_on.join(', ')}
                     </p>
                   )}
-                  {selectedRequest.critical && <p>{t('This request is on the critical path.')}</p>}
+                  {selectedRequest.critical && (
+                    <p>{t('This request is on the latest completion chain.')}</p>
+                  )}
                 </div>
               )}
               <div className="request-timeline">
@@ -753,20 +756,24 @@ export function RunDetail({
                     >
                       <span>{item.id}</span>
                       <div className="request-lane">
-                        <span
-                          className="request-wait"
-                          style={{
-                            left: `${(item.ready / max) * 100}%`,
-                            width: `${(Math.max(0, (item.first ?? item.finish) - item.ready) / max) * 100}%`,
-                          }}
-                        />
-                        <span
-                          className="request-service"
-                          style={{
-                            left: `${((item.first ?? item.finish) / max) * 100}%`,
-                            width: `${(Math.max(0, item.finish - (item.first ?? item.finish)) / max) * 100}%`,
-                          }}
-                        />
+                        {item.ready != null && (item.first ?? item.finish) != null && (
+                          <span
+                            className="request-wait"
+                            style={{
+                              left: `${(item.ready / max) * 100}%`,
+                              width: `${(Math.max(0, (item.first ?? item.finish) - item.ready) / max) * 100}%`,
+                            }}
+                          />
+                        )}
+                        {item.first != null && item.finish != null && (
+                          <span
+                            className="request-service"
+                            style={{
+                              left: `${((item.first ?? item.finish) / max) * 100}%`,
+                              width: `${(Math.max(0, item.finish - (item.first ?? item.finish)) / max) * 100}%`,
+                            }}
+                          />
+                        )}
                       </div>
                       <strong>{number(item.ttft)} ms</strong>
                     </button>
@@ -775,7 +782,9 @@ export function RunDetail({
               </div>
               {requests.critical_path?.length > 0 && (
                 <p>
-                  {t('Critical path')}: {requests.critical_path.join(' → ')}
+                  {t('Latest completion chain')}: {requests.critical_path.join(' → ')}
+                  {' · '}
+                  {t('Includes waiting; not independent service time.')}
                 </p>
               )}
             </>

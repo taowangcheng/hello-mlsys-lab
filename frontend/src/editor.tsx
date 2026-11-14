@@ -874,6 +874,14 @@ export function Measurement({
                     <small>
                       {t('Predicted margin')}: {number(point.sim_margin_pct)}%
                     </small>
+                    {point.sim_status && point.sim_status !== 'succeeded' && (
+                      <small>
+                        {t(
+                          'Simulation did not complete ({reason}). You can still confirm a sandbox check.',
+                          { reason: t(point.sim_failure_class || point.sim_status) },
+                        )}
+                      </small>
+                    )}
                   </span>
                 </div>
               ))}

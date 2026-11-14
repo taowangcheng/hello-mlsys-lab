@@ -1,0 +1,12 @@
+{"request_id":"r001","arrival_ms":0,"input_tokens":256,"output_tokens_target":64,"category":"short","prefix_group":"sys-a"}
+{"request_id":"r002","arrival_ms":200,"input_tokens":256,"output_tokens_target":64,"category":"short","prefix_group":"sys-a"}
+{"request_id":"r003","arrival_ms":400,"input_tokens":6144,"output_tokens_target":256,"category":"long","prefix_group":"sys-b"}
+{"request_id":"r004","arrival_ms":600,"input_tokens":256,"output_tokens_target":64,"category":"short","prefix_group":"sys-a"}
+{"request_id":"r005","arrival_ms":1000,"input_tokens":256,"output_tokens_target":64,"category":"short","prefix_group":"sys-a"}
+{"request_id":"r006","arrival_ms":1010,"input_tokens":256,"output_tokens_target":64,"category":"short","prefix_group":"sys-a"}
+{"request_id":"r007","arrival_ms":1020,"input_tokens":8192,"output_tokens_target":256,"category":"long","prefix_group":"sys-b"}
+{"request_id":"r008","arrival_ms":1030,"input_tokens":256,"output_tokens_target":64,"category":"short","prefix_group":"sys-a"}
+{"request_id":"r009","arrival_ms":1040,"input_tokens":8192,"output_tokens_target":256,"category":"long","prefix_group":"sys-b"}
+{"request_id":"r010","arrival_ms":1050,"input_tokens":256,"output_tokens_target":64,"category":"short","prefix_group":"sys-a"}
+{"request_id":"r011","arrival_ms":2000,"input_tokens":256,"output_tokens_target":64,"category":"short","prefix_group":"sys-a"}
+{"request_id":"r012","arrival_ms":2200,"input_tokens":512,"output_tokens_target":64,"category":"short","prefix_group":"sys-a"}

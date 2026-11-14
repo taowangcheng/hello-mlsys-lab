@@ -1,0 +1,162 @@
+{
+  "schema": "mlab.v1",
+  "spec": {
+    "schema": "mlab.v1",
+    "task": "9.2",
+    "candidate_id": "c20",
+    "workload": {
+      "mode": "open_loop",
+      "requests": {
+        "path": "workloads/mixed_burst.requests.jsonl",
+        "sha256": "sha256:b65174341b89c1afec09c09f47a6a15ab0cac1e315d37e3a4722094b02a1e964"
+      }
+    },
+    "infra": {
+      "id": "rx9070xt_x1",
+      "nodes": [
+        {
+          "id": "node0",
+          "devices": [
+            {
+              "id": "gpu0",
+              "hardware": "rx9070xt"
+            }
+          ]
+        }
+      ]
+    },
+    "strategy": {
+      "deployments": [
+        {
+          "model": "llm-1.7b",
+          "weight_precision": "BF16",
+          "kv_precision": "BF16",
+          "context_tokens": 16384,
+          "devices": [
+            "gpu0"
+          ],
+          "replicas": 1,
+          "parallel": {
+            "kind": "none",
+            "degree": 1
+          }
+        }
+      ],
+      "serving": {
+        "max_concurrency": 20,
+        "gpu_memory_utilization": 0.8,
+        "kv_fraction": null,
+        "kv_budget_gib": null,
+        "chunked_prefill_tokens": null,
+        "continuous_batching": true
+      },
+      "cache": {},
+      "scheduling": {},
+      "speculative": false
+    },
+    "evaluation": {
+      "constraints": [
+        {
+          "metric": "ttft_ms.p99",
+          "op": "<",
+          "value": 2000.0,
+          "status": "draft",
+          "source": "Project plan Ch 9.2",
+          "note": "The document says \"P99 < 2 s\" without naming the latency; end-to-end latency depends on output length, so TTFT for now"
+        },
+        {
+          "metric": "tpot_ms.p99",
+          "op": "<",
+          "value": null,
+          "status": "tbd",
+          "source": "README week 7",
+          "note": null
+        },
+        {
+          "metric": "throughput_tok_s",
+          "op": ">=",
+          "value": null,
+          "status": "tbd",
+          "source": "Project plan Ch 9.2 (throughput ≥ X)",
+          "note": null
+        },
+        {
+          "metric": "completion_rate",
+          "op": ">=",
+          "value": 0.99,
+          "status": "draft",
+          "source": "Proposed in the lab plan",
+          "note": "Prevents pushing p99 down by rejecting or truncating requests"
+        }
+      ],
+      "duration_s": 60.0,
+      "timeout_s": 1800,
+      "goodput_policy": "ttft_only_if_tpot_tbd"
+    },
+    "execution": {
+      "seed": 42,
+      "repeat": 0,
+      "split": "development",
+      "holdout": null,
+      "initial_state": "empty",
+      "warmup": null
+    }
+  },
+  "spec_hash": "sha256:83e11aa182729ee14c834304419ce654718dc5af5546543389167a5a2f89be2a",
+  "seed": 42,
+  "role": "hardware",
+  "backend": {
+    "name": "standin",
+    "version": "0.1.0-standin.1",
+    "service_source": "standin",
+    "model": "standin"
+  },
+  "versions": {
+    "mlab": "0.2.0",
+    "metrics": "linear-v1"
+  },
+  "provenance": {
+    "source": "hardware stand-in with designed discrepancies"
+  },
+  "environment": {
+    "kind": "hardware stand-in, not real hardware",
+    "gpu": "Radeon RX 9070 XT",
+    "driver": "stand-in",
+    "rocm": "stand-in",
+    "framework": "stand-in",
+    "image": "stand-in"
+  },
+  "effective_config": {
+    "serving": {
+      "max_concurrency": 20,
+      "gpu_memory_utilization": 0.8,
+      "kv_fraction": null,
+      "kv_budget_gib": null,
+      "chunked_prefill_tokens": null,
+      "continuous_batching": true
+    },
+    "deployments": [
+      {
+        "model": "llm-1.7b",
+        "weight_precision": "BF16",
+        "kv_precision": "BF16",
+        "context_tokens": 16384,
+        "devices": [
+          "gpu0"
+        ],
+        "replicas": 1,
+        "parallel": {
+          "kind": "none",
+          "degree": 1
+        }
+      }
+    ]
+  },
+  "sha256": {
+    "spec.json": "sha256:1d954d3d8cffc320a39ece4cf2b87648909e74fce9dd3adbc0205b9f58a59bcd",
+    "result.json": "sha256:ddaeb3df45c00c49d15b7294da83cd8a42b3dcf9682905f1f08dbbf221d07d0c",
+    "requests.jsonl": "sha256:be3d646d57135c3f6185e7624cf55e66ac43b52b5f93673ec10dfea039576e79",
+    "events.jsonl": "sha256:b766e7b5c6b71bf721843a7e3cf775b2cacbc2fec3eece66f80d65353ee60476",
+    "logs.txt": "sha256:b301ed92f231962e70dde625ffd4dc50d2cc3edef2c3b3a9d7a051cce98b1847"
+  }
+}

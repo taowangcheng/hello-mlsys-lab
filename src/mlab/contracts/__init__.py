@@ -116,7 +116,7 @@ class Plan(Contract):
     derived_requirements: list[dict[str, str]]
     candidates: list[str] = Field(min_length=1)
     seeds: list[int] = Field(min_length=1)
-    simulator: Literal["llm", "fixture"] = "llm"
+    simulator: Literal["llm", "fixture", "mlsys"] = "llm"
 
     @model_validator(mode="after")
     def distinct(self):

@@ -1,0 +1,4 @@
+runtime_policy=agent-analytical-v1; max_batch_tokens=65536; max_concurrency is a per-replica active admission limit; preemption=none
+duration_s is client metric metadata; simulated deadline and worker wall timeout are distinct
+model/hardware are catalog-declared analytical inputs, not GPU measurements
+qwen3-1.7b: kv_pool_reserved_bytes_per_rank=9764077568; auto KV, when selected, reserves fixed costs and worst iteration Workspace before allocating whole KV blocks

@@ -25,6 +25,10 @@ def work(root, run_id):
     backend = run["backend"]
     try:
         spec = load(root / run["folder"] / "spec.json")
+        if backend == "mlsys":
+            from .backends.simulator_backend import execute
+            execute(root, run, spec, config["simulator_service"])
+            return
         requests = load_requests(root, spec)
         catalog = load(root / "task/catalog.json")
         infra = spec["infra"]

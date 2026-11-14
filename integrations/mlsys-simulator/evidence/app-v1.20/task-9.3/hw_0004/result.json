@@ -1,0 +1,80 @@
+{
+  "schema": "mlab.v1",
+  "run_id": "hw_0004",
+  "task": "9.3",
+  "candidate_id": "replica_3",
+  "spec_hash": "sha256:667f52da6acc675ad571e4429ac951ed001d8e17eee78ac22c8b89569024a763",
+  "backend": {
+    "name": "standin",
+    "version": "0.1.0-standin.1",
+    "service_source": "standin",
+    "model": "standin"
+  },
+  "status": "succeeded",
+  "verdict": "not_evaluated",
+  "evidence_level": "mock",
+  "failure_class": null,
+  "constraints": [
+    {
+      "metric": "completion_rate",
+      "op": ">=",
+      "value": 1.0,
+      "status": "draft",
+      "source": "Project plan Ch 9.3",
+      "note": "All requests must complete; otherwise wall-clock time is meaningless",
+      "observed": 1.0,
+      "met": true
+    }
+  ],
+  "metrics": {
+    "ttft_ms": {
+      "p50": 456.8338041394809,
+      "p95": 1426.056755186999,
+      "p99": 1426.3442711980392
+    },
+    "tpot_ms": {
+      "p50": 5.138369533491338,
+      "p95": 13.267213086581014,
+      "p99": 13.267213086581014
+    },
+    "e2e_ms": {
+      "p50": 3015.0110886529983,
+      "p95": 6454.540749294476,
+      "p99": 7531.258375341004
+    },
+    "completion_rate": 1.0,
+    "throughput_tok_s": 13.226666666666667,
+    "goodput_tok_s": null,
+    "decode_tok_s": 194.61426304241218,
+    "makespan_s": 24.12656586184317,
+    "critical_path_s": 24.12656586184317,
+    "vram_peak_gib": 9.550580596923828,
+    "kv_peak_gib": 0.9,
+    "per_device": null
+  },
+  "unsupported_metrics": {
+    "per_device": "No value: unsupported model, missing threshold or unsuccessful run; see status/coverage.",
+    "goodput_tok_s": "No value: unsupported model, missing threshold or unsuccessful run; see status/coverage."
+  },
+  "quality": {
+    "status": "not_evaluated",
+    "passes_floor": null,
+    "source": "quality_table:9.3",
+    "table_status": "not_evaluated",
+    "note": "No quality evaluation for these model identities."
+  },
+  "coverage": {
+    "in_domain": true,
+    "extrapolated": [],
+    "assumptions": [
+      "Hardware stand-in: the numbers are made up, not measured on real hardware.",
+      "The stand-in adds run noise, parameter error, a missing mechanism and configuration differences by fixed rules.",
+      "Goodput is null: required TTFT/TPOT thresholds are not declared."
+    ]
+  },
+  "requests": {
+    "total": 10,
+    "completed": 10,
+    "failed": 0
+  }
+}

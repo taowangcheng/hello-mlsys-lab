@@ -1,3 +1,7 @@
+# Real simulator API demonstrations
+
+The latest three-task recordings use MLSys Simulator 1.20.0 over HTTP with explicitly disclosed Qwen3 BF16 integration configurations. See [application integration and recording commands](../integrations/mlsys-simulator/APP_INTEGRATION.zh-CN.md). The older walkthroughs below use synthetic fixture backends.
+
 # Demo: learning through conversation and experiments
 
 The default page keeps navigation on the left, the task or evidence in the center, and conversation on the right. Students ask questions, work through explanations, decide what to try, request simulations or sandbox measurements, and revisit evidence while talking. The examples below are possible investigations, not a required sequence. Performance results use the synthetic fixture and hardware stand-in.

@@ -15,13 +15,14 @@ class Course:
     def __init__(self, root):
         self.root = Path(root).expanduser().resolve()
 
-    def ensure(self, simulator="llm", hardware="standin", provider=None):
+    def ensure(self, simulator="llm", hardware="standin", provider=None, simulator_profile=None, simulator_url=None):
         """Create the directory and its settings. An existing course keeps the settings it was made with."""
         self.root.mkdir(parents=True, exist_ok=True)
         path = self.root / "course.json"
         if path.exists():
             return load(path)
-        settings = {"schema": "mlab.v1", "simulator": simulator, "hardware": hardware, "provider": provider}
+        settings = {"schema": "mlab.v1", "simulator": simulator, "hardware": hardware, "provider": provider,
+                    "simulator_profile": simulator_profile, "simulator_url": simulator_url}
         atomic(path, settings)
         return settings
 
@@ -53,5 +54,6 @@ class Course:
         if (self.root / name).exists():
             raise LabError("E_SCHEMA", f"{name} already exists", 2)
         # The profile's model and endpoint go into settings.local.json; an API key never does.
-        initialize(self.root / name, task, settings["simulator"], settings.get("provider"), settings["hardware"])
+        initialize(self.root / name, task, settings["simulator"], settings.get("provider"), settings["hardware"],
+                   simulator_profile=settings.get("simulator_profile"), simulator_url=settings.get("simulator_url"))
         return name

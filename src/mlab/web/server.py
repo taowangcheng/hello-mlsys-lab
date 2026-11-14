@@ -194,7 +194,8 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
         return {"ok": True, "storage_id": hashed(str(course.root))[7:31],
                 "tasks": tasks, "sessions": sessions, "notice": NOTICE, "agent": agent, "provider": settings.get("provider"),
                 "model_label": profile.get("display_name") or profile.get("model"),
-                "simulator": settings.get("simulator"), "hardware": settings.get("hardware"), "last_event": bus.last}
+                "simulator": settings.get("simulator"), "simulator_profile": settings.get("simulator_profile"),
+                "hardware": settings.get("hardware"), "last_event": bus.last}
 
     async def create_session(request):
         """A new session: the task from the start, with its own workspace and agent."""
@@ -479,7 +480,8 @@ def create_app(root, agent="fake", provider=None, opening=True, auto_continue=Fa
     return app
 
 
-def serve(root, simulator="llm", provider=None, agent="codex", port=8765, browser=True, opening=True, auto_continue=False):
+def serve(root, simulator="llm", provider=None, agent="codex", port=8765, browser=True, opening=True, auto_continue=False,
+          simulator_profile=None, simulator_url=None):
     import socket
     import uvicorn
     with socket.socket() as probe:
@@ -488,7 +490,7 @@ def serve(root, simulator="llm", provider=None, agent="codex", port=8765, browse
             return 2
     provider = provider or ("codex-luna" if agent == "codex" else None)
     course = Course(root)
-    settings = course.ensure(simulator, "standin", provider)
+    settings = course.ensure(simulator, "standin", provider, simulator_profile, simulator_url)
     application = create_app(course.root, agent, settings.get("provider"), opening, auto_continue)
     url = f"http://127.0.0.1:{port}/"
     print(f"Course directory: {course.root} ({len(course.sessions())} sessions; start new ones on the page)")

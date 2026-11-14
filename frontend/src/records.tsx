@@ -35,7 +35,7 @@ type Props = {
 };
 type OpenRecord = (id: string) => void;
 const titles: Record<string, string> = {
-  not_evaluated: 'Not run',
+  not_evaluated: 'Not evaluated',
   mock_only: 'Demonstration evidence',
   unresolved: 'Needs more evidence',
   insufficient_evidence: 'Needs more evidence',
@@ -76,7 +76,17 @@ export function ValidationMatrix({ matrix = {}, holdouts }: { matrix?: Data; hol
   function cell(value: unknown) {
     return (
       <span className={value === false ? 'bad-text' : ''}>
-        {t(value === true ? 'Met' : value === false ? 'Violated' : 'Not run')}
+        {t(
+          value === true
+            ? 'Met'
+            : value === false
+              ? 'Violated'
+              : value === 'not_evaluated'
+                ? 'Not evaluated'
+                : value === 'incomplete'
+                  ? 'Incomplete'
+                  : 'Not run',
+        )}
       </span>
     );
   }

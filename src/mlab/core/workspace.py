@@ -82,7 +82,13 @@ def find_workspace(path=None):
     raise LabError("E_SCHEMA", "Not in an mlab workspace; run mlab init first", 2)
 
 
-def initialize(destination, task_id, simulator="llm", provider=None, hardware="standin", mode="guided"):
+def examples_directory(root, task_id):
+    prepared = Path(root) / "task/examples"
+    return prepared if prepared.is_dir() else ROOT / "examples" / TASKS[task_id]
+
+
+def initialize(destination, task_id, simulator="llm", provider=None, hardware="standin", mode="guided",
+               simulator_profile=None, simulator_url=None):
     from ..backends.local import ROLES
     provider = provider or "codex-luna"
     profile = load(inside(ROOT / "agent/profiles", provider + ".json")) if (ROOT / "agent/profiles" / (provider + ".json")).is_file() else None
@@ -91,6 +97,10 @@ def initialize(destination, task_id, simulator="llm", provider=None, hardware="s
     require(task_id in TASKS, "E_SCHEMA", "task must be 9.1, 9.2 or 9.3", 2)
     require(mode in MODES, "E_SCHEMA", "mode must be guided or open", 2)
     require(ROLES.get(simulator) == "simulator" and ROLES.get(hardware) == "hardware", "E_SCHEMA", "unknown simulator or hardware backend", 2)
+    require(simulator == "mlsys" or not (simulator_profile or simulator_url), "E_SCHEMA", "Simulator profile/URL require the mlsys backend", 2)
+    from ..backends.simulator_profiles import PROFILE, prepare, service_settings
+    require(simulator_profile in {None, PROFILE}, "E_SCHEMA", "Unknown simulator profile", 2)
+    service = service_settings(simulator_url) if simulator == "mlsys" else None
     destination = Path(destination).resolve()
     require(not destination.exists(), "E_SCHEMA", "destination exists; choose a new directory", 2)
     source = ROOT / "tasks" / TASKS[task_id]
@@ -104,9 +114,10 @@ def initialize(destination, task_id, simulator="llm", provider=None, hardware="s
     catalog = {"models": {m["id"]: m["params_b"] for m in load(ROOT / "catalog/models/sizes.yaml")},
                "hardware": {p.stem: load(p) for p in (ROOT / "catalog/hardware").glob("*.yaml")},
                "infra": {p.stem: load(p) for p in (ROOT / "catalog/infra").glob("*.yaml")}}
+    base = (prepare(destination, task, catalog, simulator_profile) if simulator_profile else
+            [json.loads(s) for s in inside(source, task["frozen"]["workload_requests"]["path"]).read_text(encoding="utf-8").splitlines() if s])
     atomic(destination / "task/catalog.json", catalog)
     # Package-local synthetic holdouts are explicitly marked draft; never derive new measured evidence.
-    base = [json.loads(s) for s in inside(source, task["frozen"]["workload_requests"]["path"]).read_text(encoding="utf-8").splitlines() if s]
     from .workloads import generate, write_workload
     for i, name in enumerate(task["holdouts"]):
         variant = {"short_prompt_distribution": "short_mix", "long_prompt_distribution": "long_mix"}.get(name, name)
@@ -119,6 +130,7 @@ def initialize(destination, task_id, simulator="llm", provider=None, hardware="s
     atomic(destination / ".mlab/task_manifest.json", manifest)
     atomic(destination / ".mlab/config.json", {"schema": "mlab.v1", "task": task_id, "simulator": simulator, "hardware": hardware,
                                               "provider": provider, "mode": mode, "run_timeout_s": 1800, "created_at": now(),
+                                              "simulator_profile": simulator_profile, "simulator_service": service,
                                               "fixture_delay_s": 0, "hardware_delay_s": 0})
     if use_codex:
         launcher = write_codex_launcher(destination)
@@ -283,7 +295,7 @@ class Lab:
             require((self.root / origin["folder"] / "frozen_plan.json").exists(), "E_SCHEMA", f"{source} was never approved; copy from an approved round", 2)
         folder = self.root / "rounds" / identifier
         folder.mkdir(parents=True)
-        examples = ROOT / "examples" / TASKS[self.task["id"]]
+        examples = examples_directory(self.root, self.task["id"])
         plan = load(examples / "plan.yaml")
         if origin:
             # Reuse the approved candidates of an earlier round; they are simulated again.
@@ -391,6 +403,10 @@ class Lab:
                 require(len(set(deployment["devices"])) == len(deployment["devices"]), "E_SCHEMA", "duplicate device placement", 2)
                 degree = deployment["parallel"]["degree"]
                 require((deployment["parallel"]["kind"] != "none" or degree == 1) and len(deployment["devices"]) == degree * deployment["replicas"], "E_SCHEMA", "placement must match parallel degree times replicas", 2)
+            if self.simulator == "mlsys":
+                from ..backends.simulator_backend import request_bytes
+                request_bytes(self.root, self.make_spec(candidate, plan["seeds"][0], 0, "development"),
+                              "preflight", self.config["simulator_service"])
             candidates.append(candidate)
         count = len(candidates) * len(plan["seeds"])
         require(count <= self.task["budget"]["simulator"]["runs_per_batch"], "E_BUDGET", "plan exceeds the simulator's per-batch limit")
@@ -466,6 +482,8 @@ class Lab:
     def identity(self, backend):
         from ..backends.local import BACKEND_VERSIONS
         fingerprint = {"backend": backend, "version": BACKEND_VERSIONS[backend]}
+        if backend == "mlsys":
+            fingerprint["service"] = self.config["simulator_service"]
         if backend == "llm":
             from ..backends.llm import configuration
             config = configuration(self.config.get("provider"))
@@ -908,7 +926,9 @@ class Lab:
 
     def sim_prediction(self, spec):
         key = self.run_key(spec, self.simulator)
-        done = [r for r in self.store.all("run") if r["key"] == key and r["status"] == "succeeded"]
+        # A modeled resource failure is evidence to test on hardware, not an unfinished prediction.
+        done = [r for r in self.store.all("run") if r["key"] == key and
+                (r["status"] == "succeeded" or (r["status"] == "failed" and r.get("failure_class") in {"oom", "request_failure"}))]
         return done[-1] if done else None
 
     def prediction_row(self, point, run):
@@ -916,7 +936,8 @@ class Lab:
         metric = self.task["key_metrics"][0]
         return {"point": point["index"], "candidate": point["candidate"], "workflow": point["workflow"], "workload": point["workload"],
                 "runs": point["runs"], "sim_run": run["id"], "metric": metric, "simulated": rounded(get_metric(result["metrics"], metric)),
-                "sim_verdict": result["verdict"], "sim_margin_pct": margin(result, metric)}
+                "sim_verdict": result["verdict"], "sim_margin_pct": margin(result, metric),
+                "sim_status": result["status"], "sim_failure_class": result["failure_class"]}
 
     def measure_check(self):
         m = self.measurement()
@@ -936,6 +957,11 @@ class Lab:
         if missing:
             m["checked_hash"] = None
             selected, _ = self.launch(missing, "measurement", m, self.mfolder(m))
+            stopped = [run for run in self.records(selected) if run["status"] in TERMINAL and
+                       run["status"] != "succeeded" and run.get("failure_class") not in {"oom", "request_failure"}]
+            require(not stopped, "E_BACKEND_UNAVAILABLE",
+                    "Simulator prediction is unavailable: " + ", ".join(run["id"] + " (" + str(run.get("failure_class") or run["status"]) + ")" for run in stopped) +
+                    ". Inspect these records before arranging another measurement.", 4)
             return {"status": "simulating", "points_without_prediction": len(missing), "run_ids": selected, "next_actions": [
                 {"actor": "agent", "do": "continue", "say": "The simulator is predicting these points (no hardware budget). mlab measure wait --max 60, then mlab measure check again."}]}
         m["checked_hash"] = digest
@@ -943,7 +969,7 @@ class Lab:
         self.store.put("measurement", m["id"], m)
         self.store.commit()
         return {"plan_hash": digest, "metric": self.task["key_metrics"][0],
-                "points": [{key: row[key] for key in ("candidate", "workload", "runs", "simulated", "sim_margin_pct")} for row in rows],
+                "points": [{key: row[key] for key in ("candidate", "workload", "runs", "simulated", "sim_margin_pct", "sim_status", "sim_failure_class")} for row in rows],
                 "hardware_runs": total, "hardware_budget": budget}
 
     def measure_approve(self, prefix):
@@ -1021,8 +1047,8 @@ class Lab:
         sim_rows = read_rows(self.root / self.store.get("run", prediction["sim_run"])["folder"] / "requests.jsonl")
         hardware, simulated = get_metric(result["metrics"], metric), get_metric(sim_result["metrics"], metric)
         gap = round((hardware - simulated) / simulated * 100, 1) if type(hardware) in {int, float} and simulated else None
-        # The same requests ran in both, so pair them. A gap shared by most requests is systematic, not noise;
-        # a gap only in the slowest requests moves the tail metrics while the rest agree.
+        # Pair the same request IDs to describe broad or tail shifts using fixed thresholds.
+        # This heuristic does not estimate noise or test statistical significance.
         measured, predicted = ttft_by_request(rows), ttft_by_request(sim_rows)
         pairs = sorted(((measured[i], measured[i] / predicted[i]) for i in measured if predicted.get(i)), reverse=True)
         def summary(values):
@@ -1069,10 +1095,10 @@ class Lab:
         ranking = {"simulated": order("simulated"), "hardware": order("hardware")}
         return {"schema": "mlab.v1", "measurement": m["id"], "metric": self.task["key_metrics"][0], "rows": rows, "ranking": ranking,
                 "rank_flip": ranking["simulated"] != ranking["hardware"], "pending": [r["id"] for r in latest if r["status"] not in TERMINAL],
-                "notes": ["beyond_noise compares hardware and simulation request by request on the same requests: shift=all means most requests moved "
-                          "the same way, shift=tail means only the slowest few did.",
-                          "All requests shifting often comes from an inaccurate parameter such as a fixed overhead; only the slowest shifting often comes "
-                          "from a mechanism that appears only with long requests or high load.",
+                "notes": ["beyond_noise is a legacy name for a fixed-threshold paired-request shift flag. It does not compare resampling intervals, "
+                          "estimate run-to-run noise or test statistical significance. shift=all describes a broad shift; shift=tail describes a tail shift.",
+                          "A shift alone establishes no runtime cause. Configuration, workload or modeling differences require separate controlled evidence. "
+                          "Comparing synthetic stand-in data with simulation cannot establish simulator accuracy or calibration error.",
                           "hardware_interval is a per-request resampling interval within one run; it leaves out the noise between runs and is wide when "
                           "there are few requests.",
                           "The hardware stand-in's numbers are made up."]}

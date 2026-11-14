@@ -10,4 +10,4 @@ fi
 export SOCLAAS_API_KEY
 export SOCLAAS_MODEL="qwen3.8:27b"
 if [[ $# == 0 ]]; then set -- "$root/workspaces/soc-course"; fi
-exec "$root/.venv/bin/python" -m mlab web "$@" --agent codex --provider codex-soc-qwen --simulator fixture
+exec "$root/.venv/bin/python" -m mlab web --agent codex --provider codex-soc-qwen --simulator fixture "$@"

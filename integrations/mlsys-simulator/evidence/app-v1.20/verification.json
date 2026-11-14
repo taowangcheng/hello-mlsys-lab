@@ -1,0 +1,556 @@
+{
+  "simulator_version": "1.20.0",
+  "profile": "protocol-v1.20",
+  "simulator_source_commit": "feda6677b90a6f50f35ac78c1d5eabff986ed5b7",
+  "source_commit_observation": "Local checkout, not a value verified by HTTP",
+  "tasks": [
+    {
+      "task": "9.1",
+      "session": "9.1-1",
+      "profile": {
+        "id": "protocol-v1.20",
+        "notice": "Integration exercise: Qwen3 BF16 models on RX9070XT. These configurations differ from the original course baselines. Simulation is uncalibrated; sandbox measurements use demonstration data.",
+        "original_source": {
+          "workload_meta": {
+            "path": "workloads/assistant_prompts.meta.yaml",
+            "sha256": "sha256:efaaaad4e962343693cd8e571440213c4f5f2aefcde8be0799b469805a24bade"
+          },
+          "workload_requests": {
+            "path": "workloads/assistant_prompts.requests.jsonl",
+            "sha256": "sha256:c572d1617b82ed5628a7112546b85fc4ea3d088ad3e1e3ec6245a5855e407319"
+          }
+        },
+        "model_aliases": {
+          "llm-0.6b": "qwen3-0.6b",
+          "llm-1.7b": "qwen3-1.7b",
+          "llm-4b": "qwen3-4b"
+        }
+      },
+      "runs": [
+        {
+          "id": "hw_0001",
+          "role": "hardware",
+          "candidate": "bf16_1_7b",
+          "workload": "development",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 6,
+            "completed": 6,
+            "failed": 0
+          },
+          "manifest": "task-9.1/hw_0001/manifest.json",
+          "manifest_sha256": "sha256:304c180f2bbc76882769bc145f44948babf77e93e018b86e1296c8a7f3467366"
+        },
+        {
+          "id": "hw_0002",
+          "role": "hardware",
+          "candidate": "bf16_1_7b",
+          "workload": "development",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 6,
+            "completed": 6,
+            "failed": 0
+          },
+          "manifest": "task-9.1/hw_0002/manifest.json",
+          "manifest_sha256": "sha256:3559099d5099fe17bb5d86749878664d11616ddb6bcad6da161dd74672fbe56f"
+        },
+        {
+          "id": "hw_0003",
+          "role": "hardware",
+          "candidate": "bf16_1_7b",
+          "workload": "other_prompt_set",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 6,
+            "completed": 6,
+            "failed": 0
+          },
+          "manifest": "task-9.1/hw_0003/manifest.json",
+          "manifest_sha256": "sha256:a958a67a0b3e3c38a6116f9f914cc3968d53902c9e3f8fc96178140fe5eaa6d3"
+        },
+        {
+          "id": "sim_0001",
+          "role": "simulator",
+          "candidate": "bf16_0_6b",
+          "workload": "development",
+          "evidence_level": "simulated",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 6,
+            "completed": 6,
+            "failed": 0
+          },
+          "manifest": "task-9.1/sim_0001/manifest.json",
+          "manifest_sha256": "sha256:e24f96e727a866c70569194393c5e720d1c7975513d388d7aaf6b81302d3de28"
+        },
+        {
+          "id": "sim_0002",
+          "role": "simulator",
+          "candidate": "bf16_1_7b",
+          "workload": "development",
+          "evidence_level": "simulated",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 6,
+            "completed": 6,
+            "failed": 0
+          },
+          "manifest": "task-9.1/sim_0002/manifest.json",
+          "manifest_sha256": "sha256:b3338fdb0131e95efe0f0f3d295c48950221a569b581209fb3207b268261a949"
+        },
+        {
+          "id": "sim_0003",
+          "role": "simulator",
+          "candidate": "bf16_1_7b",
+          "workload": "other_prompt_set",
+          "evidence_level": "simulated",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 6,
+            "completed": 6,
+            "failed": 0
+          },
+          "manifest": "task-9.1/sim_0003/manifest.json",
+          "manifest_sha256": "sha256:e5a08f0834933319a3c47b517030d0dd1b6523a20ebed6ee9788fac221549130"
+        }
+      ],
+      "conclusions": [
+        {
+          "schema": "mlab.v1",
+          "id": "001",
+          "task": "9.1",
+          "selection": {
+            "workflow": "r001",
+            "candidate": "bf16_1_7b",
+            "config_hash": "sha256:fc8b794591a255482f11ea6d6c3da26359c893b20a501979685748df21d5293c"
+          },
+          "conclusion": "unresolved",
+          "reason": "The selected configuration has not completed development, repeat and holdout validation.",
+          "evidence": [
+            "hw_0001",
+            "hw_0002",
+            "hw_0003",
+            "sim_0002",
+            "sim_0003"
+          ],
+          "at": "2026-11-14T11:22:58.210383+00:00",
+          "hash": "sha256:0cca29bd1b077e4ec6121c71d38185ec71381d6659d85adcb82fbb0c733d1b6b"
+        }
+      ]
+    },
+    {
+      "task": "9.2",
+      "session": "9.2-1",
+      "profile": {
+        "id": "protocol-v1.20",
+        "notice": "Integration exercise: Qwen3 BF16 models on RX9070XT. These configurations differ from the original course baselines. Simulation is uncalibrated; sandbox measurements use demonstration data.",
+        "original_source": {
+          "workload_meta": {
+            "path": "workloads/mixed_burst.meta.yaml",
+            "sha256": "sha256:30a71be78de4f0a90bc01d02405db2dfe3dabf91c3755ef25ddb7a1cfda8f55c"
+          },
+          "workload_requests": {
+            "path": "workloads/mixed_burst.requests.jsonl",
+            "sha256": "sha256:b65174341b89c1afec09c09f47a6a15ab0cac1e315d37e3a4722094b02a1e964"
+          }
+        },
+        "model_aliases": {
+          "llm-0.6b": "qwen3-0.6b",
+          "llm-1.7b": "qwen3-1.7b",
+          "llm-4b": "qwen3-4b"
+        }
+      },
+      "runs": [
+        {
+          "id": "hw_0001",
+          "role": "hardware",
+          "candidate": "c16",
+          "workload": "development",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 12,
+            "completed": 12,
+            "failed": 0
+          },
+          "manifest": "task-9.2/hw_0001/manifest.json",
+          "manifest_sha256": "sha256:b5c39630239c33030db2e7b57e3a2f8e01fa544cc83ee653e3488a614a6b2091"
+        },
+        {
+          "id": "hw_0002",
+          "role": "hardware",
+          "candidate": "c20",
+          "workload": "development",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 12,
+            "completed": 12,
+            "failed": 0
+          },
+          "manifest": "task-9.2/hw_0002/manifest.json",
+          "manifest_sha256": "sha256:51758f828d1f6dd98294aedf6228b95f9566c4914f7c9c527ed9b144389fb65e"
+        },
+        {
+          "id": "hw_0003",
+          "role": "hardware",
+          "candidate": "c16",
+          "workload": "development",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 12,
+            "completed": 12,
+            "failed": 0
+          },
+          "manifest": "task-9.2/hw_0003/manifest.json",
+          "manifest_sha256": "sha256:a55218df018479cba21346ceb4a4bf3a723ed11779f7f686440a4e5e3583cdba"
+        },
+        {
+          "id": "hw_0004",
+          "role": "hardware",
+          "candidate": "c16",
+          "workload": "development",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 12,
+            "completed": 12,
+            "failed": 0
+          },
+          "manifest": "task-9.2/hw_0004/manifest.json",
+          "manifest_sha256": "sha256:e3f2353c9a0b4e9157b774e099eb2e09ecd877905dcb03753e9ef0d23c8493c2"
+        },
+        {
+          "id": "hw_0005",
+          "role": "hardware",
+          "candidate": "c16",
+          "workload": "short_prompt_distribution",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 12,
+            "completed": 12,
+            "failed": 0
+          },
+          "manifest": "task-9.2/hw_0005/manifest.json",
+          "manifest_sha256": "sha256:eed12f30d3e9ef782338e0cc30794f2cf734729e30b63585d5f2df78bd7f2477"
+        },
+        {
+          "id": "hw_0006",
+          "role": "hardware",
+          "candidate": "c16",
+          "workload": "long_prompt_distribution",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 12,
+            "completed": 12,
+            "failed": 0
+          },
+          "manifest": "task-9.2/hw_0006/manifest.json",
+          "manifest_sha256": "sha256:b28252a3f2840302a6f51be558cd29cca1c1c2f0992bcb77d2acc4fb3a27fb01"
+        },
+        {
+          "id": "sim_0001",
+          "role": "simulator",
+          "candidate": "baseline",
+          "workload": "development",
+          "evidence_level": "simulated",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 12,
+            "completed": 12,
+            "failed": 0
+          },
+          "manifest": "task-9.2/sim_0001/manifest.json",
+          "manifest_sha256": "sha256:c8fae31c680b1eb7df86451b8f52ba5352be09ba76dc731af9cddb0863dbcd54"
+        },
+        {
+          "id": "sim_0002",
+          "role": "simulator",
+          "candidate": "c16",
+          "workload": "development",
+          "evidence_level": "simulated",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 12,
+            "completed": 12,
+            "failed": 0
+          },
+          "manifest": "task-9.2/sim_0002/manifest.json",
+          "manifest_sha256": "sha256:2fc9ff15c7ec836cbdd9c999db7f42578c2c84eaaec54a1cb641d71edef5cd0f"
+        },
+        {
+          "id": "sim_0003",
+          "role": "simulator",
+          "candidate": "c20",
+          "workload": "development",
+          "evidence_level": "simulated",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 12,
+            "completed": 12,
+            "failed": 0
+          },
+          "manifest": "task-9.2/sim_0003/manifest.json",
+          "manifest_sha256": "sha256:aa083df9752daa4be057e7429dc30145b78490ef73e41eaa90dd498f3243d5c0"
+        },
+        {
+          "id": "sim_0004",
+          "role": "simulator",
+          "candidate": "c16",
+          "workload": "short_prompt_distribution",
+          "evidence_level": "simulated",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 12,
+            "completed": 12,
+            "failed": 0
+          },
+          "manifest": "task-9.2/sim_0004/manifest.json",
+          "manifest_sha256": "sha256:7f95ecbdf28429268683a6bbb761651bb55fdda5388bc783955ec91828f3a2fb"
+        },
+        {
+          "id": "sim_0005",
+          "role": "simulator",
+          "candidate": "c16",
+          "workload": "long_prompt_distribution",
+          "evidence_level": "simulated",
+          "status": "failed",
+          "failure_class": "request_failure",
+          "requests": {
+            "total": 12,
+            "completed": 0,
+            "failed": 12
+          },
+          "manifest": "task-9.2/sim_0005/manifest.json",
+          "manifest_sha256": "sha256:f018289641b76d3f22cb47a39613f00fab8b58665f95a73383cdc84583ccae94"
+        }
+      ],
+      "conclusions": [
+        {
+          "schema": "mlab.v1",
+          "id": "001",
+          "task": "9.2",
+          "selection": {
+            "workflow": "r001",
+            "candidate": "c16",
+            "config_hash": "sha256:ca1b4d39c4c4cd5d73bef1917850c14444952ebc7840e6f680955a11a1a38974"
+          },
+          "conclusion": "unresolved",
+          "reason": "The selected configuration has not completed development, repeat and holdout validation.",
+          "evidence": [
+            "hw_0001",
+            "hw_0003",
+            "hw_0004",
+            "hw_0005",
+            "hw_0006",
+            "sim_0002",
+            "sim_0004",
+            "sim_0005"
+          ],
+          "at": "2026-11-14T11:53:56.618786+00:00",
+          "hash": "sha256:68a9b32e1a1d3e82d15e3e606b5683128c2039de72884a3d8ed9c445672e6304"
+        }
+      ]
+    },
+    {
+      "task": "9.3",
+      "session": "9.3-1",
+      "profile": {
+        "id": "protocol-v1.20",
+        "notice": "Integration exercise: Qwen3 BF16 models on RX9070XT. These configurations differ from the original course baselines. Simulation is uncalibrated; sandbox measurements use demonstration data.",
+        "original_source": {
+          "workload_meta": {
+            "path": "workloads/deep_research_sample.meta.yaml",
+            "sha256": "sha256:c86c10fbcee7bfe6959ed8e62df2e95d47fc5b4e7f468a38e995048f165eb6e8"
+          },
+          "workload_requests": {
+            "path": "workloads/deep_research_sample.requests.jsonl",
+            "sha256": "sha256:cbec87df2b9853b84e5c7c67fe06f66f78a910423ef8d48ed162693ebf271058"
+          }
+        },
+        "model_aliases": {
+          "llm-4b": "qwen3-4b",
+          "llm-0.6b": "qwen3-0.6b"
+        }
+      },
+      "runs": [
+        {
+          "id": "hw_0001",
+          "role": "hardware",
+          "candidate": "replica_3",
+          "workload": "development",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 10,
+            "completed": 10,
+            "failed": 0
+          },
+          "manifest": "task-9.3/hw_0001/manifest.json",
+          "manifest_sha256": "sha256:b3f732b5b636e6e14ea5253e9200b6b32b1199947d732711de010cb87738d719"
+        },
+        {
+          "id": "hw_0002",
+          "role": "hardware",
+          "candidate": "replica_3",
+          "workload": "development",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 10,
+            "completed": 10,
+            "failed": 0
+          },
+          "manifest": "task-9.3/hw_0002/manifest.json",
+          "manifest_sha256": "sha256:92a64a12f06224a31f4e35b7772abb728e68fa4b3fc352acf925d2eb0e5ba7a4"
+        },
+        {
+          "id": "hw_0003",
+          "role": "hardware",
+          "candidate": "replica_3",
+          "workload": "one_dimension_change",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 10,
+            "completed": 10,
+            "failed": 0
+          },
+          "manifest": "task-9.3/hw_0003/manifest.json",
+          "manifest_sha256": "sha256:a48f78de680873fd834e737145a7c105bd9af628bdc072609a65af21673b60b8"
+        },
+        {
+          "id": "hw_0004",
+          "role": "hardware",
+          "candidate": "replica_3",
+          "workload": "second_dag_same_distribution",
+          "evidence_level": "mock",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 10,
+            "completed": 10,
+            "failed": 0
+          },
+          "manifest": "task-9.3/hw_0004/manifest.json",
+          "manifest_sha256": "sha256:1468f7d7004c251afd6f343dca40d8014a5462c1ba4f1917af7621b9b46b3bda"
+        },
+        {
+          "id": "sim_0001",
+          "role": "simulator",
+          "candidate": "replica_1",
+          "workload": "development",
+          "evidence_level": "simulated",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 10,
+            "completed": 10,
+            "failed": 0
+          },
+          "manifest": "task-9.3/sim_0001/manifest.json",
+          "manifest_sha256": "sha256:95bbc521e0c1d70889d80ce66305a7170d86bca8e6823d81151171284a744447"
+        },
+        {
+          "id": "sim_0002",
+          "role": "simulator",
+          "candidate": "replica_3",
+          "workload": "development",
+          "evidence_level": "simulated",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 10,
+            "completed": 10,
+            "failed": 0
+          },
+          "manifest": "task-9.3/sim_0002/manifest.json",
+          "manifest_sha256": "sha256:509293865d2ed2d9d9771bd7503cbe73b805bb73532f9205db7b88c57a0bc013"
+        },
+        {
+          "id": "sim_0003",
+          "role": "simulator",
+          "candidate": "replica_3",
+          "workload": "one_dimension_change",
+          "evidence_level": "simulated",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 10,
+            "completed": 10,
+            "failed": 0
+          },
+          "manifest": "task-9.3/sim_0003/manifest.json",
+          "manifest_sha256": "sha256:beb652e4c50422ad7a282f101ab0fd8e7dd072c3070e6765c243b0697a49c95f"
+        },
+        {
+          "id": "sim_0004",
+          "role": "simulator",
+          "candidate": "replica_3",
+          "workload": "second_dag_same_distribution",
+          "evidence_level": "simulated",
+          "status": "succeeded",
+          "failure_class": null,
+          "requests": {
+            "total": 10,
+            "completed": 10,
+            "failed": 0
+          },
+          "manifest": "task-9.3/sim_0004/manifest.json",
+          "manifest_sha256": "sha256:7d4d667571c69319c03cc290b2778147ddc3ecf91f7e1ccb1e6c3d4492275d33"
+        }
+      ],
+      "conclusions": [
+        {
+          "schema": "mlab.v1",
+          "id": "001",
+          "task": "9.3",
+          "selection": {
+            "workflow": "r001",
+            "candidate": "replica_3",
+            "config_hash": "sha256:b3d2bb7a46bff3408b6724078ec739599bdb6ba352393e6e12553ded1f7052d9"
+          },
+          "conclusion": "unresolved",
+          "reason": "The selected configuration has not completed development, repeat and holdout validation.",
+          "evidence": [
+            "hw_0001",
+            "hw_0002",
+            "hw_0003",
+            "hw_0004",
+            "sim_0002",
+            "sim_0003",
+            "sim_0004"
+          ],
+          "at": "2026-11-14T12:02:41.799077+00:00",
+          "hash": "sha256:2390f80e1bb5ca2714739952662927e61013fae415ed2ce1fa1892470b7b5cd0"
+        }
+      ]
+    }
+  ]
+}

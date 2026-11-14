@@ -103,9 +103,8 @@ def workspace_view(course, task, sessions):
             lab.close()
     lab = Lab(sessions[-1]["root"], readonly=True)
     try:
-        from ..core.io import ROOT
-        from ..core.workspace import TASKS
-        templates = [load(path) for path in sorted((ROOT / "examples" / TASKS[task] / "candidates").glob("*.yaml"))]
+        from ..core.workspace import examples_directory
+        templates = [load(path) for path in sorted((examples_directory(lab.root, task) / "candidates").glob("*.yaml"))]
         catalog = load(lab.root / "task/catalog.json")
         return {"task": task, "session": sessions[-1]["id"],
                 "sessions": [{key: session[key] for key in ("id", "task", "number", "created_at")} for session in sessions], "overview": overview,
@@ -387,7 +386,7 @@ def measurement_preview(lab):
     return {"id": measurement["id"], "plan_hash": approval["plan_hash"],
             "metric": lab.task["key_metrics"][0], "hardware_runs": approval["hardware_runs"],
             "hardware_budget": lab.hardware_budget(),
-            "points": [{key: point[key] for key in ("candidate", "workflow", "workload", "runs", "simulated", "sim_margin_pct")}
+            "points": [{key: point.get(key) for key in ("candidate", "workflow", "workload", "runs", "simulated", "sim_margin_pct", "sim_status", "sim_failure_class")}
                        for point in approval["sim_predictions"]]}
 
 

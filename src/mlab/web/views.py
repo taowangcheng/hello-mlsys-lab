@@ -79,6 +79,7 @@ def default_record(state):
 
 def task_overview(lab):
     task = lab.task
+    profile = load(lab.root / "task/profile.json") if (lab.root / "task/profile.json").exists() else None
     space = {path: (rule["values"] if rule["type"] == "enum" else [rule["min"], rule["max"]]) for path, rule in task["decision_space"].items()}
     return {"task": task["id"], "title": task["title"], "objective": task["objective"], "key_metrics": task["key_metrics"],
             "constraints": [{k: c.get(k) for k in ("metric", "op", "value", "status", "note")} for c in task["constraints"]],
@@ -86,7 +87,7 @@ def task_overview(lab):
             "budget": {"simulator_per_batch": task["budget"]["simulator"]["runs_per_batch"], "hardware": lab.hardware_budget(),
                        "hardware_per_batch": task["budget"]["hardware"]["runs_per_batch"]},
             "backends": {"simulator": lab.simulator, "hardware": lab.hardware}, "guide": text_of(lab.root / "task/GUIDE.md"),
-            "mode": lab.mode, "notice": NOTICE}
+            "mode": lab.mode, "profile": profile, "notice": profile["notice"] if profile else NOTICE}
 
 
 def run_summary(lab, run):
@@ -251,7 +252,7 @@ def run_log_file(lab, run_id):
 
 
 def run_requests(lab, run_id):
-    """Per-request timing for the timeline chart, with the critical path of a dependency workload."""
+    """Observed request timestamps and the latest-finishing dependency chain."""
     run = lab.store.get("run", run_id)
     if not run or run["status"] not in TERMINAL:
         raise LabError("E_SCHEMA", f"{run_id} has no finished requests", 2)
@@ -260,12 +261,13 @@ def run_requests(lab, run_id):
     workload = {r["request_id"]: r for r in load_requests(lab.root, spec)}
     by_id = {r["request_id"]: r for r in rows}
     path = []
-    if rows and any(r["depends_on"] for r in rows):
+    timed = [row for row in rows if row["finished_ms"] is not None]
+    if timed and any(r["depends_on"] for r in timed):
         # Walk back from the last request to finish, each time through the parent that finished last.
-        current = max(rows, key=lambda r: r["finished_ms"])["request_id"]
+        current = max(timed, key=lambda r: r["finished_ms"])["request_id"]
         while current:
             path.append(current)
-            parents = [p for p in by_id[current]["depends_on"] if p in by_id]
+            parents = [p for p in by_id[current]["depends_on"] if p in by_id and by_id[p]["finished_ms"] is not None]
             current = max(parents, key=lambda p: by_id[p]["finished_ms"]) if parents else None
         path.reverse()
     def lane(identifier):
@@ -273,9 +275,10 @@ def run_requests(lab, run_id):
         return source.get("target_model") or source.get("category") or "requests"
     return {"run": run_id, "candidate": run["candidate"], "duration_ms": spec["evaluation"]["duration_s"] * 1000,
             "lanes": list(dict.fromkeys(lane(r["request_id"]) for r in rows)), "critical_path": path,
+            "path_kind": "completion_chain",
             "rows": [{"id": r["request_id"], "lane": lane(r["request_id"]), "ready": rounded(r["ready_ms"]), "first": rounded(r["first_token_ms"]),
                       "finish": rounded(r["finished_ms"]), "status": r["status"], "depends_on": r["depends_on"],
-                      "ttft": rounded(r["first_token_ms"] - r["ready_ms"]) if r["first_token_ms"] is not None else None,
+                      "ttft": rounded(r["first_token_ms"] - r["ready_ms"]) if r["first_token_ms"] is not None and r["ready_ms"] is not None else None,
                       "input_tokens": workload.get(r["request_id"], {}).get("input_tokens"), "critical": r["request_id"] in path} for r in rows]}
 
 

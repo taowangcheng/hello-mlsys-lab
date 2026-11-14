@@ -1,0 +1,144 @@
+{
+  "simulator": "MLSys Simulator 1.20.0",
+  "profile": "protocol-v1.20",
+  "model": "qwen3.8:27b",
+  "codex": "0.167.2",
+  "playback_speed": 1,
+  "scope": "Uncalibrated Qwen3 BF16 integration exercise; synthetic sandbox; original course baselines and model quality are not validated.",
+  "checks": {
+    "python_full": {
+      "passed": 298,
+      "skipped": 6
+    },
+    "python_final_affected": {
+      "passed": 82
+    },
+    "browser_full": {
+      "passed": 29
+    },
+    "browser_affected": {
+      "passed": 13
+    },
+    "typecheck": "passed",
+    "frontend_build": "passed"
+  },
+  "tasks": [
+    {
+      "task": "9.1",
+      "session": "9.1-1",
+      "outcome": "complete",
+      "browser_errors": [],
+      "student_messages": 7,
+      "agent_replies": 7,
+      "simulations": 3,
+      "sandbox_runs": 3,
+      "read_calls": 6,
+      "recovered_tool_errors": 0,
+      "video": "videos/task-9.1/walkthrough.mp4",
+      "duration_s": 424.4,
+      "original_duration_s": 800.2,
+      "wait_cuts": 3,
+      "sha256": {
+        "evidence.json": "sha256:9a6b0b2aa13475cd97dc250bf1bee97d9c76425cb9fd762392a4b91abaf842e6",
+        "chapters.raw.json": "sha256:56965125fc3c9f0fe5d59795ee59e9241aa2d43a16121ed16219d64997de2056",
+        "chapters.json": "sha256:67b4d386e3a261dd53b6ef24b3c2f8333bf817c01cb4a9120ea1ed47b9728d77",
+        "report.json": "sha256:7ff85b2aaf9b74808e95d46f372d76c52150ad9d88cfad835eb6b5dde03994a5",
+        "tool-activity.json": "sha256:ff1c10d9db169a582d772e2c0968a64f5b6a915ba3c36a644acb2aa46dc37a7d",
+        "edit-list.json": "sha256:a3e4eb5aad326911cd9c30669c5ca2fe36ee2228c816eff7531841e7cdb9411f",
+        "conversation.json": "sha256:9422e29cb8d9fc28e8a43f4d9e5db4ef8182969f0e78aeba2a17dc7bc8912b2f",
+        "conversation.md": "sha256:4a3ca321552992d298b254ff6ee7330baa566db0ad20250987ceb3eee4250202",
+        "walkthrough.mp4": "sha256:7d9157fb16548e9f56bf2a941ea06ae668518aac3eecc18fc56162c6af714013",
+        "walkthrough.webm": "sha256:78a6dd796f44f26dbb158b660bc210342f64832140ecb7db1e57b31611d3d751"
+      }
+    },
+    {
+      "task": "9.2",
+      "session": "9.2-1",
+      "outcome": "complete",
+      "browser_errors": [],
+      "student_messages": 9,
+      "agent_replies": 9,
+      "simulations": 5,
+      "sandbox_runs": 6,
+      "read_calls": 7,
+      "recovered_tool_errors": 4,
+      "video": "videos/task-9.2/walkthrough.mp4",
+      "duration_s": 563.24,
+      "original_duration_s": 1089.12,
+      "wait_cuts": 7,
+      "sha256": {
+        "evidence.json": "sha256:de8d7078baf927410a4b8ffe007c84f108c806049b567b19a39e416be23f940b",
+        "chapters.raw.json": "sha256:0c283cbc4e27f9aeae15d6c08a2067fa4f2b80c3452932c2d6b4eb20fe3e1d03",
+        "chapters.json": "sha256:777230a2f1a2191d43cdf52144d52fb00f8a9c3319ed7f3a8356b3c515ca48fa",
+        "report.json": "sha256:b86bfd72ed68097138c3d10362e4aba2b60007908ff7701e3f04b0c33a7c785f",
+        "tool-activity.json": "sha256:f243935655295c949f23d91b8962dc909cc2805bf109251f8bb6ea8a42dab25a",
+        "edit-list.json": "sha256:2ec4bc4e36f0c2903c2758fb08df9a99b2e763e2bfd12b75c8250820e73fa75b",
+        "conversation.json": "sha256:447edd87f5329796a0cd6dbfdb53f522e6799a5252ca3a9e1345593bb54b46df",
+        "conversation.md": "sha256:fc6298471e1db7af26c59ff4c1046910c50bc90562b96783df0650f24b7be482",
+        "walkthrough.mp4": "sha256:476162fb21e41042983bc4c9a3703a27eb98d8e4efc93583f80f216ec8c9628e",
+        "walkthrough.webm": "sha256:c0cdd7664fde7cad78c6958ca42fa75f42d2893fc4c76a1ef3be4543df28bbec"
+      }
+    },
+    {
+      "task": "9.3",
+      "session": "9.3-1",
+      "outcome": "complete",
+      "browser_errors": [],
+      "student_messages": 9,
+      "agent_replies": 9,
+      "simulations": 4,
+      "sandbox_runs": 4,
+      "read_calls": 12,
+      "recovered_tool_errors": 5,
+      "video": "videos/task-9.3/walkthrough.mp4",
+      "duration_s": 539.12,
+      "original_duration_s": 687.0,
+      "wait_cuts": 3,
+      "sha256": {
+        "evidence.json": "sha256:597989d2bd24afdcf16ade64c58817b28441c5b08e8f50b5c5794e7ab399f538",
+        "chapters.raw.json": "sha256:5ada55c1d083ff546d15307c90b194872e6197244946ad08c3bac0ceb98d1a8e",
+        "chapters.json": "sha256:bd471156adeb21c64d2593768f7a0403952f0aea157a2d0a3e51cf7f3c4ba293",
+        "report.json": "sha256:dc1c5dcbb123082236b38068554c0d78290cc464432e568990964bc6d0a2ecc4",
+        "tool-activity.json": "sha256:e48ad40b031710df6ff2b8bda4f78eb1e483291b0c80527a8470510fecd098ed",
+        "edit-list.json": "sha256:eec2b11aa9ee71c4fc92251c03f9eea48cb6d6056153d5ab45c685b7032e24ae",
+        "conversation.json": "sha256:6fc141f7a70b272a007dfe6f25725f47117bd325fd0d1a194aee68ea6ca7b4d2",
+        "conversation.md": "sha256:b04bbf8b9e64d076763303a05c4a3d82031e187b56db4169d1a8d2e752415c9e",
+        "walkthrough.mp4": "sha256:5d3d4c814463790828165222886aa7a16996772ce7d4f32dfcdcf711afcfeaef",
+        "walkthrough.webm": "sha256:622f772967d5bb138bfcdbc184de05685acdd711030a6dc36feb3cfcf05c8951"
+      }
+    }
+  ],
+  "player_check": {
+    "checked": [
+      {
+        "task": "9.1",
+        "playback": true,
+        "rate": 1,
+        "chapter_seek": true,
+        "transcript": true,
+        "links": 14,
+        "http_range": true
+      },
+      {
+        "task": "9.2",
+        "playback": true,
+        "rate": 1,
+        "chapter_seek": true,
+        "transcript": true,
+        "links": 15,
+        "http_range": true
+      },
+      {
+        "task": "9.3",
+        "playback": true,
+        "rate": 1,
+        "chapter_seek": true,
+        "transcript": true,
+        "links": 14,
+        "http_range": true
+      }
+    ],
+    "pageErrors": [],
+    "privateFilesBlocked": 3
+  }
+}

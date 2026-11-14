@@ -35,24 +35,33 @@ def pairs(lab, m):
 
 
 def validation(lab, runs):
-    """Per role: which splits passed (None: not run yet), and what is still missing."""
+    """Keep unassessed or incomplete runs distinct from violated constraints."""
     matrix = {}
+    def combine(previous, current):
+        values = [previous, current]
+        if False in values:
+            return False
+        for status in ("incomplete", "not_evaluated"):
+            if status in values:
+                return status
+        return current
     for run in runs:
         if run["status"] not in TERMINAL:
             continue
         cell = matrix.setdefault(run.get("role", "simulator"),
                                  {"development": None, "repeat": None, "holdout": {name: None for name in lab.task["holdouts"]}})
-        ok = run["status"] == "succeeded" and run.get("verdict") == "constraints_met"
+        ok = (False if run.get("verdict") == "constraints_violated" else "incomplete" if run["status"] != "succeeded" else
+              True if run.get("verdict") == "constraints_met" else "not_evaluated")
         if run["split"] == "holdout":
             previous = cell["holdout"].get(run["holdout"])
-            cell["holdout"][run["holdout"]] = ok if previous is None else previous and ok
+            cell["holdout"][run["holdout"]] = combine(previous, ok)
         else:
             previous = cell[run["split"]]
-            cell[run["split"]] = ok if previous is None else previous and ok
+            cell[run["split"]] = combine(previous, ok)
     missing = {}
     for role, cell in matrix.items():
-        gaps = [split for split in ("development", "repeat") if not cell[split]]
-        gaps += [f"holdout:{name}" for name, ok in cell["holdout"].items() if not ok]
+        gaps = [split for split in ("development", "repeat") if cell[split] is not True]
+        gaps += [f"holdout:{name}" for name, ok in cell["holdout"].items() if ok is not True]
         missing[role] = gaps
     return matrix, missing
 

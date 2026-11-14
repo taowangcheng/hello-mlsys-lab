@@ -1,0 +1,106 @@
+{
+  "schema": "mlab.v1",
+  "run_id": "hw_0004",
+  "task": "9.2",
+  "candidate_id": "c16",
+  "spec_hash": "sha256:817e107c08fa2d1ffdde9ac2c1617fac1633b451264d029f046aba1beb14a4f5",
+  "backend": {
+    "name": "standin",
+    "version": "0.1.0-standin.1",
+    "service_source": "standin",
+    "model": "standin"
+  },
+  "status": "succeeded",
+  "verdict": "not_evaluated",
+  "evidence_level": "mock",
+  "failure_class": null,
+  "constraints": [
+    {
+      "metric": "ttft_ms.p99",
+      "op": "<",
+      "value": 2000.0,
+      "status": "draft",
+      "source": "Project plan Ch 9.2",
+      "note": "The document says \"P99 < 2 s\" without naming the latency; end-to-end latency depends on output length, so TTFT for now",
+      "observed": 1440.2920596004885,
+      "met": true
+    },
+    {
+      "metric": "tpot_ms.p99",
+      "op": "<",
+      "value": null,
+      "status": "tbd",
+      "source": "README week 7",
+      "note": null,
+      "observed": 8.921351113445203,
+      "met": null
+    },
+    {
+      "metric": "throughput_tok_s",
+      "op": ">=",
+      "value": null,
+      "status": "tbd",
+      "source": "Project plan Ch 9.2 (throughput ≥ X)",
+      "note": null,
+      "observed": 22.4,
+      "met": null
+    },
+    {
+      "metric": "completion_rate",
+      "op": ">=",
+      "value": 0.99,
+      "status": "draft",
+      "source": "Proposed in the lab plan",
+      "note": "Prevents pushing p99 down by rejecting or truncating requests",
+      "observed": 1.0,
+      "met": true
+    }
+  ],
+  "metrics": {
+    "ttft_ms": {
+      "p50": 463.8728972763482,
+      "p95": 1438.595422606007,
+      "p99": 1440.2920596004885
+    },
+    "tpot_ms": {
+      "p50": 8.921351113445201,
+      "p95": 8.921351113445203,
+      "p99": 8.921351113445203
+    },
+    "e2e_ms": {
+      "p50": 1025.918017423396,
+      "p95": 3713.5399565345338,
+      "p99": 3715.236593529015
+    },
+    "completion_rate": 1.0,
+    "throughput_tok_s": 22.4,
+    "goodput_tok_s": 22.4,
+    "decode_tok_s": 112.09064493526307,
+    "makespan_s": 4.755660752777635,
+    "critical_path_s": 3.715660752777635,
+    "vram_peak_gib": 5.266496753692627,
+    "kv_peak_gib": 0.9
+  },
+  "unsupported_metrics": {},
+  "quality": {
+    "status": "not_evaluated",
+    "passes_floor": null,
+    "source": "quality_table:9.2",
+    "table_status": "not_evaluated",
+    "note": "No quality evaluation for these model identities."
+  },
+  "coverage": {
+    "in_domain": true,
+    "extrapolated": [],
+    "assumptions": [
+      "Hardware stand-in: the numbers are made up, not measured on real hardware.",
+      "The stand-in adds run noise, parameter error, a missing mechanism and configuration differences by fixed rules.",
+      "Plan W2 9.2 exception: TPOT threshold is tbd; goodput applies only the declared TTFT threshold."
+    ]
+  },
+  "requests": {
+    "total": 12,
+    "completed": 12,
+    "failed": 0
+  }
+}

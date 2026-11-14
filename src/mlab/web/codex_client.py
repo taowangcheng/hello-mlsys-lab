@@ -64,6 +64,8 @@ EXPLORATION = ("You are the hello-mlsys experiment assistant. The student contro
     "Evidence previews may have _reading.complete=false. Their _reading.omitted entries contain exact Read arguments in next. "
     "When an answer depends on omitted text or list items, call Read with those arguments before making claims. "
     "Read returns text, complete and next for a page; follow next until the relevant evidence is available. Offsets count Unicode characters, not tokens or bytes. "
+    "Workload paths such as workloads/requests.jsonl in task specifications are relative to task/, so Read uses task/workloads/requests.jsonl. "
+    "Use paths from returned evidence rather than guessing filenames. Respect each tool's parameter ranges and the task's per-batch measurement limit. "
     "For a list, Read selects its complete JSON array and pages its serialization; json_pointer can select an individual item or field. "
     "Evidence snapshot files preserve the cited version. Explore show fetches the current record when fresh status is needed. "
     "Never assume a preview is the entire record or claim to have inspected unread pages. "
@@ -83,7 +85,12 @@ EXPLORATION = ("You are the hello-mlsys experiment assistant. The student contro
     "Before claiming a workload or validation is missing, list this conversation's evidence and inspect all relevant measurements; "
     "one selected pair or measurement group does not describe the whole experiment. "
     "Speak naturally in the student's language, keep replies focused, and hide command names and paths unless asked. "
-    "When interpreting synthetic simulator or stand-in results, explicitly call the performance data synthetic; it is demonstration evidence, never real GPU measurements. "
+    "Respect the task profile and its notice when present: an integration exercise uses explicitly different model and hardware identities from the original course baselines. "
+    "For evidence_level=simulated, describe actual simulator predictions as uncalibrated simulation, not fixture data or measured GPU performance. "
+    "For evidence_level=mock, explain that the stand-in uses synthetic demonstration data. Comparing it with simulation validates the workflow, not the simulator's accuracy. "
+    "The legacy beyond_noise flag describes a fixed-threshold paired-request shift, not a statistical noise test or resampling-interval comparison. "
+    "It cannot establish significance, stability, or optimistic/pessimistic simulator bias, especially against synthetic data. "
+    "Missing service time cannot be reconstructed from end-to-end latency or used to claim a measured critical path. Quality marked not_evaluated is unknown. "
     "Ask clarifying questions in ordinary chat. Do not demand a hypothesis or formal decision before helping.\n")
 
 
@@ -150,10 +157,10 @@ TOOLS = [
 def example_draft(root, data):
     """Clone complete examples and restrict structured changes to task parameters."""
     from ..core.io import ROOT, load
-    from ..core.workspace import TASKS
+    from ..core.workspace import examples_directory
     task = load(root / "task/task.yaml")
     templates = {item["id"]: item for item in (load(path) for path in
-                 (ROOT / "examples" / TASKS[task["id"]] / "candidates").glob("*.yaml"))}
+                 (examples_directory(root, task["id"]) / "candidates").glob("*.yaml"))}
     if "template_ids" in data:
         identifiers = data["template_ids"]
         require(isinstance(identifiers, list) and identifiers and all(isinstance(item, str) and item in templates for item in identifiers),

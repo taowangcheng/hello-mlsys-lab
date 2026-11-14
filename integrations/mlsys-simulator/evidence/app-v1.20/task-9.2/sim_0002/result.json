@@ -1,0 +1,118 @@
+{
+  "schema": "mlab.v1",
+  "run_id": "sim_0002",
+  "task": "9.2",
+  "candidate_id": "c16",
+  "spec_hash": "sha256:f6aa457879479afe0b9d4f8e02cbca8bc6cf45efa26933f77fb233417d2f1bf9",
+  "backend": {
+    "name": "mlsys-simulator",
+    "version": "1.20.0",
+    "service_source": "http",
+    "model": "mlsys",
+    "adapter_version": "0.1.0-http.1"
+  },
+  "status": "succeeded",
+  "verdict": "not_evaluated",
+  "evidence_level": "simulated",
+  "failure_class": null,
+  "constraints": [
+    {
+      "metric": "ttft_ms.p99",
+      "op": "<",
+      "value": 2000.0,
+      "status": "draft",
+      "source": "Project plan Ch 9.2",
+      "note": "The document says \"P99 < 2 s\" without naming the latency; end-to-end latency depends on output length, so TTFT for now",
+      "observed": 709.6999406544411,
+      "met": true
+    },
+    {
+      "metric": "tpot_ms.p99",
+      "op": "<",
+      "value": null,
+      "status": "tbd",
+      "source": "README week 7",
+      "note": null,
+      "observed": 32.045474694904684,
+      "met": null
+    },
+    {
+      "metric": "throughput_tok_s",
+      "op": ">=",
+      "value": null,
+      "status": "tbd",
+      "source": "Project plan Ch 9.2 (throughput ≥ X)",
+      "note": null,
+      "observed": 22.4,
+      "met": null
+    },
+    {
+      "metric": "completion_rate",
+      "op": ">=",
+      "value": 0.99,
+      "status": "draft",
+      "source": "Proposed in the lab plan",
+      "note": "Prevents pushing p99 down by rejecting or truncating requests",
+      "observed": 1.0,
+      "met": true
+    }
+  ],
+  "metrics": {
+    "ttft_ms": {
+      "p50": 45.07046290166153,
+      "p95": 705.2999406544411,
+      "p99": 709.6999406544411
+    },
+    "tpot_ms": {
+      "p50": 24.093181370786212,
+      "p95": 31.95674720030151,
+      "p99": 32.045474694904684
+    },
+    "e2e_ms": {
+      "p50": 2000.1375267206568,
+      "p95": 5764.246731520656,
+      "p99": 5848.922021120656
+    },
+    "completion_rate": 1.0,
+    "throughput_tok_s": 22.4,
+    "goodput_tok_s": 22.4,
+    "decode_tok_s": 41.814975127341896,
+    "makespan_s": 6.697647003520656,
+    "critical_path_s": null,
+    "vram_peak_gib": 12.49388313293457,
+    "kv_peak_gib": 2.674560546875,
+    "per_device": [
+      {
+        "device_id": "gpu0",
+        "capacity_bytes": 17179869184,
+        "physical_peak_bytes": 13415204864,
+        "kv_peak_bytes": 2871787520,
+        "kv_pool_reserved_bytes": 9764077568
+      }
+    ]
+  },
+  "unsupported_metrics": {
+    "critical_path_s": "No independently defined per-request service-only observation; queue/dependency waits are not service time."
+  },
+  "quality": {
+    "status": "not_evaluated",
+    "passes_floor": null,
+    "source": "quality_table:9.2",
+    "table_status": "not_evaluated",
+    "note": "No quality evaluation for these model identities."
+  },
+  "coverage": {
+    "in_domain": null,
+    "assumptions": [
+      "Model geometry and device rates are declared inputs, not GPU measurements.",
+      "No measured Profile or inter-device communication topology is selected.",
+      "Plan W2 9.2 exception: TPOT threshold is tbd; goodput applies only the declared TTFT threshold.",
+      "Critical path is null: independent service-time observations are unavailable."
+    ]
+  },
+  "requests": {
+    "total": 12,
+    "completed": 12,
+    "failed": 0
+  }
+}

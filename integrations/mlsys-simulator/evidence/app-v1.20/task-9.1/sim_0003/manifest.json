@@ -1,0 +1,178 @@
+{
+  "schema": "mlab.v1",
+  "spec": {
+    "schema": "mlab.v1",
+    "task": "9.1",
+    "candidate_id": "bf16_1_7b",
+    "workload": {
+      "mode": "sequential",
+      "requests": {
+        "path": "holdouts/other_prompt_set.requests.jsonl",
+        "sha256": "sha256:9b82d9d52c485bdb1b83c2706dc5ae5e824ab9c5f27f6b13cb22085af572e173"
+      }
+    },
+    "infra": {
+      "id": "rx9070xt_x1",
+      "nodes": [
+        {
+          "id": "node0",
+          "devices": [
+            {
+              "id": "gpu0",
+              "hardware": "rx9070xt"
+            }
+          ]
+        }
+      ]
+    },
+    "strategy": {
+      "deployments": [
+        {
+          "model": "llm-1.7b",
+          "weight_precision": "BF16",
+          "kv_precision": "BF16",
+          "context_tokens": 8192,
+          "devices": [
+            "gpu0"
+          ],
+          "replicas": 1,
+          "parallel": {
+            "kind": "none",
+            "degree": 1
+          }
+        }
+      ],
+      "serving": {
+        "max_concurrency": 1,
+        "gpu_memory_utilization": 0.8,
+        "kv_fraction": null,
+        "kv_budget_gib": null,
+        "chunked_prefill_tokens": null,
+        "continuous_batching": false
+      },
+      "cache": {},
+      "scheduling": {},
+      "speculative": false
+    },
+    "evaluation": {
+      "constraints": [
+        {
+          "metric": "vram_peak_gib",
+          "op": "<=",
+          "value": 14.0,
+          "status": "draft",
+          "source": "Project plan Ch 9.1",
+          "note": "The document says \"14 GB\"; treated as GiB for now"
+        },
+        {
+          "metric": "ttft_ms.p50",
+          "op": "<=",
+          "value": 500.0,
+          "status": "draft",
+          "source": "Project plan Ch 9.1",
+          "note": "The document names no percentile; Ch 4 takes the median of repeated runs, so p50 for now"
+        },
+        {
+          "metric": "decode_tok_s",
+          "op": ">=",
+          "value": 20.0,
+          "status": "draft",
+          "source": "Project plan Ch 9.1",
+          "note": null
+        }
+      ],
+      "duration_s": 300.0,
+      "timeout_s": 1800,
+      "goodput_policy": "both_thresholds_required"
+    },
+    "execution": {
+      "seed": 42,
+      "repeat": 0,
+      "split": "holdout",
+      "holdout": "other_prompt_set",
+      "initial_state": "empty",
+      "warmup": null
+    }
+  },
+  "spec_hash": "sha256:bf6213adab324266627daededc6ccc9e2274923011a1ae27ef6dbc356e59e8f6",
+  "seed": 42,
+  "role": "simulator",
+  "backend": {
+    "name": "mlsys-simulator",
+    "version": "1.20.0",
+    "service_source": "http",
+    "model": "mlsys",
+    "adapter_version": "0.1.0-http.1"
+  },
+  "versions": {
+    "mlab": "0.2.0",
+    "metrics": "linear-v1"
+  },
+  "provenance": {
+    "source": "external simulator HTTP API",
+    "endpoint": "http://127.0.0.1:8877",
+    "model_aliases": {
+      "llm-0.6b": "qwen3-0.6b",
+      "llm-1.7b": "qwen3-1.7b",
+      "llm-4b": "qwen3-4b"
+    },
+    "expected_version": "1.20.0",
+    "input_sha256": "sha256:7cb64fd41925ffafff484025c8e6304ff3ae0ce193fcc15062d32aa69cf0ab85",
+    "calibration": {
+      "version": "agent-analytical-v1",
+      "kind": "uncalibrated",
+      "in_domain": null,
+      "assumptions": [
+        "Model geometry and device rates are declared inputs, not GPU measurements.",
+        "No measured Profile or inter-device communication topology is selected."
+      ]
+    },
+    "catalog_version": "mlsys-agent-catalog-v1",
+    "model_revisions": {
+      "qwen3-1.7b": "course-7df2dae493eb-geometry"
+    },
+    "native_failure_class": null,
+    "unsupported_fields": {
+      "requests.service_ms": "No independently defined per-request service-only observation; queue/dependency waits are not service time."
+    }
+  },
+  "effective_config": {
+    "deployments": [
+      {
+        "model": "llm-1.7b",
+        "weight_precision": "BF16",
+        "kv_precision": "BF16",
+        "context_tokens": 8192,
+        "devices": [
+          "gpu0"
+        ],
+        "replicas": 1,
+        "parallel": {
+          "kind": "none",
+          "degree": 1
+        }
+      }
+    ],
+    "serving": {
+      "max_concurrency": 1,
+      "gpu_memory_utilization": 0.8,
+      "kv_fraction": null,
+      "kv_budget_gib": null,
+      "chunked_prefill_tokens": null,
+      "continuous_batching": false
+    },
+    "cache": {},
+    "scheduling": {},
+    "speculative": false
+  },
+  "sha256": {
+    "spec.json": "sha256:8644658c5030e8de8a165f892107a6a2ac014569baa03c147f9c0230926a3e46",
+    "result.json": "sha256:61ed49f9e8fd7b056d4fa15863dd4c65b5b9bc19d95299ef0ff924267a1cf47b",
+    "requests.jsonl": "sha256:c13d31738a5a789bc9ea87beb4be0efd36b260d71e45d9b1d84be5ff61286d62",
+    "events.jsonl": "sha256:251a0cf7db201f67dfce5124ea7fc542a9fb8611f97ea3765420126b1d8c09aa",
+    "logs.txt": "sha256:a00e297029f5137898378083b824cb7c3c2c2a952282933b858ebce57625ac0c",
+    "simulator-request.json": "sha256:7cb64fd41925ffafff484025c8e6304ff3ae0ce193fcc15062d32aa69cf0ab85",
+    "simulator-response.json": "sha256:d4f003a76b3585e159beab6d3189eca242f7b441e6522fec5adf4957c1757bf7",
+    "simulator-exchange.json": "sha256:3bd032445f906c6727ccd80e7aedce15366d6b3bbc7b544d11ac8667ac3ef45c"
+  }
+}

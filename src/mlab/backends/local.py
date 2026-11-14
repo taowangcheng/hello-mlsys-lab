@@ -11,8 +11,8 @@ from ..core.metrics import calculate, verdict
 from ..core.store import Store, now
 from . import llm
 
-BACKEND_VERSIONS = {"fixture": "0.2.0-fixture.1", "llm": "0.2.0-llm.1", "standin": "0.1.0-standin.1"}
-ROLES = {"fixture": "simulator", "llm": "simulator", "standin": "hardware"}
+BACKEND_VERSIONS = {"fixture": "0.2.0-fixture.1", "llm": "0.2.0-llm.1", "standin": "0.1.0-standin.1", "mlsys": "0.1.0-http.1"}
+ROLES = {"fixture": "simulator", "llm": "simulator", "standin": "hardware", "mlsys": "simulator"}
 PREFIX = {"simulator": "sim", "hardware": "hw"}
 
 # The simulators' shared time model: a fixed cost per request, prefill time per input token,
@@ -62,6 +62,12 @@ class LocalBackend:
         self.role = ROLES[name]
 
     def capabilities(self, task):
+        if self.name == "mlsys":
+            return Capabilities(backend=self.name, version=BACKEND_VERSIONS[self.name], role="simulator", evidence_level="simulated",
+                tasks=["9.1", "9.2", "9.3"], mechanisms=["continuous_batching", "chunked_prefill", "multi_replica", "kv_budget", "dag_arrival"],
+                metrics=["ttft_ms", "tpot_ms", "e2e_ms", "completion_rate", "throughput_tok_s", "goodput_tok_s", "decode_tok_s", "vram_peak_gib", "kv_peak_gib", "makespan_s"],
+                notes=["External simulator HTTP API. Uncalibrated; model, precision and hardware support follow its public catalog.",
+                       "Independent service time and critical path time are unavailable."])
         mechanisms = ["continuous_batching", "chunked_prefill", "multi_replica", "tensor_parallel", "dag_arrival", "priority_scheduling"]
         if self.name == "llm":
             mechanisms += ["kv_budget", "preemption", "prefix_cache"]
@@ -76,6 +82,9 @@ class LocalBackend:
         from .capabilities import check_capabilities
         spec = dump(RunSpec.model_validate(spec))
         check_capabilities(self.capabilities(None), spec["strategy"], spec["workload"]["mode"])
+        if self.name == "mlsys":
+            from .simulator_backend import request_bytes
+            request_bytes(self.workspace, spec, "preflight", load(self.workspace / ".mlab/config.json")["simulator_service"])
         store = Store(self.workspace)
         try:
             store.begin()
@@ -135,7 +144,9 @@ class LocalBackend:
             store.close()
 
     def cancel(self, handle):
-        finalize(self.workspace, handle["run_id"], "cancelled", None, [], {}, ["Cancelled by user."], {})
+        note = ("Local wait cancelled by user. The simulator API has no remote cancellation; remote execution may continue."
+                if self.name == "mlsys" else "Cancelled by user.")
+        finalize(self.workspace, handle["run_id"], "cancelled", None, [], {}, [note], {})
 
     def fetch(self, handle, dest):
         run = self.poll(handle)
@@ -148,7 +159,8 @@ class LocalBackend:
         for name, digest in manifest["sha256"].items():
             require(hashed(inside(origin, name)) == digest, "E_FROZEN_CHANGED", "artifact changed: " + name)
         artifacts = {}
-        for name in ["manifest.json", "result.json", "requests.jsonl", "events.jsonl", "logs.txt"]:
+        for name in ["manifest.json", "result.json", "requests.jsonl", "events.jsonl", "logs.txt"] + [
+                name for name in manifest["sha256"] if name.startswith("simulator-")]:
             path = origin / name
             if Path(dest).resolve() != origin.resolve():
                 Path(dest).mkdir(parents=True, exist_ok=True)
@@ -312,7 +324,8 @@ def quality(root, spec):
         values.append(match["passes_floor"] if match else None)
     passes = False if False in values else None if None in values else True
     return {"status": "from_table" if None not in values else "not_evaluated", "passes_floor": passes,
-            "source": "quality_table:" + spec["task"], "table_status": table["status"], "note": "hand-written draft table, not measured quality"}
+            "source": "quality_table:" + spec["task"], "table_status": table["status"],
+            "note": "No quality evaluation for these model identities." if table["status"] == "not_evaluated" else "hand-written draft table, not measured quality"}
 
 
 def coverage(run, spec, requests):
@@ -324,7 +337,7 @@ def coverage(run, spec, requests):
         "Demo data, not real system performance.", "Mock seed/repeat differences are synthetic, not independent hardware measurements."]}
 
 
-def finalize(root, run_id, status, failure, rows, extra, logs, provenance):
+def finalize(root, run_id, status, failure, rows, extra, logs, provenance, *, external=None, wire=None):
     root = Path(root)
     store = Store(root)
     try:
@@ -338,6 +351,8 @@ def finalize(root, run_id, status, failure, rows, extra, logs, provenance):
         task = load(root / "task/task.yaml")
         requests = load_requests(root, spec)
         metrics, counts, assumptions = calculate(rows, spec["evaluation"]) if rows else ({}, {"total": len(requests), "completed": 0, "failed": len(requests)}, [])
+        if run["backend"] == "mlsys" and not rows:
+            counts = {"total": len(requests), "completed": 0, "failed": 0, "unknown": len(requests)}
         metrics.update(extra)
         q = quality(root, spec)
         judgment, constraints = verdict(metrics, task, q, status, failure)
@@ -351,16 +366,23 @@ def finalize(root, run_id, status, failure, rows, extra, logs, provenance):
             metrics["tightest_constraint"] = max(numeric, key=lambda item: item["utilization"]) if numeric else None
         unavailable = set(task["required_metrics"]) | {metric for metric, value in metrics.items() if value is None}
         unsupported = {metric: "No value: unsupported model, missing threshold or unsuccessful run; see status/coverage." for metric in unavailable if metrics.get(metric) is None}
+        if external:
+            unsupported.update(external["unsupported_metrics"])
         for metric in unsupported:
             metrics[metric] = None
         provenance = dict(provenance)
         observed = {key: provenance.pop(key) for key in ("environment", "effective_config") if key in provenance}
-        span = coverage(run, spec, requests)
-        span["assumptions"] += assumptions
-        source = {"llm": "llm", "fixture": "fixture", "standin": "standin"}[run["backend"]]
+        span = (dict(external["coverage"]) if external else
+                {"in_domain": None, "assumptions": ["No complete simulator response; request outcomes are unknown."]}
+                if run["backend"] == "mlsys" else coverage(run, spec, requests))
+        span["assumptions"] = list(dict.fromkeys([*span["assumptions"], *assumptions]))
+        source = run["backend"]
+        backend = {"name": source, "version": BACKEND_VERSIONS[source], "service_source": source, "model": str(provenance.get("model", source))}
+        if external:
+            backend.update(external["backend"], adapter_version=BACKEND_VERSIONS[source], service_source="http")
         result = dump(RunResult(run_id=run_id, task=spec["task"], candidate_id=spec["candidate_id"], spec_hash=run["spec_hash"],
-                  backend={"name": run["backend"], "version": BACKEND_VERSIONS[run["backend"]], "service_source": source, "model": str(provenance.get("model", source))},
-                  status=status, verdict=judgment, evidence_level="mock", failure_class=failure, constraints=constraints,
+                  backend=backend,
+                  status=status, verdict=judgment, evidence_level="simulated" if source == "mlsys" else "mock", failure_class=failure, constraints=constraints,
                   metrics=metrics, unsupported_metrics=unsupported, quality=q, coverage=span, requests=counts))
         for name, content in (("requests.jsonl", "".join(json.dumps(r) + "\n" for r in rows)),
                               ("events.jsonl", "".join(json.dumps({"request_id": r["request_id"], "ready_ms": r["ready_ms"], "finished_ms": r["finished_ms"]}) + "\n" for r in rows)),
@@ -368,6 +390,10 @@ def finalize(root, run_id, status, failure, rows, extra, logs, provenance):
             atomic(folder / name, content, text=True)
         atomic(folder / "result.json", result)
         artifacts = {name: hashed(folder / name) for name in ["spec.json", "result.json", "requests.jsonl", "events.jsonl", "logs.txt"]}
+        for name, raw in (wire or {}).items():
+            require(name in {"simulator-request.json", "simulator-response.json", "simulator-exchange.json"}, "E_SCHEMA", "Unexpected wire artifact")
+            (folder / name).write_bytes(raw)
+            artifacts[name] = hashed(folder / name)
         manifest = {"schema": "mlab.v1", "spec": spec, "spec_hash": run["spec_hash"], "seed": spec["execution"]["seed"],
                     "role": run["role"], "backend": result["backend"],
                     "versions": {"mlab": "0.2.0", "metrics": "linear-v1"}, "provenance": provenance, **observed, "sha256": artifacts}

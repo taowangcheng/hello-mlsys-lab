@@ -1,0 +1,186 @@
+{
+  "schema": "mlab.v1",
+  "spec": {
+    "schema": "mlab.v1",
+    "task": "9.2",
+    "candidate_id": "c16",
+    "workload": {
+      "mode": "open_loop",
+      "requests": {
+        "path": "holdouts/long_prompt_distribution.requests.jsonl",
+        "sha256": "sha256:57ef2c8e5bbaedbffee712aebe8e650a9a3eb092655022a293d496a62a8ace0c"
+      }
+    },
+    "infra": {
+      "id": "rx9070xt_x1",
+      "nodes": [
+        {
+          "id": "node0",
+          "devices": [
+            {
+              "id": "gpu0",
+              "hardware": "rx9070xt"
+            }
+          ]
+        }
+      ]
+    },
+    "strategy": {
+      "deployments": [
+        {
+          "model": "llm-1.7b",
+          "weight_precision": "BF16",
+          "kv_precision": "BF16",
+          "context_tokens": 16384,
+          "devices": [
+            "gpu0"
+          ],
+          "replicas": 1,
+          "parallel": {
+            "kind": "none",
+            "degree": 1
+          }
+        }
+      ],
+      "serving": {
+        "max_concurrency": 16,
+        "gpu_memory_utilization": 0.8,
+        "kv_fraction": null,
+        "kv_budget_gib": null,
+        "chunked_prefill_tokens": null,
+        "continuous_batching": true
+      },
+      "cache": {},
+      "scheduling": {},
+      "speculative": false
+    },
+    "evaluation": {
+      "constraints": [
+        {
+          "metric": "ttft_ms.p99",
+          "op": "<",
+          "value": 2000.0,
+          "status": "draft",
+          "source": "Project plan Ch 9.2",
+          "note": "The document says \"P99 < 2 s\" without naming the latency; end-to-end latency depends on output length, so TTFT for now"
+        },
+        {
+          "metric": "tpot_ms.p99",
+          "op": "<",
+          "value": null,
+          "status": "tbd",
+          "source": "README week 7",
+          "note": null
+        },
+        {
+          "metric": "throughput_tok_s",
+          "op": ">=",
+          "value": null,
+          "status": "tbd",
+          "source": "Project plan Ch 9.2 (throughput ≥ X)",
+          "note": null
+        },
+        {
+          "metric": "completion_rate",
+          "op": ">=",
+          "value": 0.99,
+          "status": "draft",
+          "source": "Proposed in the lab plan",
+          "note": "Prevents pushing p99 down by rejecting or truncating requests"
+        }
+      ],
+      "duration_s": 60.0,
+      "timeout_s": 1800,
+      "goodput_policy": "ttft_only_if_tpot_tbd"
+    },
+    "execution": {
+      "seed": 42,
+      "repeat": 0,
+      "split": "holdout",
+      "holdout": "long_prompt_distribution",
+      "initial_state": "empty",
+      "warmup": null
+    }
+  },
+  "spec_hash": "sha256:0e0272818b74d7a55d380dc810385b3cfd3b98ec1732c727cc4314f8d66b98ea",
+  "seed": 42,
+  "role": "simulator",
+  "backend": {
+    "name": "mlsys-simulator",
+    "version": "1.20.0",
+    "service_source": "http",
+    "model": "mlsys",
+    "adapter_version": "0.1.0-http.1"
+  },
+  "versions": {
+    "mlab": "0.2.0",
+    "metrics": "linear-v1"
+  },
+  "provenance": {
+    "source": "external simulator HTTP API",
+    "endpoint": "http://127.0.0.1:8877",
+    "model_aliases": {
+      "llm-0.6b": "qwen3-0.6b",
+      "llm-1.7b": "qwen3-1.7b",
+      "llm-4b": "qwen3-4b"
+    },
+    "expected_version": "1.20.0",
+    "input_sha256": "sha256:a61b3ee93adb15b42e4366c9d2f9e8154f21d596328f542e52822f1c6b35df58",
+    "calibration": {
+      "version": "agent-analytical-v1",
+      "kind": "uncalibrated",
+      "in_domain": null,
+      "assumptions": [
+        "Model geometry and device rates are declared inputs, not GPU measurements.",
+        "No measured Profile or inter-device communication topology is selected."
+      ]
+    },
+    "catalog_version": "mlsys-agent-catalog-v1",
+    "model_revisions": {
+      "qwen3-1.7b": "course-7df2dae493eb-geometry"
+    },
+    "native_failure_class": "request_failure",
+    "unsupported_fields": {
+      "requests.service_ms": "No independently defined per-request service-only observation; queue/dependency waits are not service time."
+    }
+  },
+  "effective_config": {
+    "deployments": [
+      {
+        "model": "llm-1.7b",
+        "weight_precision": "BF16",
+        "kv_precision": "BF16",
+        "context_tokens": 16384,
+        "devices": [
+          "gpu0"
+        ],
+        "replicas": 1,
+        "parallel": {
+          "kind": "none",
+          "degree": 1
+        }
+      }
+    ],
+    "serving": {
+      "max_concurrency": 16,
+      "gpu_memory_utilization": 0.8,
+      "kv_fraction": null,
+      "kv_budget_gib": null,
+      "chunked_prefill_tokens": null,
+      "continuous_batching": true
+    },
+    "cache": {},
+    "scheduling": {},
+    "speculative": false
+  },
+  "sha256": {
+    "spec.json": "sha256:c0ffca4fea6144925b005358931809a35a39a5ba7e5958a5d842166919d37d3d",
+    "result.json": "sha256:c0d69f37485d123036b77ad64fb807e9010fa431b34685654e811f8258f9fd08",
+    "requests.jsonl": "sha256:4bbe6686403a259e021d4bbc6a88715b4a232387592ad0675dda3c62462e0729",
+    "events.jsonl": "sha256:507bf82f12b02ce2d8e1e268dbe028e7e01f1b4f404068c9dfd97c1137db751d",
+    "logs.txt": "sha256:a00e297029f5137898378083b824cb7c3c2c2a952282933b858ebce57625ac0c",
+    "simulator-request.json": "sha256:a61b3ee93adb15b42e4366c9d2f9e8154f21d596328f542e52822f1c6b35df58",
+    "simulator-response.json": "sha256:370d5aa37c6646e5832ec1069697f3f54acd9a557e0b2a4862f80171761cbd7b",
+    "simulator-exchange.json": "sha256:3bd032445f906c6727ccd80e7aedce15366d6b3bbc7b544d11ac8667ac3ef45c"
+  }
+}
