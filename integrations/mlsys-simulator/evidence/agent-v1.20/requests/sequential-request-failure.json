@@ -1,0 +1,105 @@
+{
+  "schema": "mlab.simulator.v1",
+  "task": "9.1",
+  "candidate_id": "sequential-request-failure",
+  "workload": {
+    "mode": "sequential",
+    "requests": [
+      {
+        "request_id": "too-large",
+        "input_tokens": 4096,
+        "output_tokens_target": 8
+      },
+      {
+        "request_id": "small-after-failure",
+        "input_tokens": 16,
+        "output_tokens_target": 2
+      }
+    ],
+    "source_sha256": "sha256:96f2bf97cec9e02fb7850a44bdc363867996b799fee91a7ad32f501063fbd69d"
+  },
+  "infra": {
+    "id": "protocol-rx9070xt-x1",
+    "nodes": [
+      {
+        "id": "node0",
+        "devices": [
+          {
+            "id": "gpu0",
+            "hardware": "rx9070xt"
+          }
+        ]
+      }
+    ]
+  },
+  "strategy": {
+    "deployments": [
+      {
+        "model": "qwen3-1.7b",
+        "weight_precision": "BF16",
+        "kv_precision": "BF16",
+        "context_tokens": 8192,
+        "devices": [
+          "gpu0"
+        ],
+        "replicas": 1,
+        "parallel": {
+          "kind": "none",
+          "degree": 1
+        }
+      }
+    ],
+    "serving": {
+      "max_concurrency": 1,
+      "gpu_memory_utilization": 0.8,
+      "kv_fraction": null,
+      "kv_budget_gib": 0.01,
+      "chunked_prefill_tokens": null,
+      "continuous_batching": false
+    },
+    "cache": {},
+    "scheduling": {},
+    "speculative": false
+  },
+  "evaluation": {
+    "constraints": [
+      {
+        "metric": "vram_peak_gib",
+        "op": "<=",
+        "value": 14,
+        "status": "draft",
+        "source": "Project plan Ch 9.1",
+        "note": "The document says \"14 GB\"; treated as GiB for now"
+      },
+      {
+        "metric": "ttft_ms.p50",
+        "op": "<=",
+        "value": 500,
+        "status": "draft",
+        "source": "Project plan Ch 9.1",
+        "note": "The document names no percentile; Ch 4 takes the median of repeated runs, so p50 for now"
+      },
+      {
+        "metric": "decode_tok_s",
+        "op": ">=",
+        "value": 20,
+        "status": "draft",
+        "source": "Project plan Ch 9.1"
+      }
+    ],
+    "duration_s": 300,
+    "timeout_s": 1800,
+    "goodput_policy": "both_thresholds_required"
+  },
+  "execution": {
+    "seed": 42,
+    "repeat": 0,
+    "split": "development",
+    "holdout": null,
+    "initial_state": "empty",
+    "warmup": null,
+    "max_simulated_ms": 300000
+  },
+  "catalog_version": "mlsys-agent-catalog-v1",
+  "client_request_id": "sequential-request-failure"
+}

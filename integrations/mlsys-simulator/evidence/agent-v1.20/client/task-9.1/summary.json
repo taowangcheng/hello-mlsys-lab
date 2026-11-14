@@ -1,0 +1,130 @@
+{
+  "status": "succeeded",
+  "failure_class": null,
+  "native_failure_class": null,
+  "evidence_level": "simulated",
+  "backend": {
+    "name": "mlsys-simulator",
+    "version": "1.20.0"
+  },
+  "catalog_version": "mlsys-agent-catalog-v1",
+  "model_revisions": {
+    "qwen3-1.7b": "course-7df2dae493eb-geometry"
+  },
+  "input_sha256": "sha256:d654eefe43cfd4e501a4c382f3bc99063e6eaa8e9055317fd564add3c100cdde",
+  "client_request_id": "protocol-qwen-9.1",
+  "effective_config": {
+    "infra": {
+      "id": "protocol-rx9070xt-x1",
+      "nodes": [
+        {
+          "id": "node0",
+          "devices": [
+            {
+              "id": "gpu0",
+              "hardware": "rx9070xt"
+            }
+          ]
+        }
+      ]
+    },
+    "strategy": {
+      "deployments": [
+        {
+          "model": "qwen3-1.7b",
+          "weight_precision": "BF16",
+          "kv_precision": "BF16",
+          "context_tokens": 8192,
+          "devices": [
+            "gpu0"
+          ],
+          "replicas": 1,
+          "parallel": {
+            "kind": "none",
+            "degree": 1
+          }
+        }
+      ],
+      "serving": {
+        "max_concurrency": 1,
+        "gpu_memory_utilization": 0.8,
+        "kv_fraction": null,
+        "kv_budget_gib": null,
+        "chunked_prefill_tokens": null,
+        "continuous_batching": false
+      },
+      "cache": {},
+      "scheduling": {},
+      "speculative": false
+    }
+  },
+  "calibration": {
+    "version": "agent-analytical-v1",
+    "kind": "uncalibrated",
+    "in_domain": null,
+    "assumptions": [
+      "Model geometry and device rates are declared inputs, not GPU measurements.",
+      "No measured Profile or inter-device communication topology is selected."
+    ]
+  },
+  "coverage": {
+    "in_domain": null,
+    "assumptions": [
+      "Model geometry and device rates are declared inputs, not GPU measurements.",
+      "No measured Profile or inter-device communication topology is selected.",
+      "Goodput is null: required TTFT/TPOT thresholds are not declared.",
+      "Critical path is null: independent service-time observations are unavailable."
+    ]
+  },
+  "metrics": {
+    "ttft_ms": {
+      "p50": 28.386286211117977,
+      "p95": 136.14856204849275,
+      "p99": 152.58069760193686
+    },
+    "tpot_ms": {
+      "p50": 11.370083999999999,
+      "p95": 12.356400799999985,
+      "p99": 12.503201439999984
+    },
+    "e2e_ms": {
+      "p50": 1661.566692606686,
+      "p95": 2943.836736283569,
+      "p99": 2956.6999603415297
+    },
+    "completion_rate": 1.0,
+    "throughput_tok_s": 3.4133333333333336,
+    "goodput_tok_s": null,
+    "decode_tok_s": 87.95582516110622,
+    "makespan_s": 12.021732906435608,
+    "critical_path_s": null,
+    "vram_peak_gib": 12.48973274230957,
+    "kv_peak_gib": 0.451171875,
+    "per_device": [
+      {
+        "device_id": "gpu0",
+        "capacity_bytes": 17179869184,
+        "physical_peak_bytes": 13410748416,
+        "kv_peak_bytes": 484442112,
+        "kv_pool_reserved_bytes": 9764077568
+      }
+    ]
+  },
+  "requests": {
+    "total": 6,
+    "completed": 6,
+    "failed": 0
+  },
+  "unsupported_metrics": {
+    "critical_path_s": "No independently defined per-request service-only observation; queue/dependency waits are not service time."
+  },
+  "unsupported_fields": {
+    "requests.service_ms": "No independently defined per-request service-only observation; queue/dependency waits are not service time."
+  },
+  "logs": [
+    "runtime_policy=agent-analytical-v1; max_batch_tokens=65536; max_concurrency is a per-replica active admission limit; preemption=none",
+    "duration_s is client metric metadata; simulated deadline and worker wall timeout are distinct",
+    "model/hardware are catalog-declared analytical inputs, not GPU measurements",
+    "qwen3-1.7b: kv_pool_reserved_bytes_per_rank=9764077568; auto KV, when selected, reserves fixed costs and worst iteration Workspace before allocating whole KV blocks"
+  ]
+}

@@ -1,0 +1,585 @@
+{
+  "purpose": "Independent lab HTTP verification of the upstream Agent protocol; no original baseline acceptance",
+  "sample_source_commit": "feda6677b90a6f50f35ac78c1d5eabff986ed5b7",
+  "service_commit": "feda6677b90a6f50f35ac78c1d5eabff986ed5b7",
+  "service_commit_note": "Operator-supplied revision; HTTP replies identify a version but not a source commit",
+  "lab_contract_sha256": "sha256:5364700dfbd297b63741f044d157105a688b09ee3c9d62bacc0231b03fd53f98",
+  "probe_sha256": "sha256:9e71f301a0b5181965ea268da61e8c3df14b631889de62f5a43707bafcc2d46e",
+  "base_url": "http://127.0.0.1:8877",
+  "catalog_version": "mlsys-agent-catalog-v1",
+  "runtime_backend_registered": false,
+  "original_course_baselines_accepted": false,
+  "protocol_request_counts": {
+    "9.2": 12,
+    "9.1": 6,
+    "9.3": 10
+  },
+  "deterministic_repeat": true,
+  "single_slot_with_retry_after_verified": true,
+  "passed": true,
+  "cases": [
+    {
+      "name": "catalog",
+      "method": "GET",
+      "path": "/v1/catalog",
+      "request": null,
+      "response": "responses/catalog.json",
+      "request_sha256": null,
+      "response_sha256": "sha256:9baf4698d04700f9871fd8e490a513db06e26a6f6631bbb4400481c85fa251a7",
+      "http_status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.0242,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.2-original",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.2-original.json",
+      "response": "responses/task-9.2-original.json",
+      "request_sha256": "sha256:c0ae4b70d78920dc790a45c616990abefd1e8fadd1816f9a39ba429dc7cc8cb2",
+      "response_sha256": "sha256:740890150d54e71f4e18ca443d77b434a8e6e5802b2decc92e81af754a63209c",
+      "http_status": 422,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.0163,
+      "error": {
+        "code": "CATALOG_VERSION_MISMATCH",
+        "message": "catalog_version must be 'mlsys-agent-catalog-v1'",
+        "field": null
+      },
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.2-original-with-catalog",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.2-original-with-catalog.json",
+      "response": "responses/task-9.2-original-with-catalog.json",
+      "request_sha256": "sha256:cde76f35dfea40bb8fad6707a7caa828a44c4cc2590e213c608ce5e1d200cda2",
+      "response_sha256": "sha256:d15d06fe1745f906ea8dce4433145c69cc2391b927ae09b85afe4c59e66ae01d",
+      "http_status": 422,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.015,
+      "error": {
+        "code": "UNKNOWN_MODEL_ID",
+        "message": "deployments[].model must name a published catalog model",
+        "field": null
+      },
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.2-protocol",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.2-protocol.json",
+      "response": "responses/task-9.2-protocol.json",
+      "request_sha256": "sha256:760cc6d98b76be00945b11d5431f89b264c477b827c02951454678cc9fe48dfb",
+      "response_sha256": "sha256:4db3d7537a074f1610feb54c0d8e54ed4f8a36be03c846afcb01ca86474e40f6",
+      "http_status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.1824,
+      "run_status": "succeeded",
+      "evidence_level": "simulated",
+      "outcomes": {
+        "completed": 12
+      },
+      "backend": {
+        "name": "mlsys-simulator",
+        "version": "1.20.0"
+      },
+      "failure_class": null,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.1-original",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.1-original.json",
+      "response": "responses/task-9.1-original.json",
+      "request_sha256": "sha256:89aea4a9b0168ae5d6a036c9793ca04696d921486c18e08a49e775b1e75783f7",
+      "response_sha256": "sha256:740890150d54e71f4e18ca443d77b434a8e6e5802b2decc92e81af754a63209c",
+      "http_status": 422,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.0156,
+      "error": {
+        "code": "CATALOG_VERSION_MISMATCH",
+        "message": "catalog_version must be 'mlsys-agent-catalog-v1'",
+        "field": null
+      },
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.1-original-with-catalog",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.1-original-with-catalog.json",
+      "response": "responses/task-9.1-original-with-catalog.json",
+      "request_sha256": "sha256:7e9d4d2fba61df348408c6ce112b0bab7becfca32b4932a3df8e0452c701cb30",
+      "response_sha256": "sha256:d15d06fe1745f906ea8dce4433145c69cc2391b927ae09b85afe4c59e66ae01d",
+      "http_status": 422,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.014,
+      "error": {
+        "code": "UNKNOWN_MODEL_ID",
+        "message": "deployments[].model must name a published catalog model",
+        "field": null
+      },
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.1-protocol",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.1-protocol.json",
+      "response": "responses/task-9.1-protocol.json",
+      "request_sha256": "sha256:d654eefe43cfd4e501a4c382f3bc99063e6eaa8e9055317fd564add3c100cdde",
+      "response_sha256": "sha256:13d90653c66d2b6bda85c9e8301b3b63d672491ac6df7ac70f3c31d3c79453b1",
+      "http_status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.1878,
+      "run_status": "succeeded",
+      "evidence_level": "simulated",
+      "outcomes": {
+        "completed": 6
+      },
+      "backend": {
+        "name": "mlsys-simulator",
+        "version": "1.20.0"
+      },
+      "failure_class": null,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.3-original",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.3-original.json",
+      "response": "responses/task-9.3-original.json",
+      "request_sha256": "sha256:dfb73af647435c0fc3b0ca8c14c132af8838f542874af4b25b986fde412a4301",
+      "response_sha256": "sha256:740890150d54e71f4e18ca443d77b434a8e6e5802b2decc92e81af754a63209c",
+      "http_status": 422,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.014,
+      "error": {
+        "code": "CATALOG_VERSION_MISMATCH",
+        "message": "catalog_version must be 'mlsys-agent-catalog-v1'",
+        "field": null
+      },
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.3-original-with-catalog",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.3-original-with-catalog.json",
+      "response": "responses/task-9.3-original-with-catalog.json",
+      "request_sha256": "sha256:23208d568450febbe5c3a81fbec14e4ab164ca89f06d44fc63421a52bf553bd3",
+      "response_sha256": "sha256:8865778e93b2c3aa3aba961b7637b7b1e0fde769c9d9ac43a418badba0f73b4e",
+      "http_status": 422,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.0139,
+      "error": {
+        "code": "UNKNOWN_HARDWARE_ID",
+        "message": "infra device hardware must name a published catalog device",
+        "field": null
+      },
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.3-protocol",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.3-protocol.json",
+      "response": "responses/task-9.3-protocol.json",
+      "request_sha256": "sha256:4c5e815f59a3b5b0de3737bfe3950a5552692a102f022154380fd25ca155a847",
+      "response_sha256": "sha256:d9c079bedd010ed4b014cd93149bc055dac04cd33ba5d28c93f8d47b3164bb69",
+      "http_status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.8366,
+      "run_status": "succeeded",
+      "evidence_level": "simulated",
+      "outcomes": {
+        "completed": 10
+      },
+      "backend": {
+        "name": "mlsys-simulator",
+        "version": "1.20.0"
+      },
+      "failure_class": null,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.2-repeat",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.2-repeat.json",
+      "response": "responses/task-9.2-repeat.json",
+      "request_sha256": "sha256:760cc6d98b76be00945b11d5431f89b264c477b827c02951454678cc9fe48dfb",
+      "response_sha256": "sha256:4db3d7537a074f1610feb54c0d8e54ed4f8a36be03c846afcb01ca86474e40f6",
+      "http_status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.1682,
+      "run_status": "succeeded",
+      "evidence_level": "simulated",
+      "outcomes": {
+        "completed": 12
+      },
+      "backend": {
+        "name": "mlsys-simulator",
+        "version": "1.20.0"
+      },
+      "failure_class": null,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "unsupported-model",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/unsupported-model.json",
+      "response": "responses/unsupported-model.json",
+      "request_sha256": "sha256:8c7795078fbfb2ec8f7ab042f19fb0002f3e873f87e01a0f952242d7a43c89a1",
+      "response_sha256": "sha256:d15d06fe1745f906ea8dce4433145c69cc2391b927ae09b85afe4c59e66ae01d",
+      "http_status": 422,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.0204,
+      "error": {
+        "code": "UNKNOWN_MODEL_ID",
+        "message": "deployments[].model must name a published catalog model",
+        "field": null
+      },
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "unsupported-fp8",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/unsupported-fp8.json",
+      "response": "responses/unsupported-fp8.json",
+      "request_sha256": "sha256:3700b10db64ba4fe6871f124d7f8cc08a809649bb1bccb41992b240d5185ad6a",
+      "response_sha256": "sha256:686a90d99053049d8e886b7ae02084dcde09118e62f154f8e850b3da3c52d22f",
+      "http_status": 422,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.0196,
+      "error": {
+        "code": "UNSUPPORTED_PRECISION",
+        "message": "deployments[] requires weight_precision=BF16 and kv_precision=BF16 in this catalog",
+        "field": null
+      },
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "unsupported-hardware",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/unsupported-hardware.json",
+      "response": "responses/unsupported-hardware.json",
+      "request_sha256": "sha256:c82ca9a646085224e102e6b9a47c66ebb3748d69b0f054fb086506e7c56c46e0",
+      "response_sha256": "sha256:8865778e93b2c3aa3aba961b7637b7b1e0fde769c9d9ac43a418badba0f73b4e",
+      "http_status": 422,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.0191,
+      "error": {
+        "code": "UNKNOWN_HARDWARE_ID",
+        "message": "infra device hardware must name a published catalog device",
+        "field": null
+      },
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "unsupported-tp",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/unsupported-tp.json",
+      "response": "responses/unsupported-tp.json",
+      "request_sha256": "sha256:49e6860101d03f47281eed9dae4ae7311a5bb7ee25df02d9c0b0e1d16fc50545",
+      "response_sha256": "sha256:2168de1e9c1b5ef58537027314f45f887406c255ecd5d07361bec8c2d0a45952",
+      "http_status": 422,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.0196,
+      "error": {
+        "code": "UNCONFIRMED_TOPOLOGY",
+        "message": "strategy.deployments[].parallel: no confirmed inter-device topology in this catalog",
+        "field": "strategy.deployments[].parallel"
+      },
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.1-simulation-cutoff",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.1-simulation-cutoff.json",
+      "response": "responses/task-9.1-simulation-cutoff.json",
+      "request_sha256": "sha256:bfe301272a4854b348dab9c4b1a817d76502393d1d5ff79c9b6f65452fdcf72f",
+      "response_sha256": "sha256:6db043c92b6c4c3cc9995b09316c71571477d641e0fcfa4a151ac4ae363d80ca",
+      "http_status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.1393,
+      "run_status": "timed_out",
+      "evidence_level": "simulated",
+      "outcomes": {
+        "timed_out": 1,
+        "not_started": 5
+      },
+      "backend": {
+        "name": "mlsys-simulator",
+        "version": "1.20.0"
+      },
+      "failure_class": "simulation_limit",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.2-simulation-cutoff",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.2-simulation-cutoff.json",
+      "response": "responses/task-9.2-simulation-cutoff.json",
+      "request_sha256": "sha256:436ff1688ea68f46705baccd07b3a0e94520e99b93ea37d66019332b1d6cedc8",
+      "response_sha256": "sha256:b2a45fcc4062df3b0096c13cc0d8fc634c77cd171cef81cc0116429f1a885aa7",
+      "http_status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.1416,
+      "run_status": "timed_out",
+      "evidence_level": "simulated",
+      "outcomes": {
+        "timed_out": 1,
+        "not_started": 11
+      },
+      "backend": {
+        "name": "mlsys-simulator",
+        "version": "1.20.0"
+      },
+      "failure_class": "simulation_limit",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "task-9.3-simulation-cutoff",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/task-9.3-simulation-cutoff.json",
+      "response": "responses/task-9.3-simulation-cutoff.json",
+      "request_sha256": "sha256:65759863ccc7d0d61d83813b7aae702cf58bf502ce24bb4d4c337b0e15231179",
+      "response_sha256": "sha256:8a44f09539e85a1ce040980c377e32314d4fb37d029454d82674e86da80c5890",
+      "http_status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.1285,
+      "run_status": "timed_out",
+      "evidence_level": "simulated",
+      "outcomes": {
+        "timed_out": 1,
+        "blocked": 9
+      },
+      "backend": {
+        "name": "mlsys-simulator",
+        "version": "1.20.0"
+      },
+      "failure_class": "simulation_limit",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "deployment-oom",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/deployment-oom.json",
+      "response": "responses/deployment-oom.json",
+      "request_sha256": "sha256:3348fed723fee71b0c2f4cdfdeda3c0bd48c2c7e95d9ce3dcde5fff2a9a4d656",
+      "response_sha256": "sha256:a745eabfcaf0a0e192c85aae16ac9d4b2e2ac532a6c036f712c340f67cdcd34c",
+      "http_status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.1213,
+      "run_status": "failed",
+      "evidence_level": "simulated",
+      "outcomes": {
+        "not_started": 12
+      },
+      "backend": {
+        "name": "mlsys-simulator",
+        "version": "1.20.0"
+      },
+      "failure_class": "modeled_oom",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "sequential-request-failure",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/sequential-request-failure.json",
+      "response": "responses/sequential-request-failure.json",
+      "request_sha256": "sha256:8408cbf6d91bdb9fa7538025b3b398845a8c946c0859aadc220d826740b8db03",
+      "response_sha256": "sha256:65091ccda8c43edcb6fbaaf482966231c7e420638abd51c445b9a08ab3823869",
+      "http_status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.1443,
+      "source": "sources/sequential-request-failure.jsonl",
+      "run_status": "failed",
+      "evidence_level": "simulated",
+      "outcomes": {
+        "failed": 1,
+        "completed": 1
+      },
+      "backend": {
+        "name": "mlsys-simulator",
+        "version": "1.20.0"
+      },
+      "failure_class": "request_failure",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "dag-request-failure",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/dag-request-failure.json",
+      "response": "responses/dag-request-failure.json",
+      "request_sha256": "sha256:0350bb72169818138e29fbbeb4fd253e4a637481c511705269e1ae1e893cda42",
+      "response_sha256": "sha256:280d6c44be02cad05c1fd810038a4ec3e8bcc022b4642350dc273e18fab5addb",
+      "http_status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.132,
+      "source": "sources/dag-request-failure.jsonl",
+      "run_status": "failed",
+      "evidence_level": "simulated",
+      "outcomes": {
+        "failed": 1,
+        "blocked": 1,
+        "completed": 1
+      },
+      "backend": {
+        "name": "mlsys-simulator",
+        "version": "1.20.0"
+      },
+      "failure_class": "request_failure",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "wall-timeout",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/wall-timeout.json",
+      "response": "responses/wall-timeout.json",
+      "request_sha256": "sha256:015bdc9e7f57a88a50af71bed11f6ff979eaf16f3392a8c8642f5d94c0ed56c2",
+      "response_sha256": "sha256:3c2caf4b9a10dc4ed6655fa56a8dc0b52da28ef081ba193dbe5cd3447df14356",
+      "http_status": 504,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.0179,
+      "error": {
+        "code": "AGENT_TIMEOUT",
+        "message": "Simulation exceeded its requested wall-time limit",
+        "field": "evaluation.timeout_s"
+      },
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "concurrent-1",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/concurrent-1.json",
+      "response": "responses/concurrent-1.json",
+      "request_sha256": "sha256:20a7c02df9d7d6ef54bd487ec3d358596bb3f2a1c435e531cbc7be719a541ed9",
+      "response_sha256": "sha256:80b7e7fd299ab5f127733a64f0253c6714b5e108ce9ce34abcd85e454d652e2c",
+      "http_status": 429,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "retry-after": "1"
+      },
+      "elapsed_s": 0.0289,
+      "error": {
+        "code": "AGENT_BUSY",
+        "message": "An Agent simulation is already running; retry after it finishes",
+        "field": null
+      },
+      "passed": true,
+      "failures": []
+    },
+    {
+      "name": "concurrent-2",
+      "method": "POST",
+      "path": "/v1/simulate",
+      "request": "requests/concurrent-2.json",
+      "response": "responses/concurrent-2.json",
+      "request_sha256": "sha256:f4155072a9deee1d8345b6eb1f9e234c70747359bc5757716e5f24a8b106608c",
+      "response_sha256": "sha256:598fc831613c89765ea4d6285010994317e7f4273dbf3ad261d2d6e1a2809de1",
+      "http_status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "elapsed_s": 0.8451,
+      "run_status": "succeeded",
+      "evidence_level": "simulated",
+      "outcomes": {
+        "completed": 10
+      },
+      "backend": {
+        "name": "mlsys-simulator",
+        "version": "1.20.0"
+      },
+      "failure_class": null,
+      "passed": true,
+      "failures": []
+    }
+  ]
+}

@@ -2,8 +2,9 @@
 
 [返回对接入口](README.md) · [字段与语义](DATA_CONTRACT.zh-CN.md)
 
-本页区分本地契约检查和真实服务联调。**目前只完成了前者；下述真实提交步骤需要
-双方先确认目录、字段和服务入口。** 文档、Schema 和样例都已在仓库中，无需额外 ZIP。
+本页区分本地契约检查和真实服务联调。**1.20 的公开协议配置已通过真实联调，
+见[最新结果](REVIEW-v1.20.zh-CN.md)；原课程基线仍需确认模型与硬件目录。**
+文档、Schema、样例和真实响应都已在仓库中，无需额外 ZIP。
 
 ## 1. 阅读与检查材料
 
@@ -18,7 +19,7 @@ git clone https://github.com/taowangcheng/hello-mlsys-lab.git
 cd hello-mlsys-lab
 python3.12 -m venv .venv
 .venv/bin/python -m pip install -e '.[dev]'
-.venv/bin/python -m pytest -q tests/test_simulator_data_contract.py
+.venv/bin/python -m pytest -q tests/test_simulator_data_contract.py tests/test_simulator_http.py tests/test_metrics.py
 ```
 
 已有检出和环境时直接运行最后一条命令。这个检查只使用本地数据，不启动 Web、Codex、
@@ -57,7 +58,7 @@ printf '%s\n' "$SIMULATOR_CHECK_DIR"
 ## 3. 通过 HTTP 提交并保存结果
 
 将 `SIMULATOR_URL` 改为双方确认的完整地址，认证方式按服务约定补充。
-**下例路径是提案，原来检查的 upstream 1.19.0 尚未实现它。**
+**下例路径已由 upstream 1.20 实现；原基线的目录和模型占位名仍需先处理。**
 示例请求的墙钟执行上限是 1800 秒，curl 多留 30 秒接收结果；双方另有上限时同步调整。
 
 ```bash

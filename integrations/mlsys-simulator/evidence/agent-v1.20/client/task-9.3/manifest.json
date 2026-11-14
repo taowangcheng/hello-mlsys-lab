@@ -1,0 +1,18 @@
+{
+  "kind": "simulator_api_adapter_check",
+  "runtime_backend_registered": false,
+  "base_url": "http://127.0.0.1:8877",
+  "backend": {
+    "name": "mlsys-simulator",
+    "version": "1.20.0"
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8"
+  },
+  "sha256": {
+    "request.json": "sha256:4c5e815f59a3b5b0de3737bfe3950a5552692a102f022154380fd25ca155a847",
+    "response.json": "sha256:d9c079bedd010ed4b014cd93149bc055dac04cd33ba5d28c93f8d47b3164bb69",
+    "requests.jsonl": "sha256:cca59a518e8a34685262c77cceb0157e3e92f308932ece33720a172b94d0ca6a",
+    "summary.json": "sha256:c27f95967ed349e7a3ca18eac001c9e7b4a3a81a39e3dd50fef659e20d06555f"
+  }
+}

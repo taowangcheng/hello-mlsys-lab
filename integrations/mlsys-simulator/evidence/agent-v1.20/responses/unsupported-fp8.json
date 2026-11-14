@@ -1,0 +1,1 @@
+{"error": {"code": "UNSUPPORTED_PRECISION", "message": "deployments[] requires weight_precision=BF16 and kv_precision=BF16 in this catalog", "field": null}}

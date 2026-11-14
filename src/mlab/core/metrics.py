@@ -1,4 +1,5 @@
 import statistics
+from collections import deque
 from .io import require
 
 
@@ -27,7 +28,7 @@ def get_metric(metrics, path):
 def calculate(rows, evaluation):
     require(rows, "E_MOCK_INVALID", "backend returned no request observations", 4)
     completed = [r for r in rows if r["status"] == "completed" and r["output_tokens"] >= r["output_tokens_target"]]
-    ttft = [r["first_token_ms"] - r["ready_ms"] for r in rows if r["first_token_ms"] is not None]
+    ttft = [r["first_token_ms"] - r["ready_ms"] for r in rows if r["first_token_ms"] is not None and r["ready_ms"] is not None]
     tpots = [(r["finished_ms"] - r["first_token_ms"]) / (r["output_tokens"] - 1) for r in completed if r["output_tokens"] >= 2]
     threshold = {c["metric"].split(".")[0]: c["value"] for c in evaluation["constraints"]
                  if c["value"] is not None and c["status"] != "tbd" and c["metric"].startswith(("ttft_ms.", "tpot_ms."))}
@@ -40,11 +41,31 @@ def calculate(rows, evaluation):
     duration = evaluation["duration_s"]
     goodput_available = "ttft_ms" in threshold and ("tpot_ms" in threshold or evaluation.get("goodput_policy") == "ttft_only_if_tpot_tbd")
     # ready_ms carries arrival or dependencies; critical path excludes actual queueing.
-    critical = {}
+    by_id = {row["request_id"]: row for row in rows}
+    require(len(by_id) == len(rows), "E_MOCK_INVALID", "duplicate observation IDs", 4)
+    degree, children = {}, {name: [] for name in by_id}
     for row in rows:
         parents = row["depends_on"]
-        require(all(p in critical for p in parents), "E_MOCK_INVALID", "observations must be topologically ordered", 4)
-        critical[row["request_id"]] = max([critical[p] for p in parents], default=0) + row["gap_after_deps_ms"] + row["service_ms"]
+        require(len(set(parents)) == len(parents) and all(p in by_id for p in parents),
+                "E_MOCK_INVALID", "observation dependencies must name distinct existing IDs", 4)
+        degree[row["request_id"]] = len(parents)
+        for parent in parents:
+            children[parent].append(row["request_id"])
+    pending = deque(name for name, count in degree.items() if count == 0)
+    critical = {}
+    while pending:
+        name = pending.popleft()
+        row = by_id[name]
+        parents = [critical[parent] for parent in row["depends_on"]]
+        critical[name] = (max(parents, default=0) + row["gap_after_deps_ms"] + row["service_ms"]
+                          if row["service_ms"] is not None and all(value is not None for value in parents) else None)
+        for child in children[name]:
+            degree[child] -= 1
+            if degree[child] == 0:
+                pending.append(child)
+    require(len(critical) == len(rows), "E_MOCK_INVALID", "observation dependencies contain a cycle", 4)
+    service_complete = all(value is not None for value in critical.values())
+    unknown = sum(r["status"] == "unknown" for r in rows)
     metrics = {"ttft_ms": distribution(ttft), "tpot_ms": distribution(tpots),
                "e2e_ms": distribution([r["finished_ms"] - r["ready_ms"] for r in completed]),
                "completion_rate": len(completed) / len(rows),
@@ -52,13 +73,23 @@ def calculate(rows, evaluation):
                "goodput_tok_s": sum(r["output_tokens"] for r in good) / duration if goodput_available else None,
                "decode_tok_s": statistics.median([1000 / v for v in tpots if v > 0]) if any(v > 0 for v in tpots) else None,
                "makespan_s": (max(r["finished_ms"] for r in completed) - min(r["ready_ms"] for r in rows)) / 1000 if len(completed) == len(rows) else None,
-               "critical_path_s": max(critical.values()) / 1000}
+               "critical_path_s": max(critical.values()) / 1000 if service_complete else None}
     assumptions = []
     if not goodput_available:
         assumptions.append("Goodput is null: required TTFT/TPOT thresholds are not declared.")
     elif "tpot_ms" not in threshold:
         assumptions.append("Plan W2 9.2 exception: TPOT threshold is tbd; goodput applies only the declared TTFT threshold.")
-    counts = {"total": len(rows), "completed": len(completed), "failed": len(rows) - len(completed)}
+    if not service_complete:
+        assumptions.append("Critical path is null: independent service-time observations are unavailable.")
+    if unknown:
+        # A lost observation may contain additional completed output or latency samples.
+        # Known rows remain available, but whole-workload aggregates are not inferred.
+        for metric in metrics:
+            metrics[metric] = distribution([]) if metric in {"ttft_ms", "tpot_ms", "e2e_ms"} else None
+        assumptions.append("Workload metrics are unavailable because some request observations are unknown.")
+    counts = {"total": len(rows), "completed": len(completed), "failed": len(rows) - len(completed) - unknown}
+    if unknown:
+        counts["unknown"] = unknown
     return metrics, counts, assumptions
 
 

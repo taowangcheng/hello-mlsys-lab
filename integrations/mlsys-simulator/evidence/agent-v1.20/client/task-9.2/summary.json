@@ -1,0 +1,130 @@
+{
+  "status": "succeeded",
+  "failure_class": null,
+  "native_failure_class": null,
+  "evidence_level": "simulated",
+  "backend": {
+    "name": "mlsys-simulator",
+    "version": "1.20.0"
+  },
+  "catalog_version": "mlsys-agent-catalog-v1",
+  "model_revisions": {
+    "qwen3-1.7b": "course-7df2dae493eb-geometry"
+  },
+  "input_sha256": "sha256:760cc6d98b76be00945b11d5431f89b264c477b827c02951454678cc9fe48dfb",
+  "client_request_id": "protocol-qwen-9.2",
+  "effective_config": {
+    "infra": {
+      "id": "protocol-rx9070xt-x1",
+      "nodes": [
+        {
+          "id": "node0",
+          "devices": [
+            {
+              "id": "gpu0",
+              "hardware": "rx9070xt"
+            }
+          ]
+        }
+      ]
+    },
+    "strategy": {
+      "deployments": [
+        {
+          "model": "qwen3-1.7b",
+          "weight_precision": "BF16",
+          "kv_precision": "BF16",
+          "context_tokens": 16384,
+          "devices": [
+            "gpu0"
+          ],
+          "replicas": 1,
+          "parallel": {
+            "kind": "none",
+            "degree": 1
+          }
+        }
+      ],
+      "serving": {
+        "max_concurrency": 32,
+        "gpu_memory_utilization": 0.8,
+        "kv_fraction": null,
+        "kv_budget_gib": null,
+        "chunked_prefill_tokens": null,
+        "continuous_batching": true
+      },
+      "cache": {},
+      "scheduling": {},
+      "speculative": false
+    }
+  },
+  "calibration": {
+    "version": "agent-analytical-v1",
+    "kind": "uncalibrated",
+    "in_domain": null,
+    "assumptions": [
+      "Model geometry and device rates are declared inputs, not GPU measurements.",
+      "No measured Profile or inter-device communication topology is selected."
+    ]
+  },
+  "coverage": {
+    "in_domain": null,
+    "assumptions": [
+      "Model geometry and device rates are declared inputs, not GPU measurements.",
+      "No measured Profile or inter-device communication topology is selected.",
+      "Plan W2 9.2 exception: TPOT threshold is tbd; goodput applies only the declared TTFT threshold.",
+      "Critical path is null: independent service-time observations are unavailable."
+    ]
+  },
+  "metrics": {
+    "ttft_ms": {
+      "p50": 45.07046290166153,
+      "p95": 705.2999406544411,
+      "p99": 709.6999406544411
+    },
+    "tpot_ms": {
+      "p50": 24.093181370786212,
+      "p95": 31.95674720030151,
+      "p99": 32.045474694904684
+    },
+    "e2e_ms": {
+      "p50": 2000.1375267206568,
+      "p95": 5764.246731520656,
+      "p99": 5848.922021120656
+    },
+    "completion_rate": 1.0,
+    "throughput_tok_s": 22.4,
+    "goodput_tok_s": 22.4,
+    "decode_tok_s": 41.814975127341896,
+    "makespan_s": 6.697647003520656,
+    "critical_path_s": null,
+    "vram_peak_gib": 12.49388313293457,
+    "kv_peak_gib": 2.674560546875,
+    "per_device": [
+      {
+        "device_id": "gpu0",
+        "capacity_bytes": 17179869184,
+        "physical_peak_bytes": 13415204864,
+        "kv_peak_bytes": 2871787520,
+        "kv_pool_reserved_bytes": 9764077568
+      }
+    ]
+  },
+  "requests": {
+    "total": 12,
+    "completed": 12,
+    "failed": 0
+  },
+  "unsupported_metrics": {
+    "critical_path_s": "No independently defined per-request service-only observation; queue/dependency waits are not service time."
+  },
+  "unsupported_fields": {
+    "requests.service_ms": "No independently defined per-request service-only observation; queue/dependency waits are not service time."
+  },
+  "logs": [
+    "runtime_policy=agent-analytical-v1; max_batch_tokens=65536; max_concurrency is a per-replica active admission limit; preemption=none",
+    "duration_s is client metric metadata; simulated deadline and worker wall timeout are distinct",
+    "model/hardware are catalog-declared analytical inputs, not GPU measurements",
+    "qwen3-1.7b: kv_pool_reserved_bytes_per_rank=9764077568; auto KV, when selected, reserves fixed costs and worst iteration Workspace before allocating whole KV blocks"
+  ]
+}

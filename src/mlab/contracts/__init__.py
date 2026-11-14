@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 Mechanism = Literal["continuous_batching", "chunked_prefill", "multi_replica", "tensor_parallel", "kv_budget",
                     "dag_arrival", "priority_scheduling", "preemption", "prefix_cache", "speculative_decoding", "pipeline_parallel"]
 FailureClass = Literal["oom", "deploy_failed", "not_ready", "config_mismatch", "gpu_busy", "interference",
-                       "timeout", "lost", "backend_error"]
+                       "timeout", "lost", "backend_error", "request_failure"]
 Role = Literal["simulator", "hardware"]
 # Failures caused by the environment say nothing about the plan, so they never use hardware budget.
 ENVIRONMENT_FAILURES = {"backend_error", "gpu_busy", "interference", "lost", "not_ready", "config_mismatch"}
@@ -159,26 +159,41 @@ class RunSpec(Contract):
 class RequestObservation(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
     request_id: str
-    ready_ms: float = Field(ge=0)
+    ready_ms: float | None = Field(ge=0)
     first_token_ms: float | None = Field(default=None, ge=0)
-    finished_ms: float = Field(ge=0)
-    output_tokens: int = Field(ge=0)
+    finished_ms: float | None = Field(ge=0)
+    output_tokens: int | None = Field(ge=0)
     output_tokens_target: int = Field(ge=1)
-    status: Literal["completed", "failed", "rejected", "timed_out", "truncated"]
-    service_ms: float = Field(ge=0)
+    status: Literal["completed", "failed", "rejected", "timed_out", "truncated", "cancelled", "blocked", "not_started", "unknown"]
+    service_ms: float | None = Field(ge=0)
+    started_ms: float | None = Field(default=None, ge=0)
+    deployment_model: str | None = None
+    replica_index: int | None = Field(default=None, ge=0)
+    device_ids: list[str] = Field(default_factory=list)
+    failure_code: str | None = None
+    blocked_by: list[str] = Field(default_factory=list)
     depends_on: list[str] = []
     gap_after_deps_ms: float = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def time_order(self):
-        if self.finished_ms < self.ready_ms:
-            raise ValueError("finished_ms precedes ready_ms")
-        if self.first_token_ms is not None and not self.ready_ms <= self.first_token_ms <= self.finished_ms:
-            raise ValueError("first token outside request interval")
-        if self.status == "completed" and (self.first_token_ms is None or self.output_tokens < self.output_tokens_target):
-            raise ValueError("completed request has no first token or insufficient output")
-        if self.output_tokens > self.output_tokens_target:
+        observed = [value for value in (self.ready_ms, self.started_ms, self.first_token_ms, self.finished_ms) if value is not None]
+        if observed != sorted(observed):
+            raise ValueError("request timestamps are out of order")
+        if self.status == "completed" and (any(value is None for value in (self.ready_ms, self.first_token_ms, self.finished_ms))
+                                           or self.output_tokens != self.output_tokens_target):
+            raise ValueError("completed request needs complete timing and full output")
+        if self.output_tokens is None and self.status != "unknown":
+            raise ValueError("only unknown observations may omit the output count")
+        if self.output_tokens is not None and self.output_tokens > self.output_tokens_target:
             raise ValueError("output exceeds forced target")
+        if self.output_tokens == 0 and self.first_token_ms is not None:
+            raise ValueError("zero output cannot have a first token")
+        if self.status in {"blocked", "not_started"} and (any(value is not None for value in
+                (self.ready_ms, self.started_ms, self.first_token_ms)) or self.output_tokens != 0):
+            raise ValueError("unreleased requests cannot have activity")
+        if self.status == "blocked" and not self.blocked_by:
+            raise ValueError("blocked requests must identify their dependency failure")
         return self
 
 

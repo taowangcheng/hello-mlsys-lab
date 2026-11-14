@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-14",
+  "upstream_commit": "feda6677b90a6f50f35ac78c1d5eabff986ed5b7",
+  "upstream_worktree_clean": true,
+  "confirmed_upstream_data_interface_defects": [],
+  "independent_http": {
+    "cases": 24,
+    "passed": 24,
+    "report": "report.json"
+  },
+  "normal_client_executions": {
+    "9.1": {
+      "completed": 6,
+      "total": 6
+    },
+    "9.2": {
+      "completed": 12,
+      "total": 12
+    },
+    "9.3": {
+      "completed": 10,
+      "total": 10
+    }
+  },
+  "full_regression": {
+    "command": "MLAB_RUN_CLAUDE_TESTS=0 .venv/bin/python -m pytest -q tests",
+    "passed": 288,
+    "skipped": 6
+  },
+  "final_focused_regression": {
+    "command": ".venv/bin/python -m pytest -q tests/test_simulator_data_contract.py tests/test_simulator_http.py tests/test_metrics.py",
+    "passed": 67
+  },
+  "scope": {
+    "wire_schema_changed": false,
+    "formal_tasks_changed": false,
+    "upstream_engine_imported_by_client": false,
+    "runtime_backend_registered": false,
+    "original_baselines_accepted": false
+  },
+  "remaining": [
+    "Agree concrete course model identities and hardware/precision catalog scope",
+    "Connect the verified transport and result adapter to student sessions and backend selection"
+  ]
+}

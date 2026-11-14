@@ -1,8 +1,9 @@
 # Minimal API proposal
 
-This is a proposal for agreement, not an implemented simulator endpoint. The
-current scope is data interchange for the three existing tasks. It replaces the
-earlier asynchronous-first proposal; no task redesign is required.
+Upstream 1.20 implements this interface within its published catalog. The
+[independent verification](REVIEW-v1.20.zh-CN.md) covers all three workload modes;
+the original course model/hardware configurations remain unconfirmed. This
+document defines data interchange, not a redesign of the tasks.
 
 ## First integration endpoint
 

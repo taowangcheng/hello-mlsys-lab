@@ -1,0 +1,199 @@
+{
+  "repository": "https://github.com/eyuansu62/mlsys-simulator",
+  "commit": "feda6677b90a6f50f35ac78c1d5eabff986ed5b7",
+  "source_directory": "examples/agent",
+  "purpose": "Explicit upstream protocol variants; not original course baseline acceptance",
+  "records": [
+    {
+      "task": "9.1",
+      "file": "task-9.1.protocol.request.json",
+      "sha256": "sha256:d654eefe43cfd4e501a4c382f3bc99063e6eaa8e9055317fd564add3c100cdde",
+      "changes_from_course_baseline": [
+        {
+          "field": "candidate_id",
+          "original": "baseline",
+          "protocol_variant": "protocol-qwen-bf16-not-course-baseline"
+        },
+        {
+          "field": "catalog_version",
+          "original": "to-be-agreed",
+          "protocol_variant": "mlsys-agent-catalog-v1"
+        },
+        {
+          "field": "client_request_id",
+          "original": "protocol-probe-task-9.1-baseline",
+          "protocol_variant": "protocol-qwen-9.1"
+        },
+        {
+          "field": "infra.id",
+          "original": "rx9070xt_x1",
+          "protocol_variant": "protocol-rx9070xt-x1"
+        },
+        {
+          "field": "strategy.deployments[0].model",
+          "original": "llm-3b",
+          "protocol_variant": "qwen3-1.7b"
+        },
+        {
+          "field": "strategy.deployments[0].weight_precision",
+          "original": "FP8",
+          "protocol_variant": "BF16"
+        }
+      ]
+    },
+    {
+      "task": "9.2",
+      "file": "task-9.2.protocol.request.json",
+      "sha256": "sha256:760cc6d98b76be00945b11d5431f89b264c477b827c02951454678cc9fe48dfb",
+      "changes_from_course_baseline": [
+        {
+          "field": "candidate_id",
+          "original": "baseline",
+          "protocol_variant": "protocol-qwen-bf16-not-course-baseline"
+        },
+        {
+          "field": "catalog_version",
+          "original": "to-be-agreed",
+          "protocol_variant": "mlsys-agent-catalog-v1"
+        },
+        {
+          "field": "client_request_id",
+          "original": "protocol-probe-task-9.2-baseline",
+          "protocol_variant": "protocol-qwen-9.2"
+        },
+        {
+          "field": "infra.id",
+          "original": "rx9070xt_x1",
+          "protocol_variant": "protocol-rx9070xt-x1"
+        },
+        {
+          "field": "strategy.deployments[0].model",
+          "original": "llm-3b",
+          "protocol_variant": "qwen3-1.7b"
+        },
+        {
+          "field": "strategy.deployments[0].weight_precision",
+          "original": "FP8",
+          "protocol_variant": "BF16"
+        }
+      ]
+    },
+    {
+      "task": "9.3",
+      "file": "task-9.3.protocol.request.json",
+      "sha256": "sha256:4c5e815f59a3b5b0de3737bfe3950a5552692a102f022154380fd25ca155a847",
+      "changes_from_course_baseline": [
+        {
+          "field": "candidate_id",
+          "original": "baseline",
+          "protocol_variant": "protocol-qwen-bf16-not-course-baseline"
+        },
+        {
+          "field": "catalog_version",
+          "original": "to-be-agreed",
+          "protocol_variant": "mlsys-agent-catalog-v1"
+        },
+        {
+          "field": "client_request_id",
+          "original": "protocol-probe-task-9.3-baseline",
+          "protocol_variant": "protocol-qwen-9.3"
+        },
+        {
+          "field": "infra.id",
+          "original": "w7900d_x4",
+          "protocol_variant": "protocol-rx9070xt-x4"
+        },
+        {
+          "field": "infra.nodes[0].devices[0].hardware",
+          "original": "w7900d",
+          "protocol_variant": "rx9070xt"
+        },
+        {
+          "field": "infra.nodes[0].devices[1].hardware",
+          "original": "w7900d",
+          "protocol_variant": "rx9070xt"
+        },
+        {
+          "field": "infra.nodes[0].devices[2].hardware",
+          "original": "w7900d",
+          "protocol_variant": "rx9070xt"
+        },
+        {
+          "field": "infra.nodes[0].devices[3].hardware",
+          "original": "w7900d",
+          "protocol_variant": "rx9070xt"
+        },
+        {
+          "field": "strategy.deployments[0].model",
+          "original": "llm-32b",
+          "protocol_variant": "qwen3-4b"
+        },
+        {
+          "field": "strategy.deployments[0].weight_precision",
+          "original": "FP8",
+          "protocol_variant": "BF16"
+        },
+        {
+          "field": "strategy.deployments[1].model",
+          "original": "llm-7b",
+          "protocol_variant": "qwen3-0.6b"
+        },
+        {
+          "field": "strategy.deployments[1].weight_precision",
+          "original": "FP8",
+          "protocol_variant": "BF16"
+        },
+        {
+          "field": "workload.requests[0].target_model",
+          "original": "llm-32b",
+          "protocol_variant": "qwen3-4b"
+        },
+        {
+          "field": "workload.requests[1].target_model",
+          "original": "llm-7b",
+          "protocol_variant": "qwen3-0.6b"
+        },
+        {
+          "field": "workload.requests[2].target_model",
+          "original": "llm-7b",
+          "protocol_variant": "qwen3-0.6b"
+        },
+        {
+          "field": "workload.requests[3].target_model",
+          "original": "llm-7b",
+          "protocol_variant": "qwen3-0.6b"
+        },
+        {
+          "field": "workload.requests[4].target_model",
+          "original": "llm-7b",
+          "protocol_variant": "qwen3-0.6b"
+        },
+        {
+          "field": "workload.requests[5].target_model",
+          "original": "llm-32b",
+          "protocol_variant": "qwen3-4b"
+        },
+        {
+          "field": "workload.requests[6].target_model",
+          "original": "llm-32b",
+          "protocol_variant": "qwen3-4b"
+        },
+        {
+          "field": "workload.requests[7].target_model",
+          "original": "llm-7b",
+          "protocol_variant": "qwen3-0.6b"
+        },
+        {
+          "field": "workload.requests[8].target_model",
+          "original": "llm-7b",
+          "protocol_variant": "qwen3-0.6b"
+        },
+        {
+          "field": "workload.requests[9].target_model",
+          "original": "llm-32b",
+          "protocol_variant": "qwen3-4b"
+        }
+      ]
+    }
+  ]
+}

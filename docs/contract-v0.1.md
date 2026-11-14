@@ -93,6 +93,15 @@ Shared by all backends and computed from `requests.jsonl` by the shared metrics 
 
 The denominator of `goodput_tok_s` and `throughput_tok_s` is the duration declared in advance, not how long the run actually took (implementation plan, part 1).
 
+External simulator observations may have unavailable service time and unreleased
+requests. `blocked` and `not_started` retain null activity times and zero output;
+`unknown` retains unknown counts/times as null. Unknown rows are counted
+separately from confirmed failures, and affected workload aggregates are null.
+Missing service-only time makes `critical_path_s` unavailable with a reason; it
+does not prevent computing TTFT, TPOT or the makespan of a completed workload.
+Dependency records need not arrive in topological order. Original deployment,
+replica, device and failure information is retained on each observation.
+
 ## 4. Refuse what is not supported
 
 A backend declares the mechanisms it supports in `capabilities` (the `Mechanism` enum). Everything else returns `E_MECHANISM_UNSUPPORTED`; a backend must never silently ignore a parameter or finish the run with the wrong model.

@@ -1,5 +1,10 @@
 # Requested simulator API changes
 
+**Historical 1.19 findings.** Upstream 1.20 has addressed the data-interface
+items below. See the [current verification and ownership](REVIEW-v1.20.zh-CN.md)
+before treating any item here as an outstanding defect. No confirmed simulator
+data-interface defect was found in the 1.20 checks; catalog scope still needs agreement.
+
 This note is for coordination between the simulator team and the learning-lab
 team. It records observed compatibility gaps, not a request to copy lab
 implementation details into the simulator. Endpoint spelling is negotiable.
